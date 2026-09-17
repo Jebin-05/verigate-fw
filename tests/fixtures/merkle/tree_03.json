@@ -1,0 +1,27 @@
+{
+  "count": 3,
+  "data_hex": [
+    "7265636f72642d30",
+    "7265636f72642d31",
+    "7265636f72642d32"
+  ],
+  "leaves_hex": [
+    "b822dae80b3576fe5c578cab99f81e6b2226c808bde98cb2080b0adacbbf4253",
+    "eb31c99acbd3ef0aad069c6b16a324bc0054a3edae8986722d0299afae7f9375",
+    "579704ee9d6289558ba902c85a9dd1f24345bccc183a5fb2a8333664be5c3751"
+  ],
+  "root_hex": "a165044d2a727eda0ec94619ec3607426768ef90e7ef2b804cdeb79689b3dd8e",
+  "proofs_hex": [
+    [
+      "eb31c99acbd3ef0aad069c6b16a324bc0054a3edae8986722d0299afae7f9375",
+      "579704ee9d6289558ba902c85a9dd1f24345bccc183a5fb2a8333664be5c3751"
+    ],
+    [
+      "b822dae80b3576fe5c578cab99f81e6b2226c808bde98cb2080b0adacbbf4253",
+      "579704ee9d6289558ba902c85a9dd1f24345bccc183a5fb2a8333664be5c3751"
+    ],
+    [
+      "1e8de053ef508afab9f41afac90101cced076ccf3f00411db7fda0acb78c274d"
+    ]
+  ]
+}

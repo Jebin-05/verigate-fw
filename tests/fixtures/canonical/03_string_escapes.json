@@ -1,0 +1,15 @@
+{
+  "input": {
+    "quote": "say \"hi\"",
+    "backslash": "a\\b",
+    "controls": "\b\f\n\r\t",
+    "low_controls": "\u0001\u001f",
+    "del_literal": "",
+    "unicode": "héllo wörld ✓",
+    "emoji": "😀",
+    "slash": "a/b"
+  },
+  "canonical": "{\"backslash\":\"a\\\\b\",\"controls\":\"\\b\\f\\n\\r\\t\",\"del_literal\":\"\",\"emoji\":\"😀\",\"low_controls\":\"\\u0001\\u001f\",\"quote\":\"say \\\"hi\\\"\",\"slash\":\"a/b\",\"unicode\":\"héllo wörld ✓\"}",
+  "canonical_hex": "7b226261636b736c617368223a22615c5c62222c22636f6e74726f6c73223a225c625c665c6e5c725c74222c2264656c5f6c69746572616c223a227f222c22656d6f6a69223a22f09f9880222c226c6f775f636f6e74726f6c73223a225c75303030315c7530303166222c2271756f7465223a22736179205c2268695c22222c22736c617368223a22612f62222c22756e69636f6465223a2268c3a96c6c6f2077c3b6726c6420e29c93227d",
+  "sha256": "67eb260e2e367008761d987724556d27a29c7e9b7cfe1d52d866ea39871b0c95"
+}

@@ -1,0 +1,12 @@
+{
+  "input": {
+    "b": 1,
+    "a": "x",
+    "c": true,
+    "d": null,
+    "e": false
+  },
+  "canonical": "{\"a\":\"x\",\"b\":1,\"c\":true,\"d\":null,\"e\":false}",
+  "canonical_hex": "7b2261223a2278222c2262223a312c2263223a747275652c2264223a6e756c6c2c2265223a66616c73657d",
+  "sha256": "fe1ce428a11c8314d91a3b8dc161f1c47c4e7777e344ab7c5f59ac7b09a709cc"
+}

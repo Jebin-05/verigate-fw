@@ -1,0 +1,21 @@
+{
+  "input": {
+    "empty_obj": {},
+    "empty_arr": [],
+    "nested": {
+      "y": [
+        {
+          "k": [
+            [],
+            {}
+          ]
+        },
+        "s"
+      ],
+      "x": {}
+    }
+  },
+  "canonical": "{\"empty_arr\":[],\"empty_obj\":{},\"nested\":{\"x\":{},\"y\":[{\"k\":[[],{}]},\"s\"]}}",
+  "canonical_hex": "7b22656d7074795f617272223a5b5d2c22656d7074795f6f626a223a7b7d2c226e6573746564223a7b2278223a7b7d2c2279223a5b7b226b223a5b5b5d2c7b7d5d7d2c2273225d7d7d",
+  "sha256": "8878280f6bffc0fda938208aac8af97602b7dd04ef316d0c1bdc4d28d3f5f87c"
+}

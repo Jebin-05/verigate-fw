@@ -23,11 +23,11 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P0-15 `make doctor` passes; no absolute host paths anywhere in the repo (doctor greps for them)
 
 ## P1 — Common library & contracts (weeks 1–2)
-- [ ] P1-01 `common/settings.py` (pydantic-settings), `common/logging.py`
-- [ ] P1-02 `common/canonical.py` + golden vectors shared with TS (`tests/fixtures/canonical/*.json`)
-- [ ] P1-03 `common/crypto.py` Ed25519 + SHA-256; property tests (hypothesis)
-- [ ] P1-04 `common/manifest.py` model, sign, verify; rejects unknown fields; version parsed as SemVer
-- [ ] P1-05 `common/merkle.py` domain-separated leaves, proofs; cross-checked against Solidity lib
+- [x] P1-01 `common/settings.py` (pydantic-settings), `common/logging.py`
+- [x] P1-02 `common/canonical.py` + golden vectors shared with TS (`tests/fixtures/canonical/*.json`)
+- [x] P1-03 `common/crypto.py` Ed25519 + SHA-256; property tests (hypothesis)
+- [x] P1-04 `common/manifest.py` model, sign, verify; rejects unknown fields; version parsed as SemVer
+- [~] P1-05 `common/merkle.py` domain-separated leaves, proofs; cross-checked against Solidity lib
 - [ ] P1-06 `PublisherRegistry.sol` + tests (register, rotate, revoke, reputation update, all revert paths)
 - [ ] P1-07 `ModelRegistry.sol` + tests (register, revoke, successor, revokedAt)
 - [ ] P1-08 `FirmwareRegistry.sol` + tests (ACTIVE-publisher-only, monotonic version per model, revoke, events)

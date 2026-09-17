@@ -1,0 +1,15 @@
+{
+  "input": [
+    {
+      "b": 2,
+      "a": 1
+    },
+    "s",
+    0,
+    null,
+    true
+  ],
+  "canonical": "[{\"a\":1,\"b\":2},\"s\",0,null,true]",
+  "canonical_hex": "5b7b2261223a312c2262223a327d2c2273222c302c6e756c6c2c747275655d",
+  "sha256": "48cdcca50121a85c5d41fc2af8ce2eab6f4ad348e3cab261369eec3b22382e93"
+}

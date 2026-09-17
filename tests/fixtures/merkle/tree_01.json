@@ -1,0 +1,13 @@
+{
+  "count": 1,
+  "data_hex": [
+    "7265636f72642d30"
+  ],
+  "leaves_hex": [
+    "b822dae80b3576fe5c578cab99f81e6b2226c808bde98cb2080b0adacbbf4253"
+  ],
+  "root_hex": "b822dae80b3576fe5c578cab99f81e6b2226c808bde98cb2080b0adacbbf4253",
+  "proofs_hex": [
+    []
+  ]
+}

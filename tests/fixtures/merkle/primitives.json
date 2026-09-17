@@ -1,0 +1,14 @@
+{
+  "domain": "VERIGATE-VERDICT-V1",
+  "domain_hex": "56455249474154452d564552444943542d5631",
+  "leaf": {
+    "data_hex": "7265636f72642d30",
+    "leaf_hex": "b822dae80b3576fe5c578cab99f81e6b2226c808bde98cb2080b0adacbbf4253"
+  },
+  "node": {
+    "a_hex": "b822dae80b3576fe5c578cab99f81e6b2226c808bde98cb2080b0adacbbf4253",
+    "b_hex": "eb31c99acbd3ef0aad069c6b16a324bc0054a3edae8986722d0299afae7f9375",
+    "node_hex": "1e8de053ef508afab9f41afac90101cced076ccf3f00411db7fda0acb78c274d",
+    "node_swapped_hex": "1e8de053ef508afab9f41afac90101cced076ccf3f00411db7fda0acb78c274d"
+  }
+}

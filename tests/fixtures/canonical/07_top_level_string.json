@@ -1,0 +1,6 @@
+{
+  "input": "just a string with ü and \n",
+  "canonical": "\"just a string with ü and \\n\"",
+  "canonical_hex": "226a757374206120737472696e67207769746820c3bc20616e64205c6e22",
+  "sha256": "c3553d5d868114d1efe534ca1dac1fb100c129951af6289987c9c4800d5c2809"
+}

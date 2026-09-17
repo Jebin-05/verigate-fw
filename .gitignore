@@ -32,7 +32,8 @@ data/processed/
 !data/README.md
 !data/MANIFEST.sha256
 evaluation/results/**/*.parquet
-# --- Local IPFS / ollama state
+# --- Local IPFS / ollama / runtime state
+.verigate/
 infra/.ipfs/
 infra/.ollama/
 # --- OS / IDE

@@ -1,0 +1,2 @@
+{ "compilerOptions": { "target": "es2022", "module": "commonjs", "strict": true, "esModuleInterop": true,
+  "resolveJsonModule": true, "outDir": "dist" }, "include": ["./scripts", "./test", "./typechain-types"] }

@@ -1,0 +1,1 @@
+`deploy.ts` deploys all five in dependency order, writes `deployments/<network>/addresses.json` and (for localhost) updates `../.env`. Must be idempotent. The gateway reads `addresses.json` first and falls back to `.env`, so the same image works on the host, in compose, and on a fresh machine.

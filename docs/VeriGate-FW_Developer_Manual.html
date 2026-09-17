@@ -1,0 +1,1204 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>VeriGate-FW — Developer Manual</title>
+<style>
+@page { size: A4; margin: 18mm 17mm 20mm 17mm;
+  @bottom-center { content: "VeriGate-FW · Developer Manual v1.1 · page " counter(page); font-size: 8.5pt; color:#7b8794; font-family:"DejaVu Sans"; } }
+body { font-family:"DejaVu Sans",sans-serif; font-size:9.8pt; line-height:1.45; color:#1f2933; }
+h1 { font-size:22pt; color:#1b3a5c; margin:0 0 4px; }
+h2 { font-size:15pt; color:#1b5fa8; border-bottom:2px solid #1b5fa8; padding-bottom:3px; margin-top:26px; page-break-after:avoid; }
+h3 { font-size:12pt; color:#2d3a4a; margin-top:16px; page-break-after:avoid; }
+h4 { font-size:10.5pt; color:#3e4c59; margin:10px 0 4px; page-break-after:avoid; }
+p { margin:5px 0; }
+.cover { text-align:center; padding-top:110px; page-break-after:always; }
+.cover .big { font-size:30pt; color:#1b3a5c; font-weight:bold; }
+.cover .mid { font-size:14pt; color:#52606d; margin-top:10px; }
+.cover .meta { margin-top:60px; color:#7b8794; font-size:10pt; }
+.box { border:1px solid #cbd2d9; border-left:5px solid #1b5fa8; background:#f5f7fa; padding:7px 11px; margin:9px 0; border-radius:4px; page-break-inside:avoid; }
+.box.rule { border-left-color:#b42323; background:#fdf2f2; }
+.box.tip { border-left-color:#1e7b45; background:#f0faf3; }
+.box.why { border-left-color:#c7791b; background:#fff8ec; }
+.box b.tag { display:inline-block; font-size:8.3pt; text-transform:uppercase; letter-spacing:.5px; color:#52606d; }
+table { border-collapse:collapse; width:100%; margin:8px 0; font-size:8.9pt; }
+th,td { border:1px solid #cbd2d9; padding:4px 6px; vertical-align:top; text-align:left; }
+th { background:#e1eefb; color:#1b3a5c; }
+tr { page-break-inside:avoid; }
+code { font-family:"DejaVu Sans Mono",monospace; font-size:8.5pt; background:#eef1f4; padding:1px 3px; border-radius:3px; }
+pre { font-family:"DejaVu Sans Mono",monospace; font-size:7.6pt; background:#f5f7fa; border:1px solid #cbd2d9; padding:7px 9px; border-radius:4px; white-space:pre-wrap; line-height:1.35; }
+pre.tree { column-count:2; column-gap:18px; font-size:7.3pt; }
+ul,ol { margin:3px 0; padding-left:20px; } li { margin:2px 0; }
+.pb { page-break-before:always; }
+.small { font-size:8.6pt; color:#52606d; }
+.chk h1 { font-size:13pt; color:#2d3a4a; margin-top:6px; } .chk h2 { font-size:12pt; margin-top:14px; border:none; color:#2d3a4a; }
+.chk ul { list-style:none; padding-left:4px; } .chk li { font-family:"DejaVu Sans Mono",monospace; font-size:8.3pt; }
+</style></head><body>
+
+<div class="cover"><div class="big">VeriGate-FW</div>
+<div class="mid">Developer Manual</div>
+<div class="mid" style="font-size:11.5pt;margin-top:30px">Engineering standards · repository structure · Git workflow · testing · CI/CD ·<br>secrets · ML &amp; evaluation discipline · phase-by-phase build guide · master checklist</div>
+<div class="meta">Version 1.1 · 18 September 2026 · applies to repository <code>verigate-fw</code></div></div>
+
+<h2>0. How to use this manual</h2>
+<p>This manual is for the developer building VeriGate-FW. It assumes you have read <code>docs/VeriGate-FW_Project_Guide.pdf</code> (what the system is). This document says <b>how we build it</b>: the rules, the tools, the folder layout, and the order of work. Every rule here is enforced by tooling wherever possible (pre-commit hooks, CI), so "I forgot" is not a failure mode.</p>
+<p>The repository skeleton described here <b>already exists</b> at <code>~/Desktop/IOT/verigate-fw/</code> with all config files, workflows, templates and ADRs in place. Your first task is P0-06 in the checklist: make <code>make bootstrap</code> run clean.</p>
+<table><tr><th>Section</th><th>Read when</th></tr>
+<tr><td>1 Engineering principles</td><td>Before writing any code</td></tr>
+<tr><td>2 Toolchain &amp; setup</td><td>Day 1</td></tr>
+<tr><td>3 Repository layout</td><td>Day 1, and whenever you wonder "where does this go?"</td></tr>
+<tr><td>4 Coding standards</td><td>Before your first PR in each language</td></tr>
+<tr><td>5 Git workflow</td><td>Before your first branch</td></tr>
+<tr><td>6 Testing strategy</td><td>Before your first test</td></tr>
+<tr><td>7 CI/CD pipeline</td><td>Before your first push; when CI fails</td></tr>
+<tr><td>8 Secrets &amp; configuration</td><td>Before touching keys or networks</td></tr>
+<tr><td>9 Daily development loop</td><td>Every day</td></tr>
+<tr><td>10 Phase-by-phase build guide</td><td>At the start of each phase</td></tr>
+<tr><td>11 ML &amp; data discipline</td><td>Before P5</td></tr>
+<tr><td>12 Evaluation discipline</td><td>Before P7</td></tr>
+<tr><td>13 Documentation &amp; ADRs</td><td>Whenever a design decision is made</td></tr>
+<tr><td>14 Release process</td><td>At v0.1.0, v0.2.0, v1.0.0</td></tr>
+<tr><td>15 Master checklist</td><td>Always open — it is your progress tracker</td></tr>
+<tr><td>16 Portability — run on any machine</td><td>Before the first push, before every demo on a new machine</td></tr>
+</table>
+
+<h2>1. Engineering principles (non-negotiable)</h2>
+<div class="box rule"><b class="tag">Rule 1 — Fail closed</b><br>If a check cannot be completed (chain unreachable, missing field, parse error), the answer is <b>reject or defer</b>, never approve. This applies to every function in <code>gateway/stage1</code> and <code>gateway/policy</code>. Tests must cover the "input missing" and "dependency down" branches.</div>
+<div class="box rule"><b class="tag">Rule 2 — Measured, never fabricated</b><br>Every number in the paper, README, or a PR description comes from a file under <code>evaluation/results/</code> produced by a runner with a recorded git SHA. Hand-typed numbers are a project-ending integrity failure. If you have not measured it, write "not yet measured".</div>
+<div class="box rule"><b class="tag">Rule 3 — No secrets in git, ever</b><br>Private keys, RPC URLs with tokens, API keys: only in <code>.env</code> (ignored) or GitHub Actions secrets. <code>gitleaks</code> runs on every commit and every PR. The keys in <code>.env.example</code> are Hardhat's public well-known test keys and must stay the only keys in the repo.</div>
+<div class="box rule"><b class="tag">Rule 4 — Deterministic decision path</b><br>Anything that contributes to the verdict <code>R</code> must be reproducible: same inputs → same bytes. ONNX models with pinned inputs, canonical JSON, fixed seeds. The LLM never touches <code>R</code> (ADR-0002).</div>
+<div class="box rule"><b class="tag">Rule 5 — Small, reviewed, green</b><br>One logical change per PR, ≤ ~400 lines of diff where possible, CI green, one approval, squash-merge. No direct pushes to <code>main</code> (branch protection enforces it).</div>
+<div class="box rule"><b class="tag">Rule 6 — Write it down</b><br>Every design decision that a reviewer could question gets an ADR (<code>docs/adr/</code>). Every module has a docstring saying what it is responsible for and what it is not. Every public function has a docstring or NatSpec.</div>
+<div class="box rule"><b class="tag">Rule 7 — Portable by default</b><br>The whole system must start on <b>any</b> machine with Docker from a fresh clone using <code>make up</code>, and prove itself with <code>make smoke</code>. No absolute paths, no "install X first" beyond Docker, no machine-specific config outside <code>.env</code>. See section 16 and ADR-0004.</div>
+<div class="box why"><b class="tag">Why so strict?</b><br>Two audiences will judge this work: an evaluation panel and paper reviewers. Both look for reproducibility and honesty first. Discipline in the codebase is what makes "anyone can re-run this and get the same result" a true statement.</div>
+
+<h2 class="pb">2. Toolchain &amp; environment setup</h2>
+<table><tr><th>Tool</th><th>Version</th><th>Purpose</th><th>Install</th></tr>
+<tr><td>Python</td><td>3.11.x (pinned; 3.12 untested)</td><td>publisher, gateway, fleet, ML, eval</td><td>system <code>python3.11</code></td></tr>
+<tr><td>Node.js / npm</td><td>20 LTS</td><td>Hardhat, dashboard</td><td>system or <code>nvm</code></td></tr>
+<tr><td>Docker + compose plugin</td><td>≥ 24</td><td>hardhat node, Kubo IPFS, Ollama</td><td>system</td></tr>
+<tr><td>git</td><td>≥ 2.40</td><td>—</td><td>system</td></tr>
+<tr><td>syft</td><td>latest</td><td>SBOM generation (P5)</td><td><code>curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b ~/.local/bin</code></td></tr>
+<tr><td>Ollama</td><td>latest</td><td>LLM explainer (P6)</td><td>already installed; or via compose</td></tr>
+</table>
+<div class="box tip"><b class="tag">Two ways to run</b><br><b>Demo mode</b> (any machine, only Docker needed): <code>make doctor && make up && make smoke</code>. <b>Host mode</b> (development with hot reload): the toolchain table above plus <code>make bootstrap</code>. Both use the same images, contracts and <code>.env</code>; the smoke test is identical.</div>
+<h4>First-time setup — host mode (P0-06)</h4>
+<pre>cd ~/Desktop/IOT/verigate-fw
+./scripts/check-env.sh                 # verifies versions above
+make bootstrap                         # venv + pip install -e ".[dev,eval]" + npm ci ×2 + pre-commit hooks + .env
+make infra-up                          # hardhat :8545, kubo :5001, ollama :11434
+docker compose -f infra/docker-compose.yml exec ollama ollama pull qwen2.5:3b-instruct   # once, ~2 GB
+make contracts-deploy-local            # writes contract addresses into .env
+make test-all                          # must be green before you start</pre>
+<div class="box tip"><b class="tag">Laptop budget</b><br>i7-1255U / 15 GB RAM / no GPU. Full stack ≈ 5 GB. Ollama is the heavy one (~2.5 GB) — stop it (<code>docker compose stop ollama</code>) when not working on P6, and set <code>LLM_ENABLED=false</code> in <code>.env</code>.</div>
+<h4>IDE</h4>
+<p>VS Code recommended. Install: Python, Ruff, Mypy Type Checker, Solidity (Nomic Foundation), ESLint, Prettier, EditorConfig. Set the interpreter to <code>.venv/bin/python</code>. <code>.vscode/</code> is git-ignored; keep personal settings personal.</p>
+
+<h2>3. Repository layout</h2>
+<p>The full layout as it exists today (placeholders will fill in as phases complete):</p>
+<pre class="tree">CHANGELOG.md
+CHECKLIST.md
+contracts/contracts/README.md
+contracts/hardhat.config.ts
+contracts/package.json
+contracts/scripts/README.md
+contracts/.solhint.json
+contracts/test/README.md
+contracts/tsconfig.json
+CONTRIBUTING.md
+dashboard/README.md
+data/MANIFEST.sha256
+data/README.md
+data/sources.yaml
+docs/adr/0000-template.md
+docs/adr/0001-sign-manifest-not-hash.md
+docs/adr/0002-llm-explain-only.md
+docs/adr/0003-dashboard-stack.md
+docs/adr/0004-portable-by-default.md
+docs/adr/README.md
+docs/diagrams/verigate_architecture.png
+docs/diagrams/verigate_architecture.py
+docs/diagrams/verigate_architecture.svg
+docs/paper/.gitkeep
+docs/README.md
+docs/srs/.gitkeep
+docs/threat-model.md
+docs/VeriGate-FW_Developer_Manual.html
+docs/VeriGate-FW_Developer_Manual.pdf
+docs/VeriGate-FW_Project_Guide.pdf
+.editorconfig
+.env.example
+evaluation/configs/.gitkeep
+evaluation/figures/.gitkeep
+evaluation/README.md
+evaluation/results/.gitkeep
+evaluation/runners/.gitkeep
+.gitattributes
+.github/CODEOWNERS
+.github/dependabot.yml
+.github/ISSUE_TEMPLATE/bug_report.md
+.github/ISSUE_TEMPLATE/task.md
+.github/PULL_REQUEST_TEMPLATE.md
+.github/workflows/ci.yml
+.github/workflows/deploy-contracts.yml
+.github/workflows/release.yml
+.github/workflows/security.yml
+.gitignore
+infra/docker-compose.yml
+infra/Dockerfile.app
+infra/Dockerfile.dashboard
+infra/Dockerfile.hardhat
+infra/nginx.conf
+Makefile
+models/MANIFEST.sha256
+models/README.md
+.nvmrc
+.pre-commit-config.yaml
+pyproject.toml
+.python-version
+README.md
+scripts/check-env.sh
+scripts/doctor.sh
+scripts/README.md
+scripts/smoke.sh
+SECURITY.md
+src/verigate/attacks/__init__.py
+src/verigate/common/__init__.py
+src/verigate/common/README.md
+src/verigate/fleet/__init__.py
+src/verigate/gateway/api/__init__.py
+src/verigate/gateway/__init__.py
+src/verigate/gateway/policy/__init__.py
+src/verigate/gateway/stage1/__init__.py
+src/verigate/gateway/stage2/__init__.py
+src/verigate/gateway/verdicts/__init__.py
+src/verigate/__init__.py
+src/verigate/ml/features/__init__.py
+src/verigate/ml/__init__.py
+src/verigate/ml/train/__init__.py
+src/verigate/ml/vulndb/__init__.py
+src/verigate/publisher/__init__.py
+src/verigate/py.typed
+tests/conftest.py
+tests/e2e/.gitkeep
+tests/fixtures/.gitkeep
+tests/integration/.gitkeep
+tests/README.md
+tests/unit/.gitkeep
+.tool-versions
+</pre>
+<h4>Placement rules — "where does this go?"</h4>
+<table><tr><th>If it is…</th><th>It goes in…</th><th>Not in…</th></tr>
+<tr><td>Solidity, contract tests, deploy scripts</td><td><code>contracts/</code></td><td>anywhere Python</td></tr>
+<tr><td>Python used at runtime by any service</td><td><code>src/verigate/&lt;area&gt;/</code></td><td><code>scripts/</code>, <code>evaluation/</code></td></tr>
+<tr><td>Code shared by two or more areas</td><td><code>src/verigate/common/</code></td><td>duplicated in each area</td></tr>
+<tr><td>A pure check / scorer / transform</td><td>a function with no I/O; I/O injected via a client argument</td><td>a function that reads env or opens sockets itself</td></tr>
+<tr><td>Reading environment variables</td><td><code>common/settings.py</code> only</td><td><code>os.environ</code> anywhere else (ruff will not catch this — reviewers will)</td></tr>
+<tr><td>A test</td><td><code>tests/unit|integration|e2e/</code> mirroring the source path</td><td>next to the source</td></tr>
+<tr><td>Test data (small)</td><td><code>tests/fixtures/</code></td><td><code>data/</code></td></tr>
+<tr><td>Datasets (large, regenerable)</td><td><code>data/raw|processed/</code> (ignored) + <code>data/MANIFEST.sha256</code></td><td>git</td></tr>
+<tr><td>Trained model</td><td><code>models/*.onnx</code> + card + MANIFEST</td><td>pickles anywhere</td></tr>
+<tr><td>Experiment definition / results / figures</td><td><code>evaluation/configs|results|figures/</code></td><td>notebooks with numbers in cells</td></tr>
+<tr><td>A one-off helper you ran twice</td><td>refactor into <code>src/verigate/</code> with tests</td><td><code>scripts/</code></td></tr>
+<tr><td>A design decision</td><td><code>docs/adr/NNNN-*.md</code></td><td>a PR comment that gets lost</td></tr>
+<tr><td>Docker / compose</td><td><code>infra/</code></td><td>repo root</td></tr>
+</table>
+<h4>Python package structure rules</h4>
+<ul>
+<li>Single installable package <code>verigate</code> under <code>src/</code> (src-layout: tests import the installed package, never the working directory).</li>
+<li>Each area has <code>__init__.py</code> with a one-line docstring of responsibility; large areas have a <code>README.md</code> table of modules (see <code>common/README.md</code>).</li>
+<li>Dependency direction: <code>common</code> ← <code>ml</code> ← <code>gateway</code>; <code>publisher</code>, <code>fleet</code>, <code>attacks</code> depend on <code>common</code> only (attacks may import <code>fleet</code>). Never import <code>gateway</code> from <code>fleet</code> or vice-versa — they talk over HTTP.</li>
+<li>Entry points are declared in <code>pyproject.toml</code> (<code>verigate-publish</code>, <code>verigate-gateway</code>, <code>verigate-fleet</code>, <code>verigate-attack</code>, <code>verigate-train</code>). CLIs use Typer and live in <code>&lt;area&gt;/cli.py</code>.</li>
+</ul>
+
+<h2 class="pb">4. Coding standards</h2>
+<h3>4.1 Python</h3>
+<table><tr><th>Concern</th><th>Standard</th><th>Enforced by</th></tr>
+<tr><td>Formatting</td><td>ruff format (black-compatible), 100 cols</td><td>pre-commit, CI</td></tr>
+<tr><td>Linting</td><td>ruff rule sets E,F,W,I,N,UP,B,A,C4,SIM,RET,ARG,PTH,S,T20,D (see <code>pyproject.toml</code>)</td><td>pre-commit, CI</td></tr>
+<tr><td>Typing</td><td>mypy <code>strict</code>; every function fully annotated; <code>Any</code> needs a comment</td><td>pre-commit, CI</td></tr>
+<tr><td>Docstrings</td><td>Google style on every public module/class/function</td><td>ruff D rules</td></tr>
+<tr><td>Data models</td><td>pydantic v2 <code>BaseModel</code> with <code>model_config = ConfigDict(extra="forbid", frozen=True)</code> for anything signed or hashed</td><td>review</td></tr>
+<tr><td>Config</td><td><code>pydantic-settings</code> in <code>common/settings.py</code>; injected, never global-imported into pure functions</td><td>review</td></tr>
+<tr><td>Logging</td><td>structlog; <code>log.info("stage1.check", check="expiry", release_id=…, ok=False)</code> — event name + key/values, never f-strings. No <code>print</code> (ruff T20)</td><td>ruff, review</td></tr>
+<tr><td>Errors</td><td>Domain exceptions in <code>common/errors.py</code> (<code>VerificationError</code>, <code>ChainError</code>, <code>IpfsError</code>); never bare <code>except:</code></td><td>ruff B, review</td></tr>
+<tr><td>Paths</td><td><code>pathlib.Path</code> only (ruff PTH)</td><td>ruff</td></tr>
+<tr><td>Async</td><td>Gateway API and fleet are async; ML inference and crypto are sync and called via <code>asyncio.to_thread</code> if &gt; 10 ms</td><td>review</td></tr>
+<tr><td>Security lint</td><td>ruff S (bandit) rules; <code>subprocess</code> only with list args; no <code>pickle.load</code> on untrusted data (models are ONNX, not pickle)</td><td>ruff</td></tr>
+</table>
+<h4>Example — the shape every Stage-1 check takes</h4>
+<pre>@dataclass(frozen=True)
+class CheckResult:
+    name: str
+    ok: bool
+    reason: str | None = None
+
+def check_version_monotonic(manifest: Manifest, device: DeviceState) -> CheckResult:
+    """Reject any release whose version is not strictly greater than the installed one.
+
+    Prevents rollback attacks (Guide §5, check #4). Pure: no I/O.
+    """
+    if manifest.version &lt;= device.installed_version:
+        return CheckResult("version_monotonic", False,
+                           f"{manifest.version} &lt;= installed {device.installed_version}")
+    return CheckResult("version_monotonic", True)</pre>
+
+<h3>4.2 Solidity</h3>
+<table><tr><th>Concern</th><th>Standard</th></tr>
+<tr><td>Compiler</td><td><code>pragma solidity 0.8.26;</code> exact; optimizer 200 runs; evm cancun (hardhat.config.ts)</td></tr>
+<tr><td>Access control</td><td>OpenZeppelin <code>AccessControl</code>; roles <code>ADMIN_ROLE</code>, <code>PUBLISHER_ROLE</code>, <code>GATEWAY_ROLE</code>; never <code>tx.origin</code></td></tr>
+<tr><td>Errors</td><td>Custom errors (<code>error NotActivePublisher(bytes32 did);</code>), not revert strings — cheaper and typed</td></tr>
+<tr><td>Events</td><td>Emit on every state change; indexed ids; the gateway and dashboard are event-driven</td></tr>
+<tr><td>Storage</td><td>Layout documented in a comment block at the top of each contract; append-only; ADR for any change after v0.1.0</td></tr>
+<tr><td>Patterns</td><td>Checks-effects-interactions; no external calls in registries anyway; no loops over unbounded arrays (batch by Merkle root instead)</td></tr>
+<tr><td>Docs</td><td>NatSpec (<code>@notice</code>, <code>@param</code>, <code>@dev</code>) on every public/external item</td></tr>
+<tr><td>Testing</td><td>Hardhat + chai + <code>loadFixture</code>; every revert path tested; coverage ≥ 95 %; gas report in PR</td></tr>
+<tr><td>Static analysis</td><td>solhint (pre-commit), slither (CI security job, fails on medium+)</td></tr>
+</table>
+<h3>4.3 TypeScript / React (dashboard) and Hardhat scripts</h3>
+<ul><li>TypeScript <code>strict</code>; eslint (typescript-eslint recommended, react-hooks); prettier (2 spaces, semicolons, single quotes).</li>
+<li>Components are function components; state via zustand; server data via a typed <code>api/</code> client generated from the gateway's OpenAPI (<code>openapi-typescript</code>).</li>
+<li>The dashboard is <b>read-only on-chain</b> and has <b>no private keys</b>; all writes go through the gateway API (ADR-0003).</li></ul>
+<h3>4.4 Cross-language invariants</h3>
+<div class="box"><b class="tag">Golden vectors</b><br>Canonical JSON, manifest hashing, Merkle leaves and Ed25519 signatures are computed in Python (gateway) and verified in Solidity/TypeScript (contracts, dashboard). <code>tests/fixtures/canonical/*.json</code> holds input → expected bytes/hash pairs. Both the pytest suite and the Hardhat suite load the same files. If you change a hashing rule, you change the fixtures, and both suites fail until both sides agree.</div>
+
+<h2 class="pb">5. Git workflow</h2>
+<h3>5.1 Branching — trunk-based</h3>
+<ul><li><code>main</code> is always releasable and protected: PR required, CI required, linear history, no force-push.</li>
+<li>Short-lived branches from <code>main</code>: <code>feat/&lt;area&gt;-&lt;desc&gt;</code>, <code>fix/…</code>, <code>docs/…</code>, <code>refactor/…</code>, <code>eval/…</code>, <code>ci/…</code>. Example: <code>feat/stage1-expiry-check</code>. Lifetime target: ≤ 3 days.</li>
+<li>Rebase on <code>main</code> before opening the PR (<code>git fetch && git rebase origin/main</code>). Squash-merge; delete branch.</li>
+<li>Tags: <code>vMAJOR.MINOR.PATCH</code> (SemVer). Tagging triggers the release workflow.</li></ul>
+<h3>5.2 Commits — Conventional Commits (enforced by commit-msg hook)</h3>
+<pre>&lt;type&gt;(&lt;scope&gt;): &lt;imperative summary ≤ 72 chars&gt;
+
+[body: what and why, not how; wrap at 100]
+[footer: Closes #12 · Checklist: P3-04 · BREAKING CHANGE: …]
+
+types : feat fix docs test refactor perf chore ci build eval
+scopes: contracts publisher gateway stage1 stage2 policy verdicts fleet ml attacks dashboard infra eval docs</pre>
+<p>Examples: <code>feat(stage1): add manifest expiry check (P3-01)</code> · <code>fix(contracts): reject weights not summing to 1e4</code> · <code>eval(gas): batching vs per-device, 5 reps on sepolia</code>.</p>
+<h3>5.3 Pull requests</h3>
+<ul><li>Use the template (<code>.github/PULL_REQUEST_TEMPLATE.md</code>). Fill "How it was tested" with the actual commands and observed output.</li>
+<li>Reference the checklist ID and tick it in <code>CHECKLIST.md</code> in the same PR.</li>
+<li>Reviewer checklist: does it fail closed? are error branches tested? any env access outside settings? any number not traceable to results/? docstrings present? ADR needed?</li>
+<li>CI must be green. Do not merge with "will fix in follow-up" on a red check.</li></ul>
+<h3>5.4 Solo-developer note</h3>
+<p>If you are the only developer, still open PRs and self-review the diff on GitHub the next morning. The PR record is your audit trail for the panel ("show me how the rollback check was tested" → link to PR #17).</p>
+
+<h2>6. Testing strategy</h2>
+<table><tr><th>Layer</th><th>Where</th><th>Needs</th><th>When it runs</th><th>Target</th></tr>
+<tr><td>Contract unit</td><td><code>contracts/test/</code></td><td>nothing (in-process EVM)</td><td>every commit (CI contracts job)</td><td>≥ 95 % lines; all reverts</td></tr>
+<tr><td>Python unit</td><td><code>tests/unit/</code></td><td>nothing</td><td>every commit</td><td>≥ 80 % overall (enforced), 100 % for <code>stage1</code>, <code>policy</code>, <code>merkle</code>, <code>canonical</code></td></tr>
+<tr><td>Property</td><td><code>tests/unit/</code> with hypothesis</td><td>nothing</td><td>every commit</td><td>canonical JSON idempotence, Merkle proof soundness, SemVer ordering, sign/verify round-trip</td></tr>
+<tr><td>Python integration</td><td><code>tests/integration/</code></td><td>hardhat node + local IPFS backend</td><td>CI integration job, <code>make test-integration</code></td><td>every contract binding, publish flow, verdict commit</td></tr>
+<tr><td>End-to-end</td><td><code>tests/e2e/</code></td><td>docker compose stack</td><td>nightly, before release, <code>make test-e2e</code></td><td>one test per attack scenario asserting the verdict</td></tr>
+<tr><td>ML</td><td><code>tests/unit/ml/</code></td><td>fixtures</td><td>every commit</td><td>feature extraction golden vectors; ONNX output == sklearn output (atol 1e-6); model hash stable across runs</td></tr>
+</table>
+<div class="box tip"><b class="tag">Table-driven tests for Stage 1</b><br>Each check gets a parametrised test with rows (input mutation, expected ok, expected reason). Add a row for: valid · field missing · field malformed · boundary (version equal, expiry == now) · dependency unavailable.</div>
+<div class="box"><b class="tag">Attack tests are the demo</b><br>Every <code>src/verigate/attacks/&lt;name&gt;.py</code> has a matching <code>tests/e2e/test_attack_&lt;name&gt;.py</code> that runs it against a small fleet and asserts the verdict and the dashboard-visible log line. The demo script is just these in sequence.</div>
+
+<h2 class="pb">7. CI/CD pipeline</h2>
+<p>Four GitHub Actions workflows live in <code>.github/workflows/</code>. All are already written; they will start passing as phases complete.</p>
+<table><tr><th>Workflow</th><th>Trigger</th><th>Jobs</th><th>Blocks merge?</th></tr>
+<tr><td><code>ci.yml</code></td><td>push to main, every PR</td><td><b>python</b> (ruff, ruff-format, mypy, unit + coverage) · <b>contracts</b> (solhint, compile, test with gas report, coverage) · <b>integration</b> (starts hardhat, deploys, runs integration tests with local IPFS backend, LLM disabled) · <b>dashboard</b> (eslint, tsc, build) · <b>portability</b> (compose config, builds all images, runs <code>scripts/smoke.sh</code> from a clean checkout)</td><td>Yes — all five are required checks</td></tr>
+<tr><td><code>security.yml</code></td><td>every PR + weekly</td><td><b>gitleaks</b> (secrets in history) · <b>deps</b> (pip-audit, npm audit high+) · <b>slither</b> (SARIF to code-scanning, fails on medium+)</td><td>gitleaks + slither yes; deps advisory</td></tr>
+<tr><td><code>release.yml</code></td><td>tag <code>v*.*.*</code></td><td>re-runs ci.yml → builds wheel → builds &amp; pushes <code>ghcr.io/…/gateway:vX.Y.Z</code> → verifies <code>models/MANIFEST.sha256</code> → GitHub Release with wheel, ONNX models, manifest, auto release notes</td><td>—</td></tr>
+<tr><td><code>deploy-contracts.yml</code></td><td>manual (<code>workflow_dispatch</code>) with typed confirmation</td><td>deploys to Arbitrum Sepolia using repository secrets in the <code>arbitrum-sepolia</code> environment (requires reviewer approval) → commits <code>deployments/arbitrumSepolia/addresses.json</code></td><td>—</td></tr>
+</table>
+<h4>Pipeline diagram</h4>
+<pre>developer ──commit──▶ pre-commit hooks (ruff · mypy · gitleaks · solhint · prettier · commit-msg)
+          ──push────▶ PR ──▶ ci.yml [python ‖ contracts ‖ dashboard] ──▶ integration ──▶ ✓ required
+                         └─▶ security.yml [gitleaks ‖ deps ‖ slither] ─────────────────▶ ✓ required
+                                   review + approve ──▶ squash-merge ──▶ main
+                         PR ──▶ ci.yml [portability: build images ‖ smoke.sh] ──────────────▶ ✓ required
+main ──tag vX.Y.Z──▶ release.yml ──▶ wheel + docker image (GHCR) + GitHub Release (models, manifest)
+manual ──dispatch──▶ deploy-contracts.yml ──(environment approval)──▶ Arbitrum Sepolia ──▶ addresses committed</pre>
+<h4>Required one-time GitHub settings (P0-09, P0-10)</h4>
+<ol><li>Settings → Branches → add rule for <code>main</code>: require PR, require status checks (<code>Python · lint · type · unit</code>, <code>Solidity · lint · test · coverage · gas</code>, <code>Python · integration</code>, <code>Dashboard · lint · type · build</code>, <code>Portability · compose config · image builds · fresh-clone smoke</code>, <code>gitleaks</code>, <code>slither</code>), require linear history, include administrators.</li>
+<li>Settings → Environments → new <code>arbitrum-sepolia</code> → required reviewers: you → secrets <code>ARB_SEPOLIA_RPC_URL</code>, <code>ARB_SEPOLIA_DEPLOYER_KEY</code> (a throw-away key funded from a faucet, never reused).</li>
+<li>Settings → Code security → enable Dependabot alerts and code scanning (slither SARIF upload needs it).</li>
+<li>Settings → Actions → Workflow permissions: read + write (release and deploy workflows commit/push).</li></ol>
+<h4>When CI is red</h4>
+<ul><li>Reproduce locally with the same command CI ran (each step is a one-liner in the YAML). <code>make test-all</code> covers python + contracts + dashboard.</li>
+<li>Integration job red but local green → almost always <code>.env</code> vs <code>.env.example</code> drift, or a test that silently needs Kubo. Set <code>IPFS_BACKEND=local LLM_ENABLED=false</code> locally to match CI.</li>
+<li>Never mark a flaky test <code>skip</code> to get green. Fix it or open an issue and <code>xfail(strict=True)</code> with the issue link.</li></ul>
+
+<h2>8. Secrets &amp; configuration</h2>
+<table><tr><th>Item</th><th>Local dev</th><th>CI</th><th>Evaluation (Sepolia)</th></tr>
+<tr><td>Deployer / gateway keys</td><td>Hardhat well-known keys from <code>.env.example</code></td><td>same</td><td>throw-away key in GitHub environment secret</td></tr>
+<tr><td>Publisher Ed25519 keys</td><td><code>keys/</code> (git-ignored), generated by <code>verigate-publish keygen</code></td><td>generated per test run</td><td>generated per run; recorded by DID only</td></tr>
+<tr><td>RPC URL</td><td><code>http://127.0.0.1:8545</code></td><td>same</td><td>secret (public Arbitrum Sepolia RPC or a free Alchemy/Infura key)</td></tr>
+<tr><td>Contract addresses</td><td>written to <code>.env</code> by deploy script</td><td>written by deploy step</td><td>committed under <code>contracts/deployments/arbitrumSepolia/</code> (public data)</td></tr>
+<tr><td>Vulnerability data</td><td>cached in <code>data/processed/vulndb</code>; <code>VULN_CACHE_ONLY=true</code> for offline demo</td><td>fixtures only</td><td>cached, snapshot date recorded in results env.json</td></tr>
+</table>
+<p>All configuration is read once in <code>common/settings.py</code> (pydantic-settings, <code>.env</code> file, env override). If a new setting is needed: add it there with a type and default, document it in <code>.env.example</code>, and pass it in — do not read <code>os.environ</code> elsewhere.</p>
+
+<h2 class="pb">9. Daily development loop</h2>
+<pre>git switch main && git pull
+git switch -c feat/&lt;area&gt;-&lt;desc&gt;
+make infra-up                                  # if you need chain/ipfs
+# … write a failing test, make it pass, refactor …
+make test-unit                                 # seconds
+make lint typecheck                            # or rely on pre-commit
+git add -p && git commit                       # hooks run; conventional message enforced
+git fetch && git rebase origin/main
+git push -u origin HEAD                        # open PR with template; tick CHECKLIST item in same PR
+# CI green → self/peer review → squash-merge → delete branch</pre>
+<h4>Useful targets</h4>
+<pre>make help                 list everything
+make up / down / logs     whole stack in docker (demo mode); down V=1 wipes volumes
+make smoke                fresh-machine proof (up → deploy → publish → verify → APPROVE → down)
+make doctor               diagnose a machine: docker, RAM, disk, ports, .env, lockfiles, stray absolute paths
+make llm-pull             start ollama + pull qwen2.5:3b-instruct once
+make gateway              uvicorn with reload on :8000  (docs at /docs)
+make fleet N=20           20 emulated devices
+make dashboard            vite on :5173
+make train                retrain both models (seed 42), export ONNX, write cards
+make models-hash          regenerate models/MANIFEST.sha256 (do this in the same PR as a model change)
+make eval EXP=evaluation/configs/&lt;name&gt;.yaml</pre>
+
+<h2>10. Phase-by-phase build guide</h2>
+<p>Each phase lists: goal · key design constraints · Definition of Done. Item IDs map to <code>CHECKLIST.md</code>.</p>
+
+<h3>P0 — Repository &amp; tooling (week 1)</h3>
+<p><b>Goal:</b> fresh clone → <code>make bootstrap && make test-all</code> green → first push → CI green → branch protection on.</p>
+<ul><li>Bootstrap the dashboard with Vite (<code>npm create vite@latest . -- --template react-ts</code> inside <code>dashboard/</code>), add eslint + prettier, ensure <code>npm run lint</code> and <code>npm run build</code> exist.</li>
+<li>Commit lockfiles — CI uses <code>npm ci</code>, which requires them.</li>
+<li>Add a <code>LICENSE</code> (MIT recommended for a research artefact you want cited).</li></ul>
+<p><b>DoD:</b> P0-06 … P0-12 ticked; four workflows visible and green on <code>main</code>.</p>
+
+<h3>P1 — Common library &amp; contracts (weeks 1–2)</h3>
+<p><b>Goal:</b> the cryptographic and on-chain foundation, fully tested, before any service logic.</p>
+<ul><li><b>Canonical JSON first.</b> Everything signed/hashed depends on it. Write the golden vectors, then the Python, then the TypeScript helper used by Hardhat tests.</li>
+<li><b>Manifest model:</b> <code>extra="forbid"</code>, <code>frozen=True</code>, SemVer-typed version, ISO-8601 UTC expiry, CIDs validated as CIDv1.</li>
+<li><b>Contracts in dependency order</b> (see <code>contracts/contracts/README.md</code>). Define interfaces (<code>I*.sol</code>) first so the gateway bindings can be generated early.</li>
+<li><code>FirmwareRegistry.register</code> must: check caller has PUBLISHER_ROLE and is ACTIVE; enforce version strictly greater than the publisher's last version for that <code>deviceModel</code>; store <code>keccak256(canonicalManifest)</code>; emit <code>NewRelease(releaseId, publisherDid, version, manifestHash)</code>.</li>
+<li><code>VerdictRegistry.commitBatch(root, count, modelHash)</code> stores root + block + gateway; <code>verifyLeaf(root, leaf, proof)</code> view; <code>staleByModel(modelHash)</code> view returns batch ids whose model is revoked (join with ModelRegistry).</li>
+<li><code>PolicyContract</code>: weights as basis points summing to 10 000; thresholds as basis points; <code>version</code> increments per change; event carries old/new.</li>
+<li>Deploy script is idempotent and writes addresses both to JSON and <code>.env</code> (localhost only).</li></ul>
+<p><b>DoD:</b> contract coverage ≥ 95 %, slither clean, gas report in PR, Python integration test deploys and round-trips a record, threat model table filled.</p>
+
+<h3>P2 — Publisher CLI (week 2)</h3>
+<ul><li>Typer CLI; every command prints a JSON result (machine-readable for tests and the demo script).</li>
+<li><code>release</code> = hash files → put on IPFS → build manifest → sign → put manifest → <code>register</code> on-chain → print releaseId, CIDs, tx hash. Each step idempotent (re-running with the same inputs is safe).</li>
+<li>Fixtures: three versions of a toy firmware (a few hundred KB of deterministic bytes + a real ELF header) with SBOMs, so Stage 1/2 tests have realistic inputs.</li></ul>
+<p><b>DoD:</b> integration test runs the full publish flow; <code>verigate-publish --help</code> is documented in README.</p>
+
+<h3>P3 — Gateway Stage 1 &amp; fleet (weeks 3–4)</h3>
+<ul><li>Stage 1 checks are pure functions over (<code>Manifest</code>, <code>OnChainRecord</code>, <code>DeviceState</code>, <code>RevocationView</code>, <code>now</code>). The runner fetches inputs via injected clients, then calls the checks. First failure stops (fail-closed) but the result lists the failing check name — the dashboard shows it.</li>
+<li>Event listener: poll <code>NewRelease</code> from <code>last_processed_block</code> (persisted), exponential backoff on RPC errors, never skip blocks.</li>
+<li>Device emulator: <code>DeviceState</code> persisted as JSON under <code>fleet/state/&lt;deviceId&gt;/nvs.json</code> plus <code>slot_a.bin</code>/<code>slot_b.bin</code>. Device re-verifies hash and signature itself before switching slots. Install receipt = Ed25519 signature over canonical <code>{deviceId, releaseId, version, installedAt}</code>.</li>
+<li>Device ↔ gateway protocol: HTTP JSON, every message signed, nonce + timestamp window against replay.</li>
+<li>Attack scripts for the six Stage-1 attacks; each has an e2e test.</li></ul>
+<p><b>DoD:</b> demo shows tamper / forge / stolen-key / rollback / freeze / sbom-swap all rejected with the right reason.</p>
+
+<h3>P4 — Verdicts, batching, reputation, dashboard (weeks 5–6)</h3>
+<ul><li>Verdict record schema (pydantic, frozen): <code>releaseId, deviceId, modelHashes, featureHash, r_sbom, r_img, reputation, R, verdict, rationaleCid, gatewaySig, ts</code>. Leaf = SHA-256(domain ‖ canonical(record)).</li>
+<li>Batching: accumulate up to N verdicts or T seconds, build tree, <code>commitBatch</code>; store proofs locally; expose <code>/verdicts/{id}/proof</code>.</li>
+<li>Policy engine reads <code>PolicyContract</code> (cached per block); returns DEFER on any dependency error.</li>
+<li>Dashboard: pages listed in <code>dashboard/README.md</code>; live log over websocket; attack buttons.</li>
+<li>Tag <code>v0.1.0</code> — the crypto-path baseline that is demonstrable on its own.</li></ul>
+
+<h3>P5 — SBOM risk model (weeks 7–8)</h3>
+<ul><li>Data: pin upstream releases in <code>data/sources.yaml</code>; fetch script; syft → CycloneDX; record every file hash in <code>data/MANIFEST.sha256</code>.</li>
+<li>Vulnerability clients with disk cache and a recorded snapshot date; offline mode for demos.</li>
+<li>Features (pure, golden-vector tested): max CVSS, sum EPSS, KEV count, n components, n outdated, mean dep age (days).</li>
+<li>Model: <code>HistGradientBoostingRegressor</code>; target defined in the model card (state exactly what the label is and how it was derived). Seed 42. Export ONNX; test ONNX vs sklearn equality.</li>
+<li>Baseline scorer (deterministic CVSS/EPSS/KEV formula) for the evaluation comparison.</li></ul>
+<p><b>DoD:</b> model card complete, hash in MANIFEST, registered on-chain, verdicts carry it, evaluation config produces AUROC/Spearman vs baseline.</p>
+
+<h3>P6 — Image anomaly, LLM explainer, model revocation (weeks 9–10)</h3>
+<ul><li>Mutation generator with a documented catalogue (name, description, parameters, seed) — this is part of the paper's reproducibility.</li>
+<li>Image features (pure): chunk entropy mean/std/max, printable ratio, section sizes and deltas vs previous version, header sanity flags, appended-bytes length.</li>
+<li>Isolation Forest on benign releases only; evaluate per mutation class.</li>
+<li>Explainer: Ollama client with strict JSON schema, one retry, timeout 120 s, <code>LLM_ENABLED</code> switch; output to IPFS; CID in the verdict. Never in <code>R</code>.</li>
+<li>Model revocation: admin CLI → <code>ModelRegistry.revoke</code> → gateway job queries <code>staleByModel</code> → re-runs Stage 2 with successor model → new batch → dashboard shows before/after verdict delta.</li>
+<li>Tag <code>v0.2.0</code>.</li></ul>
+
+<h3>P7 — Evaluation (weeks 11–12)</h3>
+<p>See section 12. Deploy to Sepolia via the manual workflow; record tx hashes; ≥ 5 repetitions; figures only from scripts.</p>
+
+<h3>P8 — Paper, demo, hand-in (weeks 13–14)</h3>
+<p>SRS finalised, paper drafted from measured results, demo rehearsed three times with a recorded fallback, <code>v1.0.0</code> released with artefacts.</p>
+
+<h2 class="pb">11. ML &amp; data discipline</h2>
+<ul><li><b>Datasets are never committed.</b> They are reproducible from <code>data/sources.yaml</code> + fetch script + mutation generator with fixed seeds, and their hashes are in <code>data/MANIFEST.sha256</code> (committed).</li>
+<li><b>Seeds everywhere:</b> numpy, sklearn, mutation generator, train/test split. <code>make train</code> twice must produce byte-identical ONNX files (test this — it is what makes model hashes meaningful).</li>
+<li><b>Model card per model</b> (<code>models/&lt;name&gt;.card.md</code>): purpose · features (with units) · training data manifest hash · seed · hyper-parameters · metrics on held-out set · known failure modes · date · git SHA.</li>
+<li><b>ONNX only at runtime.</b> No pickles loaded by the gateway. <code>modelHash = SHA-256(onnx bytes)</code> is what goes on-chain.</li>
+<li><b>Shipping a model version:</b> train → card → <code>make models-hash</code> → PR (CI verifies manifest) → merge → admin registers hash on-chain → old hash remains, may be revoked later. Never overwrite a model file that has been registered; bump the file name (<code>image_anomaly_v2.onnx</code>).</li>
+<li><b>Feature extraction is pure</b> and golden-vector tested; any change is a new model version because the feature hash changes meaning.</li>
+<li><b>Honest labels.</b> The tampered set is synthetic; say so in the card and paper. Do not describe it as real-world malware.</li></ul>
+
+<h2>12. Evaluation discipline</h2>
+<ul><li>One YAML per experiment in <code>evaluation/configs/</code>: seed, fleet size, network, repetitions, model hashes, git SHA is auto-recorded.</li>
+<li>Runner writes <code>evaluation/results/&lt;exp&gt;/&lt;timestamp&gt;_&lt;sha&gt;/raw.csv</code>, <code>summary.json</code> (median, IQR, n), <code>env.json</code> (CPU, RAM, Python/Node versions, contract addresses, tx hashes, vulndb snapshot date).</li>
+<li>Results directories are append-only. Re-running creates a new directory; nothing is edited by hand. Results that were wrong stay, with a note in the next summary.</li>
+<li><code>evaluation/figures.py</code> is the only producer of figures; it reads results and writes <code>evaluation/figures/*.pdf|png</code>. Figures are regenerated in the P8 PR so they match the final results.</li>
+<li>Timing: ≥ 5 repetitions, warm-up run discarded, report median + IQR, state the machine.</li>
+<li>Gas: from hardhat-gas-reporter (local) and real receipts (Sepolia); report both and say which is which.</li>
+<li>Attack matrix: one row per attack, columns = expected verdict, observed verdict, run count, pass rate. Any row that is not 100 % goes into the limitations section, not the bin.</li></ul>
+
+<h2>13. Documentation &amp; ADRs</h2>
+<ul><li><code>README.md</code>: what it is, quick start, layout, status link. Keep it under two screens; details go to <code>docs/</code>.</li>
+<li><code>CHANGELOG.md</code>: Keep-a-Changelog format; every PR adds a line under <i>Unreleased</i>; release moves it under the version.</li>
+<li><b>ADRs</b> (<code>docs/adr/</code>): number, title, status, context, decision, alternatives, consequences. Written when the decision is made, never edited after acceptance — superseded by a new one. Three exist already (manifest signing, LLM explain-only, dashboard stack). Expected next: batching parameters, reputation formula, version-comparison rules, mutation catalogue.</li>
+<li><b>Threat model</b> (<code>docs/threat-model.md</code>): table with asset · attacker · attack · mitigation · <i>test that proves it</i>. Every row links to a test file.</li>
+<li>API docs are generated by FastAPI at <code>/docs</code>; contract docs by NatSpec (<code>npx hardhat docgen</code> optional).</li></ul>
+
+<h2>14. Release process</h2>
+<ol><li>All checklist items for the phase ticked; <code>main</code> green; <code>CHANGELOG.md</code> <i>Unreleased</i> section moved under the new version with date.</li>
+<li>Bump <code>version</code> in <code>pyproject.toml</code>, <code>src/verigate/__init__.py</code>, <code>contracts/package.json</code>, <code>dashboard/package.json</code> in one <code>chore(release): vX.Y.Z</code> PR.</li>
+<li>After merge: <code>git tag -a vX.Y.Z -m "…" && git push origin vX.Y.Z</code>. The release workflow builds and publishes.</li>
+<li>Check the GitHub Release page: wheel, ONNX models, MANIFEST attached; image visible in GHCR; notes sensible.</li>
+<li>Milestones: <b>v0.1.0</b> crypto path (end P4) · <b>v0.2.0</b> full AI gate (end P6) · <b>v1.0.0</b> evaluated, paper-ready (end P8). Optionally archive v1.0.0 on Zenodo for a DOI to cite in the paper.</li></ol>
+
+<h2 class="pb">15. Master checklist</h2>
+<p class="small">Mirror of <code>CHECKLIST.md</code> at the time of writing. The file in the repository is authoritative — tick items there, in the same PR that completes them.</p>
+<div class="chk"><h1>VeriGate-FW — Master Build Checklist</h1>
+<p>Single source of truth for progress. Update in the same PR that completes an item. IDs are referenced in PRs and issues.
+Legend: <code>☐</code> todo · <code>◐</code> in progress · <code>☑</code> done (PR merged, CI green) · <code>⊘</code> dropped (say why in ADR).</p>
+<p>Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG line + CI green + reviewed + squash-merged.</p>
+<h2>P0 — Repository &amp; tooling (week 1)</h2>
+<ul>
+<li>☑ P0-01 Scaffold layout, <code>pyproject.toml</code>, <code>Makefile</code>, <code>.editorconfig</code>, <code>.gitignore</code></li>
+<li>☑ P0-02 Pre-commit: ruff, mypy, gitleaks, conventional commits, solhint, prettier</li>
+<li>☑ P0-03 GitHub Actions: <code>ci.yml</code>, <code>security.yml</code>, <code>release.yml</code>, <code>deploy-contracts.yml</code></li>
+<li>☑ P0-04 Templates: PR, issues, CODEOWNERS, dependabot; <code>CONTRIBUTING.md</code>, <code>SECURITY.md</code></li>
+<li>☑ P0-05 ADRs 0001–0003; docs index; Project Guide and diagrams in <code>docs/</code></li>
+<li>☐ P0-06 <code>make bootstrap</code> runs clean on a fresh clone (venv, <code>npm ci</code> in contracts + dashboard, hooks)</li>
+<li>☐ P0-07 Commit lockfiles (<code>contracts/package-lock.json</code>, <code>dashboard/package-lock.json</code>)</li>
+<li>☐ P0-08 <code>dashboard/</code> bootstrapped with Vite react-ts; <code>npm run lint</code>/<code>build</code> pass</li>
+<li>☐ P0-09 First push to GitHub; branch protection on <code>main</code> (PR required, CI required, linear history)</li>
+<li>☐ P0-10 <code>arbitrum-sepolia</code> environment created with required reviewer; secrets added (RPC URL, deployer key)</li>
+<li>☐ P0-11 CI green on <code>main</code> for all four workflows (security may run on schedule)</li>
+<li>☐ P0-12 Choose licence (MIT recommended for a research artefact) — add <code>LICENSE</code></li>
+</ul>
+<h2>P1 — Common library &amp; contracts (weeks 1–2)</h2>
+<ul>
+<li>☐ P1-01 <code>common/settings.py</code> (pydantic-settings), <code>common/logging.py</code></li>
+<li>☐ P1-02 <code>common/canonical.py</code> + golden vectors shared with TS (<code>tests/fixtures/canonical/*.json</code>)</li>
+<li>☐ P1-03 <code>common/crypto.py</code> Ed25519 + SHA-256; property tests (hypothesis)</li>
+<li>☐ P1-04 <code>common/manifest.py</code> model, sign, verify; rejects unknown fields; version parsed as SemVer</li>
+<li>☐ P1-05 <code>common/merkle.py</code> domain-separated leaves, proofs; cross-checked against Solidity lib</li>
+<li>☐ P1-06 <code>PublisherRegistry.sol</code> + tests (register, rotate, revoke, reputation update, all revert paths)</li>
+<li>☐ P1-07 <code>ModelRegistry.sol</code> + tests (register, revoke, successor, revokedAt)</li>
+<li>☐ P1-08 <code>FirmwareRegistry.sol</code> + tests (ACTIVE-publisher-only, monotonic version per model, revoke, events)</li>
+<li>☐ P1-09 <code>PolicyContract.sol</code> + tests (bounded weights sum to 1e4, τ_approve &lt; τ_reject, versioned, event)</li>
+<li>☐ P1-10 <code>VerdictRegistry.sol</code> + tests (gateway-role-only, batch root, leaf proof verify, stale-by-model query)</li>
+<li>☐ P1-11 <code>scripts/deploy.ts</code> idempotent; writes <code>deployments/&lt;net&gt;/addresses.json</code> and local <code>.env</code></li>
+<li>☐ P1-12 Contract coverage ≥ 95 % lines; slither: no medium+ findings; gas report committed</li>
+<li>☐ P1-13 <code>common/chain.py</code> bindings from ABI artifacts; integration test: deploy → register → read</li>
+<li>☐ P1-14 <code>common/ipfs.py</code> Kubo + LocalCid backends produce identical CIDv1 for fixtures</li>
+<li>☐ P1-15 <code>docs/threat-model.md</code> filled from Guide §9 with "test that proves it" column</li>
+</ul>
+<h2>P2 — Publisher CLI (week 2)</h2>
+<ul>
+<li>☐ P2-01 <code>verigate-publish keygen</code> → keys under <code>keys/</code> (git-ignored)</li>
+<li>☐ P2-02 <code>verigate-publish register</code> → PublisherRegistry</li>
+<li>☐ P2-03 <code>verigate-publish release --fw --sbom --version --model --expiry</code> → IPFS + manifest + on-chain</li>
+<li>☐ P2-04 <code>verigate-publish revoke &lt;releaseId&gt;</code></li>
+<li>☐ P2-05 Integration test: full publish flow against hardhat + local IPFS</li>
+<li>☐ P2-06 Sample release fixtures (3 versions of a toy firmware + SBOMs) in <code>tests/fixtures/releases/</code></li>
+</ul>
+<h2>P3 — Gateway Stage 1 &amp; fleet (weeks 3–4)</h2>
+<ul>
+<li>☐ P3-01 <code>stage1/checks.py</code>: 8 checks as pure functions returning <code>CheckResult</code>; table-driven tests</li>
+<li>☐ P3-02 <code>stage1/runner.py</code>: fail-closed orchestration; first failure short-circuits; structured log</li>
+<li>☐ P3-03 <code>gateway/api</code>: <code>/health</code>, <code>/releases</code>, <code>/verify/{releaseId}</code>, websocket <code>/logs</code></li>
+<li>☐ P3-04 Event listener for <code>NewRelease</code> (polling with backoff; resumable from last block)</li>
+<li>☐ P3-05 <code>fleet/device.py</code>: identity, NVS JSON, A/B slots, self-verify hash+sig, install receipt</li>
+<li>☐ P3-06 <code>fleet/runner.py</code>: asyncio N devices; <code>verigate-fleet run --count N</code></li>
+<li>☐ P3-07 Device ↔ gateway protocol (HTTP, signed messages, nonce replay protection)</li>
+<li>☐ P3-08 Attack scripts: tamper, forge, stolen-key, rollback, freeze, sbom-swap → each has an e2e test asserting REJECT/DEFER</li>
+<li>☐ P3-09 Integration tests for Stage 1 against deployed contracts</li>
+</ul>
+<h2>P4 — Verdicts, batching, reputation, dashboard (weeks 5–6)</h2>
+<ul>
+<li>☐ P4-01 <code>verdicts/record.py</code> schema; featureHash = SHA-256(canonical feature vector)</li>
+<li>☐ P4-02 <code>verdicts/batch.py</code> Merkle batching + <code>VerdictRegistry</code> writer; proof endpoint</li>
+<li>☐ P4-03 Reputation update: receipts ↑, rejects ↓ (EWMA), written by gateway role</li>
+<li>☐ P4-04 <code>policy/engine.py</code> with on-chain weights; DEFER on outage; unit tests for every branch</li>
+<li>☐ P4-05 Dashboard pages: Releases, Verdicts, Fleet, Publishers, Models, Policy, Attacks</li>
+<li>☐ P4-06 Dashboard live log via websocket; attack buttons call gateway <code>/attacks/{name}</code></li>
+<li>☐ P4-07 e2e: docker compose full stack, publish → verify → install → receipt → reputation</li>
+<li>☐ P4-08 Demo script v1 (<code>scripts/demo.sh</code>) runs all P3 attacks end-to-end in &lt; 5 min</li>
+<li>☐ P4-09 Tag <code>v0.1.0</code> — crypto-path baseline release</li>
+</ul>
+<h2>P5 — SBOM risk model (weeks 7–8)</h2>
+<ul>
+<li>☐ P5-01 <code>ml/vulndb</code>: OSV, EPSS, KEV clients with disk cache; offline mode</li>
+<li>☐ P5-02 <code>ml/data</code>: fetch pinned firmware releases; syft SBOMs; <code>data/MANIFEST.sha256</code></li>
+<li>☐ P5-03 <code>ml/features/sbom_features.py</code> + golden vectors</li>
+<li>☐ P5-04 Training script (seed 42) → <code>models/sbom_risk.onnx</code> + card; ONNX == sklearn on test set</li>
+<li>☐ P5-05 Baseline: deterministic CVSS/EPSS/KEV scorer (arXiv 2601.01308-style) for comparison</li>
+<li>☐ P5-06 <code>stage2/sbom.py</code> inference; SHAP top-3; cached per release</li>
+<li>☐ P5-07 Evaluation config <code>sbom_ranking.yaml</code>; AUROC / Spearman vs baseline recorded</li>
+<li>☐ P5-08 Register model hash on-chain via admin CLI; verdict carries modelHash</li>
+</ul>
+<h2>P6 — Image anomaly, LLM explainer, model revocation (weeks 9–10)</h2>
+<ul>
+<li>☐ P6-01 <code>ml/data/mutate.py</code>: byte-patch, append, section-swap, pack, downgrade-relabel (documented, seeded)</li>
+<li>☐ P6-02 <code>ml/features/image_features.py</code> + golden vectors</li>
+<li>☐ P6-03 Isolation Forest training → <code>models/image_anomaly.onnx</code> + card</li>
+<li>☐ P6-04 <code>stage2/image.py</code> inference; per-mutation-class precision/recall in evaluation</li>
+<li>☐ P6-05 <code>stage2/explain.py</code>: Ollama client, strict JSON schema, retry, <code>LLM_ENABLED</code> switch; rationale → IPFS</li>
+<li>☐ P6-06 Model revocation flow: revoke → stale query → re-verify job → dashboard shows delta</li>
+<li>☐ P6-07 Attack scripts: vulnerable-but-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper</li>
+<li>☐ P6-08 Tag <code>v0.2.0</code> — full AI gate release</li>
+</ul>
+<h2>P7 — Evaluation (weeks 11–12)</h2>
+<ul>
+<li>☐ P7-01 Experiment configs: latency_stage1, latency_stage2, gas_per_verdict_vs_batched, detection_f1, sbom_ranking, revocation_propagation, attack_matrix</li>
+<li>☐ P7-02 Deploy to Arbitrum Sepolia via workflow; addresses committed; tx hashes recorded</li>
+<li>☐ P7-03 All runners produce <code>raw.csv + summary.json + env.json</code>; ≥ 5 repetitions</li>
+<li>☐ P7-04 <code>evaluation/figures.py</code> regenerates every figure from results</li>
+<li>☐ P7-05 Comparison table vs Uptane / LedgerGuard / DIDAuth-IoTFW / SBOM-triage (feature presence, cited)</li>
+<li>☐ P7-06 Limitations section drafted from measured failures (what the anomaly detector missed, etc.)</li>
+</ul>
+<h2>P8 — Paper, demo, hand-in (weeks 13–14)</h2>
+<ul>
+<li>☐ P8-01 SRS finalised in <code>docs/srs/</code></li>
+<li>☐ P8-02 Paper draft in <code>docs/paper/</code> (LaTeX), figures from P7-04 only</li>
+<li>☐ P8-03 Demo rehearsal ×3 with <code>scripts/demo.sh</code>; recorded video fallback</li>
+<li>☐ P8-04 README updated with results summary and reproduction steps</li>
+<li>☐ P8-05 Tag <code>v1.0.0</code>; GitHub Release with models, wheel, gas report; Zenodo DOI (optional)</li>
+<li>☐ P8-06 Final <code>pip-audit</code>, <code>npm audit</code>, slither clean; secrets scan clean</li>
+</ul></div>
+
+
+<h2 class="pb">16. Portability — run on any machine</h2>
+<p>The demo will happen on a computer that is not yours, and reviewers will try to reproduce the results on theirs. Portability is therefore a tested feature, not a hope. This section is the contract.</p>
+<h3>16.1 What "portable" means here</h3>
+<table><tr><th>Requirement</th><th>How it is met</th><th>Proved by</th></tr>
+<tr><td>Starts from a fresh clone with one command</td><td><code>make up</code> → <code>docker compose --profile app up --build</code>; deployer runs contracts, gateway waits on health checks, fleet waits on gateway</td><td><code>make smoke</code>; CI <i>portability</i> job on every PR</td></tr>
+<tr><td>No host toolchain required for demo</td><td>All services containerised (<code>infra/Dockerfile.app</code>, <code>.hardhat</code>, <code>.dashboard</code>); host Python/Node only for development</td><td>CI runner has only Docker for the smoke step</td></tr>
+<tr><td>Same behaviour on Linux / macOS / Windows</td><td>Pinned image tags; <code>.gitattributes</code> forces LF; no shell-specific tricks in scripts (bash, POSIX tools); Windows uses WSL2 + Docker Desktop</td><td>P8-07 fresh-machine rehearsal</td></tr>
+<tr><td>No machine-specific configuration in the repo</td><td>Everything variable lives in <code>.env</code> (copied from <code>.env.example</code>); ports overridable (<code>GATEWAY_PORT</code>, <code>HARDHAT_PORT</code>, …); paths relative to repo root or container</td><td><code>make doctor</code> greps for absolute home paths and fails if found</td></tr>
+<tr><td>Works with less RAM</td><td>LLM is an optional profile (<code>--profile llm</code>); everything else fits in ~3 GB</td><td><code>make doctor</code> RAM check</td></tr>
+<tr><td>Works offline (demo room without Wi-Fi)</td><td><code>VULN_CACHE_ONLY=true</code>, <code>LLM_ENABLED=false</code>; vulnerability data cached in <code>data/processed/vulndb</code>; images pre-pulled</td><td>P8-08 offline rehearsal</td></tr>
+<tr><td>Data and models reproducible elsewhere</td><td>Models committed (ONNX + MANIFEST); datasets regenerated from <code>data/sources.yaml</code> with fixed seeds; results carry <code>env.json</code></td><td>P5/P6 determinism tests</td></tr>
+<tr><td>State survives restarts, can be wiped cleanly</td><td>Named volumes (<code>ipfs-data</code>, <code>ollama-data</code>, <code>fleet-state</code>); <code>make down V=1</code> wipes</td><td>smoke test runs <code>down -v</code></td></tr>
+</table>
+<h3>16.2 Moving to a new machine — the ritual</h3>
+<pre>1. Install Docker (Desktop on macOS/Windows-WSL2; docker-ce + compose plugin on Linux). Nothing else.
+2. git clone &lt;repo&gt; && cd verigate-fw
+3. make doctor            # fix every ✘ (usually: a port in use → set GATEWAY_PORT=8001 in .env)
+4. make up                # first run builds images (~3–5 min); later runs are seconds
+5. make smoke             # must print "✔ smoke test passed"
+6. make llm-pull          # only if the machine has ≥ 12 GB RAM and you want the explainer live
+7. open http://localhost:5173 (dashboard) and http://localhost:8000/docs (gateway API)
+8. ./scripts/demo.sh      # (P4-08) the rehearsed attack sequence</pre>
+<div class="box tip"><b class="tag">Before a demo on someone else's PC</b><br>Do steps 1–5 the day before, on that PC. Pre-pull images (<code>docker compose … pull</code>) so no download happens live. Keep the recorded video fallback (P8-03) on a USB stick.</div>
+<h3>16.3 Rules that keep it portable (enforced in review)</h3>
+<ul>
+<li>Never hard-code a path, hostname or port. Read it from <code>settings</code>; default to a container-friendly value (<code>0.0.0.0</code>, service names like <code>hardhat</code>, <code>ipfs</code>).</li>
+<li>Every new service gets: a pinned base image, a health check, <code>depends_on … condition</code>, a named volume if it has state, and an entry in <code>.env.example</code> for its port.</li>
+<li>Anything that downloads at runtime (vulnerability data, LLM weights, firmware datasets) must have a cached/offline mode and a documented pre-fetch command.</li>
+<li>Scripts are <code>#!/usr/bin/env bash</code> with <code>set -euo pipefail</code>, use only POSIX tools + docker + python3, and are run by CI so they cannot rot.</li>
+<li>If a change breaks <code>make smoke</code>, the PR is red; fixing the smoke test is part of the change, not a follow-up.</li>
+</ul>
+<h3>16.4 Known platform notes</h3>
+<table><tr><th>Platform</th><th>Note</th></tr>
+<tr><td>Linux</td><td>Reference platform. Add your user to the <code>docker</code> group to avoid <code>sudo</code>.</td></tr>
+<tr><td>macOS (Apple Silicon)</td><td>All images are multi-arch (python, node, kubo, ollama, nginx). Give Docker Desktop ≥ 6 GB memory in settings.</td></tr>
+<tr><td>Windows</td><td>Use WSL2 (Ubuntu) + Docker Desktop with WSL integration. Clone <b>inside</b> the WSL filesystem (<code>~/</code>), not <code>/mnt/c</code>, or file watching and performance suffer. <code>make</code> is available via <code>apt install make</code>.</td></tr>
+<tr><td>Low RAM (8 GB)</td><td>Skip <code>--profile llm</code>; set <code>FLEET_SIZE=10</code>. Everything else runs.</td></tr>
+</table>
+
+<h2 class="pb">Appendix A — Key config files (verbatim from the repository)</h2>
+<h4>A.1 <code>Makefile</code></h4><pre># All day-to-day commands. `make help` lists them.
+SHELL := /bin/bash
+PY := .venv/bin/python
+PIP := .venv/bin/pip
+N ?= 20
+
+.PHONY: up down logs smoke doctor llm-pull help bootstrap lint format typecheck test test-unit test-integration test-contracts test-all \
+        infra-up infra-down contracts-build contracts-deploy-local gateway fleet dashboard \
+        train models-hash eval clean
+
+up:              ## run EVERYTHING in docker (any machine, no host toolchain needed)
+	[ -f .env ] || cp .env.example .env
+	docker compose -f infra/docker-compose.yml --profile app up -d --build
+	@echo &quot;dashboard → http://localhost:$${DASHBOARD_PORT:-5173}   gateway → http://localhost:$${GATEWAY_PORT:-8000}/docs&quot;
+
+down:            ## stop everything (keeps volumes; add V=1 to wipe)
+	docker compose -f infra/docker-compose.yml --profile app --profile llm down $(if $(V),-v,)
+
+logs:            ## follow all container logs
+	docker compose -f infra/docker-compose.yml --profile app logs -f --tail=100
+
+smoke:           ## fresh-machine proof: up → deploy → publish → verify → APPROVE → down
+	./scripts/smoke.sh
+
+doctor:          ## diagnose this machine before running anything
+	./scripts/doctor.sh
+
+llm-pull:        ## start ollama and pull the explainer model once (~2 GB)
+	docker compose -f infra/docker-compose.yml --profile llm up -d ollama
+	docker compose -f infra/docker-compose.yml exec ollama ollama pull qwen2.5:3b-instruct
+
+help:            ## show this help
+	@grep -E &#x27;^[a-zA-Z_-]+:.*?## &#x27; $(MAKEFILE_LIST) | awk &#x27;BEGIN{FS=&quot;:.*?## &quot;}{printf &quot;  \033[36m%-24s\033[0m %s\n&quot;, $$1, $$2}&#x27;
+
+bootstrap:       ## create venv, install python+node deps, install git hooks
+	python3.11 -m venv .venv &amp;&amp; $(PIP) install -U pip &amp;&amp; $(PIP) install -e &quot;.[dev,eval]&quot;
+	cd contracts &amp;&amp; npm ci
+	cd dashboard &amp;&amp; npm ci
+	.venv/bin/pre-commit install --hook-type pre-commit --hook-type commit-msg
+	[ -f .env ] || cp .env.example .env
+
+lint:            ## ruff lint + solhint + eslint
+	.venv/bin/ruff check src tests evaluation
+	cd contracts &amp;&amp; npx solhint &quot;contracts/**/*.sol&quot;
+	cd dashboard &amp;&amp; npm run lint
+
+format:          ## auto-format everything
+	.venv/bin/ruff format src tests evaluation &amp;&amp; .venv/bin/ruff check --fix src tests evaluation
+	cd dashboard &amp;&amp; npx prettier --write &quot;src/**/*.{ts,tsx,css}&quot;
+
+typecheck:       ## mypy strict + tsc
+	.venv/bin/mypy
+	cd dashboard &amp;&amp; npx tsc --noEmit
+
+test-unit:       ## fast python tests (no infra)
+	.venv/bin/pytest -m &quot;not integration and not e2e&quot;
+
+test-integration:## python tests against hardhat + ipfs (make infra-up first)
+	.venv/bin/pytest -m integration
+
+test-contracts:  ## hardhat tests + coverage
+	cd contracts &amp;&amp; npx hardhat test &amp;&amp; npx hardhat coverage
+
+test-all: lint typecheck test-unit test-contracts  ## what CI runs
+
+infra-up:        ## start hardhat node, kubo, ollama
+	docker compose -f infra/docker-compose.yml up -d
+
+infra-down:      ## stop them
+	docker compose -f infra/docker-compose.yml down
+
+contracts-build: ## compile + typechain
+	cd contracts &amp;&amp; npx hardhat compile
+
+contracts-deploy-local: contracts-build ## deploy to local node and write addresses into .env
+	cd contracts &amp;&amp; npx hardhat run scripts/deploy.ts --network localhost
+
+gateway:         ## run the gateway API with reload
+	.venv/bin/uvicorn verigate.gateway.api.main:app --reload --port 8000
+
+fleet:           ## run N emulated devices
+	.venv/bin/verigate-fleet run --count $(N)
+
+dashboard:       ## vite dev server
+	cd dashboard &amp;&amp; npm run dev
+
+train:           ## train both ML models, export ONNX, write model cards
+	.venv/bin/verigate-train all --seed 42
+
+models-hash:     ## regenerate models/MANIFEST.sha256
+	cd models &amp;&amp; sha256sum *.onnx &gt; MANIFEST.sha256 &amp;&amp; cat MANIFEST.sha256
+
+eval:            ## run an experiment: make eval EXP=evaluation/configs/gas_batching.yaml
+	.venv/bin/python evaluation/runners/run.py $(EXP)
+
+clean:
+	rm -rf .venv .pytest_cache .mypy_cache .ruff_cache htmlcov contracts/artifacts contracts/cache dashboard/dist
+</pre>
+<h4>A.2 <code>.github/workflows/ci.yml</code></h4><pre>name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions: { contents: read }
+
+jobs:
+  python:
+    name: Python · lint · type · unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: &quot;3.11&quot;, cache: pip }
+      - run: pip install -e &quot;.[dev]&quot;
+      - run: ruff check src tests evaluation
+      - run: ruff format --check src tests evaluation
+      - run: mypy
+      - run: pytest -m &quot;not integration and not e2e&quot; --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        with: { name: coverage-python, path: coverage.xml }
+
+  contracts:
+    name: Solidity · lint · test · coverage · gas
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: contracts } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: contracts/package-lock.json }
+      - run: npm ci
+      - run: npx solhint &quot;contracts/**/*.sol&quot;
+      - run: npx hardhat compile
+      - run: REPORT_GAS=true npx hardhat test
+      - run: npx hardhat coverage
+      - uses: actions/upload-artifact@v4
+        with: { name: contracts-coverage, path: contracts/coverage }
+
+  integration:
+    name: Python · integration (hardhat + local IPFS backend)
+    runs-on: ubuntu-latest
+    needs: [python, contracts]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: &quot;3.11&quot;, cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: contracts/package-lock.json }
+      - run: pip install -e &quot;.[dev]&quot;
+      - run: cd contracts &amp;&amp; npm ci &amp;&amp; (npx hardhat node &gt; /tmp/hh.log 2&gt;&amp;1 &amp;) &amp;&amp; sleep 5
+      - run: cd contracts &amp;&amp; npx hardhat run scripts/deploy.ts --network localhost
+      - run: cp .env.example .env &amp;&amp; IPFS_BACKEND=local LLM_ENABLED=false pytest -m integration
+
+  portability:
+    name: Portability · compose config · image builds · fresh-clone smoke
+    runs-on: ubuntu-latest
+    needs: [python, contracts]
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose -f infra/docker-compose.yml --profile app --profile llm config -q
+      - uses: docker/setup-buildx-action@v3
+      - run: docker compose -f infra/docker-compose.yml --profile app build
+      - run: ./scripts/smoke.sh            # up → deploy → publish fixture → verify → assert verdict → down
+
+  dashboard:
+    name: Dashboard · lint · type · build
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: dashboard } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: dashboard/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+</pre>
+<h4>A.3 <code>.github/workflows/security.yml</code></h4><pre>name: Security
+on:
+  pull_request:
+  schedule: [{ cron: &quot;0 3 * * 1&quot; }]   # weekly Monday 03:00 UTC
+permissions: { contents: read, security-events: write }
+
+jobs:
+  secrets:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deps:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: &quot;3.11&quot; }
+      - run: pip install -e . pip-audit &amp;&amp; pip-audit
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: cd contracts &amp;&amp; npm ci &amp;&amp; npm audit --audit-level=high
+      - run: cd dashboard &amp;&amp; npm ci &amp;&amp; npm audit --audit-level=high
+
+  slither:
+    name: slither (static analysis of contracts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crytic/slither-action@v0.4.0
+        with: { target: contracts/, sarif: slither.sarif, fail-on: medium }
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: slither.sarif }
+</pre>
+<h4>A.4 <code>.github/workflows/release.yml</code></h4><pre>name: Release
+on:
+  push:
+    tags: [&quot;v*.*.*&quot;]
+permissions: { contents: write, packages: write }
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  build-and-publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: &quot;3.11&quot; }
+      - run: pip install build &amp;&amp; python -m build
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.gateway
+          push: true
+          tags: ghcr.io/${{ github.repository }}/gateway:${{ github.ref_name }}
+      - name: Verify model manifest
+        run: cd models &amp;&amp; sha256sum -c MANIFEST.sha256
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*
+            models/*.onnx
+            models/MANIFEST.sha256
+</pre>
+<h4>A.5 <code>.github/workflows/deploy-contracts.yml</code></h4><pre>name: Deploy contracts (Arbitrum Sepolia)
+# Manual, gated. Used only for evaluation runs. Secrets are repository secrets, never in code.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: &#x27;Type &quot;arbitrum-sepolia&quot; to confirm&#x27;
+        required: true
+permissions: { contents: write }
+
+jobs:
+  deploy:
+    if: github.event.inputs.confirm == &#x27;arbitrum-sepolia&#x27;
+    runs-on: ubuntu-latest
+    environment: arbitrum-sepolia       # requires reviewer approval in repo settings
+    defaults: { run: { working-directory: contracts } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: contracts/package-lock.json }
+      - run: npm ci &amp;&amp; npx hardhat compile
+      - run: npx hardhat run scripts/deploy.ts --network arbitrumSepolia
+        env:
+          ARB_SEPOLIA_RPC_URL: ${{ secrets.ARB_SEPOLIA_RPC_URL }}
+          ARB_SEPOLIA_DEPLOYER_KEY: ${{ secrets.ARB_SEPOLIA_DEPLOYER_KEY }}
+      - name: Commit deployment addresses
+        run: |
+          git config user.name &quot;github-actions&quot; &amp;&amp; git config user.email &quot;actions@github.com&quot;
+          git add deployments/arbitrumSepolia &amp;&amp; git commit -m &quot;chore(contracts): record arbitrum-sepolia deployment&quot; &amp;&amp; git push
+</pre>
+<h4>A.6 <code>.pre-commit-config.yaml</code></h4><pre># Install once: `pre-commit install --hook-type pre-commit --hook-type commit-msg`
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: [&quot;--maxkb=2048&quot;]        # models/*.onnx are allowed up to 2 MB; datasets are git-ignored
+      - id: check-merge-conflict
+      - id: detect-private-key
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [&quot;--fix&quot;]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies: [&quot;pydantic&gt;=2.8&quot;, &quot;types-requests&quot;]
+        args: [&quot;--config-file=pyproject.toml&quot;]
+        pass_filenames: false
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [&quot;feat&quot;, &quot;fix&quot;, &quot;docs&quot;, &quot;test&quot;, &quot;refactor&quot;, &quot;perf&quot;, &quot;chore&quot;, &quot;ci&quot;, &quot;build&quot;, &quot;eval&quot;]
+  - repo: local
+    hooks:
+      - id: solhint
+        name: solhint
+        entry: bash -c &#x27;cd contracts &amp;&amp; npx solhint &quot;contracts/**/*.sol&quot;&#x27;
+        language: system
+        files: \.sol$
+        pass_filenames: false
+      - id: prettier-dashboard
+        name: prettier (dashboard)
+        entry: bash -c &#x27;cd dashboard &amp;&amp; npx prettier --check &quot;src/**/*.{ts,tsx,css}&quot;&#x27;
+        language: system
+        files: ^dashboard/src/
+        pass_filenames: false
+</pre>
+<h4>A.7 <code>.env.example</code></h4><pre># Copy to .env — never commit .env. Values here are safe defaults for local dev only.
+VERIGATE_ENV=local
+# Blockchain
+RPC_URL=http://127.0.0.1:8545
+CHAIN_ID=31337
+# Hardhat default account #0 — PUBLIC test key, local node only. NEVER put a real key here.
+DEPLOYER_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d96d4c9b98f
+GATEWAY_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+# Contract addresses are written here by `make contracts-deploy-local`
+PUBLISHER_REGISTRY_ADDR=
+FIRMWARE_REGISTRY_ADDR=
+MODEL_REGISTRY_ADDR=
+POLICY_CONTRACT_ADDR=
+VERDICT_REGISTRY_ADDR=
+# IPFS
+IPFS_API=http://127.0.0.1:5001
+IPFS_BACKEND=kubo            # kubo | local  (local = in-repo CID store, same CIDs)
+# LLM explainer
+OLLAMA_URL=http://127.0.0.1:11434
+LLM_MODEL=qwen2.5:3b-instruct
+LLM_ENABLED=true
+# Vulnerability data (cached under data/processed/vulndb)
+OSV_API=https://api.osv.dev/v1
+VULN_CACHE_ONLY=false        # true = offline demo mode
+# Ports (override if something on this machine already uses them)
+HARDHAT_PORT=8545
+IPFS_API_PORT=5001
+IPFS_GATEWAY_PORT=8080
+OLLAMA_PORT=11434
+GATEWAY_PORT=8000
+DASHBOARD_PORT=5173
+FLEET_SIZE=20
+# Gateway
+GATEWAY_HOST=0.0.0.0
+LOG_LEVEL=INFO
+# Arbitrum Sepolia (evaluation only) — set via GitHub secrets / local .env, never here
+# ARB_SEPOLIA_RPC_URL=
+# ARB_SEPOLIA_DEPLOYER_KEY=
+</pre>
+<h4>A.8 <code>.github/PULL_REQUEST_TEMPLATE.md</code></h4><pre>## What
+&lt;!-- one paragraph: what this PR changes and why --&gt;
+
+## Checklist item
+&lt;!-- e.g. P3-04 Stage-1 expiry check --&gt;
+
+## How it was tested
+&lt;!-- commands run, what you observed. Paste measured numbers if any (never estimated). --&gt;
+
+## Checklist
+- [ ] `make test-all` passes locally
+- [ ] New code has tests; coverage did not drop
+- [ ] Docstrings / NatSpec on every public function
+- [ ] No secrets, no datasets, no hand-edited results in the diff
+- [ ] `CHANGELOG.md` updated under *Unreleased*
+- [ ] If a design decision was made: ADR added in `docs/adr/`
+- [ ] If a contract changed: storage layout unchanged or migration noted; gas report attached
+- [ ] If a model changed: `models/MANIFEST.sha256` regenerated and model card updated
+</pre>
+<h4>A.9 <code>docs/adr/0000-template.md</code></h4><pre># NNNN — Title
+
+**Status:** Proposed | Accepted | Superseded by NNNN
+**Date:** YYYY-MM-DD
+**Deciders:**
+
+## Context
+What problem or question forced this decision? Include constraints (laptop, time, research goals).
+
+## Decision
+What we chose, stated in one or two sentences.
+
+## Alternatives considered
+- Option A — why not
+- Option B — why not
+
+## Consequences
+Positive, negative, and what becomes easier/harder. Follow-up tasks.
+</pre>
+<h4>A.10 <code>infra/docker-compose.yml</code></h4><pre># ONE file, two profiles.
+#   docker compose -f infra/docker-compose.yml up -d                 → infra only (hardhat, ipfs, ollama)
+#   docker compose -f infra/docker-compose.yml --profile app up -d   → everything: + deployer, gateway, fleet, dashboard
+# Every image is pinned. Every port is overridable via .env. No host paths other than the repo itself.
+name: verigate
+
+x-python-app: &amp;python-app
+  build: { context: .., dockerfile: infra/Dockerfile.app }
+  env_file: ../.env
+  environment:
+    RPC_URL: http://hardhat:8545
+    IPFS_API: http://ipfs:5001
+    OLLAMA_URL: http://ollama:11434
+  volumes:
+    - ../contracts/deployments:/app/contracts/deployments:ro   # addresses written by deployer
+    - fleet-state:/app/fleet-state
+
+services:
+  hardhat:
+    build: { context: .., dockerfile: infra/Dockerfile.hardhat }
+    ports: [&quot;${HARDHAT_PORT:-8545}:8545&quot;]
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;curl&quot;, &quot;-sf&quot;, &quot;-X&quot;, &quot;POST&quot;, &quot;-H&quot;, &quot;content-type: application/json&quot;,
+             &quot;-d&quot;, &#x27;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;eth_chainId&quot;,&quot;params&quot;:[]}&#x27;, &quot;http://localhost:8545&quot;]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ipfs:
+    image: ipfs/kubo:v0.30.0
+    ports: [&quot;${IPFS_API_PORT:-5001}:5001&quot;, &quot;${IPFS_GATEWAY_PORT:-8080}:8080&quot;]
+    volumes: [&quot;ipfs-data:/data/ipfs&quot;]
+    environment: { IPFS_PROFILE: server }
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;ipfs&quot;, &quot;id&quot;]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:0.3.12
+    ports: [&quot;${OLLAMA_PORT:-11434}:11434&quot;]
+    volumes: [&quot;ollama-data:/root/.ollama&quot;]
+    deploy: { resources: { limits: { memory: 4g } } }
+    profiles: [&quot;llm&quot;]          # optional: docker compose --profile llm up  (pull model once: make llm-pull)
+
+  deployer:                     # one-shot: compiles + deploys contracts, writes deployments/localhost/addresses.json
+    build: { context: .., dockerfile: infra/Dockerfile.hardhat }
+    command: [&quot;npx&quot;, &quot;hardhat&quot;, &quot;run&quot;, &quot;scripts/deploy.ts&quot;, &quot;--network&quot;, &quot;docker&quot;]
+    environment: { RPC_URL: http://hardhat:8545 }
+    volumes: [&quot;../contracts/deployments:/app/contracts/deployments&quot;]
+    depends_on: { hardhat: { condition: service_healthy } }
+    profiles: [&quot;app&quot;]
+
+  gateway:
+    &lt;&lt;: *python-app
+    command: [&quot;verigate-gateway&quot;]
+    ports: [&quot;${GATEWAY_PORT:-8000}:8000&quot;]
+    depends_on:
+      hardhat: { condition: service_healthy }
+      ipfs: { condition: service_healthy }
+      deployer: { condition: service_completed_successfully }
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;python&quot;, &quot;-c&quot;, &quot;import urllib.request as u; u.urlopen(&#x27;http://localhost:8000/health&#x27;)&quot;]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    profiles: [&quot;app&quot;]
+
+  fleet:
+    &lt;&lt;: *python-app
+    command: [&quot;verigate-fleet&quot;, &quot;run&quot;, &quot;--count&quot;, &quot;${FLEET_SIZE:-20}&quot;, &quot;--gateway&quot;, &quot;http://gateway:8000&quot;, &quot;--state-dir&quot;, &quot;/app/fleet-state&quot;]
+    depends_on: { gateway: { condition: service_healthy } }
+    profiles: [&quot;app&quot;]
+
+  dashboard:
+    build: { context: .., dockerfile: infra/Dockerfile.dashboard, args: { VITE_GATEWAY_URL: &quot;http://localhost:${GATEWAY_PORT:-8000}&quot; } }
+    ports: [&quot;${DASHBOARD_PORT:-5173}:80&quot;]
+    depends_on: { gateway: { condition: service_healthy } }
+    profiles: [&quot;app&quot;]
+
+volumes:
+  ipfs-data:
+  ollama-data:
+  fleet-state:
+</pre><h4>A.11 <code>infra/Dockerfile.app</code></h4><pre># One image for every Python service (gateway, fleet, publisher, attacks). Compose picks the command.
+FROM python:3.11.9-slim AS build
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install --no-cache-dir --upgrade pip &amp;&amp; pip install --no-cache-dir .
+
+FROM python:3.11.9-slim
+RUN useradd -m app &amp;&amp; mkdir -p /app/fleet-state /app/contracts/deployments &amp;&amp; chown -R app /app
+COPY --from=build /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=build /usr/local/bin/verigate-* /usr/local/bin/
+COPY --chown=app models /app/models
+COPY --chown=app tests/fixtures /app/fixtures
+WORKDIR /app
+USER app
+EXPOSE 8000
+CMD [&quot;verigate-gateway&quot;]
+</pre><h4>A.12 <code>scripts/smoke.sh</code></h4><pre>#!/usr/bin/env bash
+# Fresh-machine smoke test. Proves the whole stack starts from a clean clone with ONE command and reaches a verdict.
+# Used by CI (portability job), by `make smoke`, and by you on any new laptop before a demo.
+set -euo pipefail
+cd &quot;$(dirname &quot;$0&quot;)/..&quot;
+COMPOSE=&quot;docker compose -f infra/docker-compose.yml --profile app&quot;
+cleanup() { $COMPOSE down -v --remove-orphans &gt;/dev/null 2&gt;&amp;1 || true; }
+trap cleanup EXIT
+
+[ -f .env ] || cp .env.example .env
+echo &quot;▶ starting full stack&quot;
+$COMPOSE up -d --build
+echo &quot;▶ waiting for gateway health&quot;
+for i in $(seq 1 60); do
+  if curl -sf &quot;http://localhost:${GATEWAY_PORT:-8000}/health&quot; &gt;/dev/null; then break; fi
+  sleep 2; [ &quot;$i&quot; -eq 60 ] &amp;&amp; { echo &quot;gateway never became healthy&quot;; $COMPOSE logs --tail=50; exit 1; }
+done
+echo &quot;▶ publishing fixture release v1.0.0 and verifying&quot;
+$COMPOSE run --rm -T gateway verigate-publish release \
+  --fw /app/fixtures/releases/v1.0.0/firmware.bin --sbom /app/fixtures/releases/v1.0.0/sbom.json \
+  --version 1.0.0 --model demo-device --expiry 2030-01-01T00:00:00Z --json &gt; /tmp/release.json
+RELEASE_ID=$(python3 -c &#x27;import json,sys; print(json.load(open(&quot;/tmp/release.json&quot;))[&quot;releaseId&quot;])&#x27;)
+VERDICT=$(curl -sf -X POST &quot;http://localhost:${GATEWAY_PORT:-8000}/verify/${RELEASE_ID}&quot; | python3 -c &#x27;import json,sys; print(json.load(sys.stdin)[&quot;verdict&quot;])&#x27;)
+echo &quot;verdict: $VERDICT&quot;
+[ &quot;$VERDICT&quot; = &quot;APPROVE&quot; ] || { echo &quot;expected APPROVE for a clean fixture&quot;; exit 1; }
+echo &quot;✔ smoke test passed&quot;
+</pre><h4>A.13 <code>scripts/doctor.sh</code></h4><pre>#!/usr/bin/env bash
+# `make doctor` — one-screen diagnosis on ANY machine: versions, ports, docker, disk, RAM, .env, lockfiles.
+set -uo pipefail
+cd &quot;$(dirname &quot;$0&quot;)/..&quot;
+ok()  { printf &quot;  \033[32m✔\033[0m %s\n&quot; &quot;$1&quot;; }
+bad() { printf &quot;  \033[31m✘\033[0m %s\n&quot; &quot;$1&quot;; FAIL=1; }
+FAIL=0
+echo &quot;Toolchain&quot;
+command -v docker &gt;/dev/null &amp;&amp; docker compose version &gt;/dev/null 2&gt;&amp;1 &amp;&amp; ok &quot;docker + compose plugin&quot; || bad &quot;docker compose missing (Docker Desktop on macOS/Windows-WSL2, docker-ce on Linux)&quot;
+command -v python3.11 &gt;/dev/null &amp;&amp; ok &quot;python3.11&quot; || bad &quot;python3.11 missing (only needed for host-mode dev; docker mode does not need it)&quot;
+command -v node &gt;/dev/null &amp;&amp; [ &quot;$(node -p &#x27;process.versions.node.split(&quot;.&quot;)[0]&#x27;)&quot; -ge 20 ] &amp;&amp; ok &quot;node ≥ 20&quot; || bad &quot;node ≥ 20 missing (host-mode dev only)&quot;
+echo &quot;Repository&quot;
+[ -f .env ] &amp;&amp; ok &quot;.env present&quot; || bad &quot;.env missing → cp .env.example .env&quot;
+[ -f contracts/package-lock.json ] &amp;&amp; ok &quot;contracts lockfile&quot; || bad &quot;contracts/package-lock.json missing (P0-07)&quot;
+[ -f dashboard/package-lock.json ] &amp;&amp; ok &quot;dashboard lockfile&quot; || bad &quot;dashboard/package-lock.json missing (P0-07)&quot;
+grep -rIl --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.venv &quot;/home/[a-z]*/&quot; . 2&gt;/dev/null | grep -v &#x27;^./docs/&#x27; | head -3 | while read -r f; do bad &quot;absolute home path in $f&quot;; done
+echo &quot;Machine&quot;
+MEM=$(awk &#x27;/MemTotal/ {printf &quot;%d&quot;, $2/1024/1024}&#x27; /proc/meminfo 2&gt;/dev/null || sysctl -n hw.memsize 2&gt;/dev/null | awk &#x27;{printf &quot;%d&quot;,$1/1024/1024/1024}&#x27;)
+[ &quot;${MEM:-0}&quot; -ge 8 ] &amp;&amp; ok &quot;RAM ${MEM} GB (≥ 8 needed; 12+ with LLM)&quot; || bad &quot;RAM ${MEM} GB — run without --profile llm&quot;
+DISK=$(df -Pk . | awk &#x27;NR==2 {printf &quot;%d&quot;, $4/1024/1024}&#x27;)
+[ &quot;$DISK&quot; -ge 10 ] &amp;&amp; ok &quot;disk ${DISK} GB free&quot; || bad &quot;disk ${DISK} GB free (&lt; 10 GB)&quot;
+echo &quot;Ports&quot;
+for p in ${HARDHAT_PORT:-8545} ${IPFS_API_PORT:-5001} ${GATEWAY_PORT:-8000} ${DASHBOARD_PORT:-5173}; do
+  (command -v ss &gt;/dev/null &amp;&amp; ss -ltn | grep -q &quot;:$p &quot;) &amp;&amp; bad &quot;port $p in use → override in .env (e.g. GATEWAY_PORT=8001)&quot; || ok &quot;port $p free&quot;
+done
+[ &quot;$FAIL&quot; -eq 0 ] &amp;&amp; echo &quot;all good — run: make up&quot; || { echo &quot;fix the ✘ items above&quot;; exit 1; }
+</pre><h4>A.14 <code>docs/adr/0004-portable-by-default.md</code></h4><pre># 0004 — Portable by default: one command runs the whole stack on any machine
+
+**Status:** Accepted   **Date:** 2026-09-18
+
+## Context
+The project must be demonstrated on hardware we do not control (panel room PC, a reviewer&#x27;s laptop, a fresh VM) and
+reproduced by others for the paper. &quot;Works on the author&#x27;s laptop&quot; is the most common FYP demo failure.
+
+## Decision
+- Every runtime component has a pinned Docker image (`infra/Dockerfile.app`, `.hardhat`, `.dashboard`; pinned base tags).
+- `infra/docker-compose.yml` runs the full stack with `--profile app`; the LLM is an optional `--profile llm`.
+- `make up`, `make smoke`, `make doctor` are the only commands a new machine needs; host Python/Node are for development only.
+- No absolute paths in code or config; everything resolves relative to the repository root or a container path.
+  Ports are overridable via `.env`. Line endings normalised via `.gitattributes`.
+- CI has a `portability` job that builds all images and runs `scripts/smoke.sh` from a clean checkout on every PR.
+- Datasets are regenerable (`data/sources.yaml` + scripts); models are committed; results carry `env.json`.
+
+## Alternatives considered
+- Host-only setup with a long README — rejected; drifts immediately.
+- Kubernetes / Helm — rejected; overkill for a single-machine demo.
+
+## Consequences
+Image builds add ~3 min to CI. Windows users need WSL2 + Docker Desktop (documented). The smoke test doubles as the
+first e2e test and as the pre-demo ritual on any new machine.
+</pre>
+<p class="small" style="margin-top:24px">End of manual. Next deliverable: <code>docs/srs/</code> — Software Requirements Specification.</p>
+</body></html>

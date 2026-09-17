@@ -1,0 +1,50 @@
+# Install once: `pre-commit install --hook-type pre-commit --hook-type commit-msg`
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]        # models/*.onnx are allowed up to 2 MB; datasets are git-ignored
+      - id: check-merge-conflict
+      - id: detect-private-key
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies: ["pydantic>=2.8", "types-requests"]
+        args: ["--config-file=pyproject.toml"]
+        pass_filenames: false
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: ["feat", "fix", "docs", "test", "refactor", "perf", "chore", "ci", "build", "eval"]
+  - repo: local
+    hooks:
+      - id: solhint
+        name: solhint
+        entry: bash -c 'cd contracts && npx solhint "contracts/**/*.sol"'
+        language: system
+        files: \.sol$
+        pass_filenames: false
+      - id: prettier-dashboard
+        name: prettier (dashboard)
+        entry: bash -c 'cd dashboard && npx prettier --check "src/**/*.{ts,tsx,css}"'
+        language: system
+        files: ^dashboard/src/
+        pass_filenames: false

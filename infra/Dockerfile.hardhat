@@ -1,0 +1,8 @@
+FROM node:20.17.0-slim
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+WORKDIR /app/contracts
+COPY contracts/package*.json ./
+RUN npm ci
+COPY contracts/ ./
+EXPOSE 8545
+CMD ["npx", "hardhat", "node", "--hostname", "0.0.0.0"]

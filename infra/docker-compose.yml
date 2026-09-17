@@ -1,0 +1,85 @@
+# ONE file, two profiles.
+#   docker compose -f infra/docker-compose.yml up -d                 → infra only (hardhat, ipfs, ollama)
+#   docker compose -f infra/docker-compose.yml --profile app up -d   → everything: + deployer, gateway, fleet, dashboard
+# Every image is pinned. Every port is overridable via .env. No host paths other than the repo itself.
+name: verigate
+
+x-python-app: &python-app
+  build: { context: .., dockerfile: infra/Dockerfile.app }
+  env_file: ../.env
+  environment:
+    RPC_URL: http://hardhat:8545
+    IPFS_API: http://ipfs:5001
+    OLLAMA_URL: http://ollama:11434
+  volumes:
+    - ../contracts/deployments:/app/contracts/deployments:ro   # addresses written by deployer
+    - fleet-state:/app/fleet-state
+
+services:
+  hardhat:
+    build: { context: .., dockerfile: infra/Dockerfile.hardhat }
+    ports: ["${HARDHAT_PORT:-8545}:8545"]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "-X", "POST", "-H", "content-type: application/json",
+             "-d", '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}', "http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ipfs:
+    image: ipfs/kubo:v0.30.0
+    ports: ["${IPFS_API_PORT:-5001}:5001", "${IPFS_GATEWAY_PORT:-8080}:8080"]
+    volumes: ["ipfs-data:/data/ipfs"]
+    environment: { IPFS_PROFILE: server }
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:0.3.12
+    ports: ["${OLLAMA_PORT:-11434}:11434"]
+    volumes: ["ollama-data:/root/.ollama"]
+    deploy: { resources: { limits: { memory: 4g } } }
+    profiles: ["llm"]          # optional: docker compose --profile llm up  (pull model once: make llm-pull)
+
+  deployer:                     # one-shot: compiles + deploys contracts, writes deployments/localhost/addresses.json
+    build: { context: .., dockerfile: infra/Dockerfile.hardhat }
+    command: ["npx", "hardhat", "run", "scripts/deploy.ts", "--network", "docker"]
+    environment: { RPC_URL: http://hardhat:8545 }
+    volumes: ["../contracts/deployments:/app/contracts/deployments"]
+    depends_on: { hardhat: { condition: service_healthy } }
+    profiles: ["app"]
+
+  gateway:
+    <<: *python-app
+    command: ["verigate-gateway"]
+    ports: ["${GATEWAY_PORT:-8000}:8000"]
+    depends_on:
+      hardhat: { condition: service_healthy }
+      ipfs: { condition: service_healthy }
+      deployer: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    profiles: ["app"]
+
+  fleet:
+    <<: *python-app
+    command: ["verigate-fleet", "run", "--count", "${FLEET_SIZE:-20}", "--gateway", "http://gateway:8000", "--state-dir", "/app/fleet-state"]
+    depends_on: { gateway: { condition: service_healthy } }
+    profiles: ["app"]
+
+  dashboard:
+    build: { context: .., dockerfile: infra/Dockerfile.dashboard, args: { VITE_GATEWAY_URL: "http://localhost:${GATEWAY_PORT:-8000}" } }
+    ports: ["${DASHBOARD_PORT:-5173}:80"]
+    depends_on: { gateway: { condition: service_healthy } }
+    profiles: ["app"]
+
+volumes:
+  ipfs-data:
+  ollama-data:
+  fleet-state:

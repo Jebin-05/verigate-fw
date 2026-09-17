@@ -1,0 +1,14 @@
+# gitleaks configuration. Extends the default ruleset; only the two Hardhat well-known
+# PUBLIC test keys (accounts #0 and #1 of `npx hardhat node`) are allow-listed, and only by
+# their exact value. Any other key-looking string anywhere in the repo still fails the scan.
+title = "verigate-fw"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Hardhat default accounts #0 and #1 — public, documented, valueless test keys"
+regexes = [
+  '''0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d96d4c9b98f''',
+  '''0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d''',
+]

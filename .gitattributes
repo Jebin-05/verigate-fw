@@ -1,0 +1,8 @@
+# Normalise line endings so the repo behaves identically on Linux, macOS and Windows.
+* text=auto eol=lf
+*.sh text eol=lf
+Makefile text eol=lf
+*.bin binary
+*.onnx binary
+*.png binary
+*.pdf binary

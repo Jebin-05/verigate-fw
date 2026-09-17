@@ -1,0 +1,42 @@
+# --- Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage*
+# --- Node
+node_modules/
+dist/
+dashboard/dist/
+# --- Hardhat
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/coverage/
+contracts/coverage.json
+contracts/deployments/localhost/
+# --- Secrets & env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+keys/
+# --- Data & large artefacts (tracked via data/MANIFEST.sha256 instead)
+data/raw/
+data/processed/
+!data/README.md
+!data/MANIFEST.sha256
+evaluation/results/**/*.parquet
+# --- Local IPFS / ollama state
+infra/.ipfs/
+infra/.ollama/
+# --- OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -67,6 +67,40 @@ def data_sbom(
     )
 
 
+@data_app.command("snapshot")
+def data_snapshot(
+    sboms: Annotated[list[Path], typer.Argument(help="CycloneDX SBOMs the demo will score")],
+    out: Annotated[Path, typer.Option("--out")] = Path("data/vulndb-demo"),
+) -> None:
+    """Export the vulnerability-cache entries the given SBOMs need (offline demo snapshot).
+
+    Scores each SBOM through the configured SBOM model with a recording cache and copies every
+    entry it touched (OSV queries + records, the EPSS snapshot of ``STAGE2_EPSS_DATE``, KEV) to
+    ``--out``; point ``VULN_CACHE_DIR`` there with ``VULN_CACHE_ONLY=true`` for a demo without
+    network access (Manual §16).
+    """
+    from verigate.gateway.stage2 import sbom as stage2  # noqa: PLC0415
+    from verigate.ml.vulndb.cache import RecordingCache  # noqa: PLC0415
+
+    settings = get_settings()
+    configure_logging(settings)
+    if not settings.sbom_model:
+        raise typer.BadParameter("SBOM_MODEL must be configured")
+    cache = RecordingCache(settings.vuln_cache_dir, offline=settings.vuln_cache_only)
+    scorer = stage2.build_sbom_scorer(settings, cache=cache)
+    assert scorer is not None  # noqa: S101 — guarded above
+    scored = {str(path): scorer.score(path.read_bytes()).r_sbom_bp for path in sboms}
+    copied = cache.export(out)
+    _emit(
+        {
+            "out": str(out),
+            "entries": copied,
+            "scored": scored,
+            "epssDate": settings.stage2_epss_date,
+        }
+    )
+
+
 @data_app.command("images")
 def data_images(
     sources: Annotated[Path, typer.Option("--sources")] = DATA_DIR / "sources.yaml",

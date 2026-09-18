@@ -148,3 +148,28 @@ def test_epss_and_kev(tmp_path: Path, transport: httpx.MockTransport) -> None:
     assert cache.misses >= 2 and offline.hits >= 2
     assert cache.fetched_at("kev", "catalogue") is not None
     assert cache.fetched_at("kev", "nope") is None
+
+
+def test_recording_cache_exports_touched_entries(tmp_path: Path) -> None:
+    from verigate.ml.vulndb.cache import RecordingCache  # noqa: PLC0415
+
+    source = DiskCache(tmp_path / "full")
+    source.put("kev", "catalogue", b"{}")
+    source.put("epss", "2025-09-18", b"cve,epss\n")
+    source.put("osv-record", "GHSA-x", b"{}")
+    recording = RecordingCache(tmp_path / "full")
+    assert recording.get("kev", "catalogue") == b"{}"
+    assert recording.get("epss", "2025-09-18") == b"cve,epss\n"
+    assert recording.get("epss", "missing") is None  # touched but absent → skipped on export
+    assert recording.export(tmp_path / "demo") == 2
+    demo = DiskCache(tmp_path / "demo", offline=True)
+    assert demo.get("kev", "catalogue") == b"{}" and demo.fetched_at("kev", "catalogue")
+    assert demo.get("osv-record", "GHSA-x") is None  # never touched
+
+
+def test_unwritable_cache_is_only_a_warning(tmp_path: Path) -> None:
+    blocked = tmp_path / "file-not-dir"
+    blocked.write_text("x")
+    cache = DiskCache(blocked / "cache")
+    cache.put("kev", "catalogue", b"{}")  # parent is a file → OSError swallowed
+    assert cache.get("kev", "catalogue") is None

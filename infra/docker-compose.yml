@@ -13,9 +13,11 @@ x-python-app: &python-app
     OLLAMA_URL: http://ollama:11434
     GATEWAY_PORT: 8000            # containers always listen on 8000; the host mapping uses .env
     STATE_DIR: /app/.verigate/state
+    VULN_CACHE_DIR: /app/data/processed/vulndb
   volumes:
     - ../contracts/deployments:/app/contracts/deployments:ro   # addresses written by deployer
     - fleet-state:/app/fleet-state
+    - vuln-cache:/app/data/processed/vulndb   # OSV / EPSS / KEV answers survive restarts (cold fill ≈ 10 min)
 
 services:
   hardhat:
@@ -90,6 +92,7 @@ services:
     profiles: ["app"]
 
 volumes:
+  vuln-cache:
   ipfs-data:
   ollama-data:
   fleet-state:

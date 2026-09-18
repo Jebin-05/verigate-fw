@@ -136,7 +136,7 @@ class SbomScorer:
         return result
 
 
-def build_sbom_scorer(settings: Any) -> SbomScorer | None:  # noqa: ANN401 — Settings (avoid import cycle in type)
+def build_sbom_scorer(settings: Any, cache: Any = None) -> SbomScorer | None:  # noqa: ANN401 — Settings (import cycle)
     """Wire the scorer from settings; ``None`` when ``SBOM_MODEL`` is unset."""
     if not settings.sbom_model:
         return None
@@ -147,7 +147,7 @@ def build_sbom_scorer(settings: Any) -> SbomScorer | None:  # noqa: ANN401 — S
 
     model_path = settings.models_dir / settings.sbom_model
     context_path = model_path.with_suffix(".context.json")
-    cache = DiskCache(settings.vuln_cache_dir, offline=settings.vuln_cache_only)
+    cache = cache or DiskCache(settings.vuln_cache_dir, offline=settings.vuln_cache_only)
     as_of = date.fromisoformat(settings.stage2_epss_date)
     epss = EpssSnapshot.load(settings.epss_url, as_of, cache)
     kev = KevCatalogue.load(settings.kev_url, cache)

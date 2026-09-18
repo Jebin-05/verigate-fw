@@ -29,6 +29,7 @@ keys/
 # --- Data & large artefacts (tracked via data/MANIFEST.sha256 instead)
 data/raw/
 data/processed/
+data/vulndb-demo/
 !data/README.md
 !data/MANIFEST.sha256
 evaluation/results/**/*.parquet

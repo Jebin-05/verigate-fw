@@ -14,6 +14,9 @@ import time
 from pathlib import Path
 
 from verigate.common.errors import VerigateError
+from verigate.common.logging import get_logger
+
+log = get_logger(__name__)
 
 
 class OfflineMissError(VerigateError):
@@ -42,15 +45,22 @@ class DiskCache:
         return None
 
     def put(self, kind: str, key: str, data: bytes) -> None:
-        """Store ``data`` atomically together with a ``.meta`` record (key, fetched_at)."""
+        """Store ``data`` atomically together with a ``.meta`` record (key, fetched_at).
+
+        An unwritable cache directory only costs the next fetch (logged once per entry); the
+        cache is an accelerator, never a requirement for a verdict.
+        """
         path = self._path(kind, key)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_bytes(data)
-        tmp.replace(path)
-        path.with_suffix(".meta").write_text(
-            json.dumps({"key": key, "fetched_at": int(time.time())}) + "\n"
-        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_bytes(data)
+            tmp.replace(path)
+            path.with_suffix(".meta").write_text(
+                json.dumps({"key": key, "fetched_at": int(time.time())}) + "\n"
+            )
+        except OSError as exc:
+            log.warning("vulndb.cache_unwritable", kind=kind, path=str(path), error=str(exc))
 
     def fetched_at(self, kind: str, key: str) -> int | None:
         """Unix time the entry was fetched, or ``None``."""
@@ -63,3 +73,32 @@ class DiskCache:
         """Raise if offline (call before any network access)."""
         if self.offline:
             raise OfflineMissError(f"offline mode (VULN_CACHE_ONLY=true) and {what} is not cached")
+
+
+class RecordingCache(DiskCache):
+    """A cache that remembers every ``(kind, key)`` it served — used to export demo snapshots."""
+
+    def __init__(self, root: Path, offline: bool = False) -> None:
+        super().__init__(root, offline)
+        self.touched: set[tuple[str, str]] = set()
+
+    def get(self, kind: str, key: str) -> bytes | None:
+        """Record the lookup, then behave like :class:`DiskCache`."""
+        self.touched.add((kind, key))
+        return super().get(kind, key)
+
+    def export(self, target: Path) -> int:
+        """Copy every touched entry (payload + ``.meta``) under ``target``; returns the count."""
+        copied = 0
+        for kind, key in sorted(self.touched):
+            src = self._path(kind, key)
+            if not src.is_file():
+                continue
+            dst = DiskCache(target)._path(kind, key)  # noqa: SLF001 — same layout
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(src.read_bytes())
+            meta = src.with_suffix(".meta")
+            if meta.is_file():
+                dst.with_suffix(".meta").write_text(meta.read_text())
+            copied += 1
+        return copied

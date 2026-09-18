@@ -47,9 +47,12 @@ idempotent end to end: same inputs → same CIDs and `"status": "unchanged"`. Id
 ## Demo
 
 ```bash
-make up && ./scripts/demo.sh      # publish → 20 devices install → eleven attacks caught
+make up && ./scripts/demo.sh      # publish → devices install → eleven attacks caught
 DEMO_MODE=host ./scripts/demo.sh  # same against `make gateway` + `make infra-up`
 ```
+Measured on the development laptop (i7-1255U, no GPU): 53 s with the LLM explainer off (the
+compose default — `--profile llm` adds Ollama), 348 s with a CPU-only `qwen2.5:3b-instruct`
+explaining each release-level verdict (~60–120 s per rationale; device polls never wait for it).
 Dashboard: Releases · Verdicts (Merkle proof, on-chain `verifyLeaf` via direct RPC) · Fleet ·
 Publishers · Models · Policy · Attacks (buttons run `verigate-attack` through the gateway) with a
 live websocket log. Attack scripts: `verigate-attack run <name|all>` — Stage 1: tamper, forge, stolen-key,
@@ -61,11 +64,20 @@ rollback, freeze, sbom-swap; AI gate: vulnerable-genuine, hidden-payload, bad-hi
 verigate-train data fetch && verigate-train data sbom && verigate-train data images   # corpus (network)
 make train                      # sbom_risk + image_anomaly (seed 42) → models/*.onnx + cards
 make models-hash                # models/MANIFEST.sha256
-verigate-admin register-model --file models/sbom_risk.onnx --name sbom_risk_v1   # on-chain
+make models-register            # register every hash in the manifest on-chain (compose does this)
+verigate-admin revoke-model <hash> --successor <hash>   # Novelty 2: gateway replays stale verdicts
 make eval EXP=evaluation/configs/sbom_ranking.yaml   # results/<exp>/<timestamp>_<sha>/
 ```
-Enable Stage 2 at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL_HASHES` in `.env`
-(the model cards under `models/` state every number). Everything in the cards and under
+The Stage-2 SBOM scorer asks OSV / EPSS / KEV once per component and caches every answer under
+`VULN_CACHE_DIR` (a named volume in compose): the first verification on an empty cache takes about
+ten minutes (measured: `make smoke` from a clean machine, 12 min including the image build; a few
+seconds once warm). For a demo without network run
+`verigate-train data snapshot tests/fixtures/releases/*/sbom.json --out data/vulndb-demo` while
+online, then `VULN_CACHE_DIR=data/vulndb-demo VULN_CACHE_ONLY=true` (host mode).
+
+Enable Stage 2 at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL_HASHES` in `.env`;
+`LLM_ENABLED` / `OLLAMA_URL` control the explain-only rationale (ADR-0002). The model cards under
+`models/` state every number. Everything in the cards and under
 `evaluation/results/` is measured on this machine — nothing is typed by hand.
 
 ## Layout

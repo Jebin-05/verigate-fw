@@ -111,7 +111,7 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
     revocations = RevocationJob(
         service, service.state_dir / "revocations.json", service.settings.listener_poll_s
     )
-    app = FastAPI(title="VeriGate-FW gateway", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="VeriGate-FW gateway", version="0.2.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
     )

@@ -2,6 +2,8 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-09-18 — full AI gate
 ### Added
 - Five AI-gate attack scenarios with e2e tests (`verigate-attack run <name>`): `vulnerable-genuine` (real OpenWrt 19.07.10 build + SBOM, new `tests/fixtures/releases/legacy-19.07.10/`, measured r_sbom 0.73 → DEFER), `hidden-payload` (200 KiB `append` mutation on a clean predecessor, r_img 0.70 → DEFER), `bad-history` (identical release: APPROVE at reputation 0.5 vs DEFER after four release-level rejects), `poisoned-model` (admin revokes the image model in use → gateway replays stale verdicts under the successor, or fails closed when none is left), `policy-tamper` (non-admin `setPolicy` reverts; `PolicyChanged` audit log listed). Reports now carry R / r_sbom / r_img / reputation; `accepted` outcomes for "REJECT or DEFER" rows. Dashboard descriptions, threat-model links and `scripts/demo.sh` cover all eleven (P6-07).
 - `verigate-admin register-models --manifest models/MANIFEST.sha256` and a one-shot `registrar` compose service, so `make up` starts with the models registered (`make models-register` on the host).

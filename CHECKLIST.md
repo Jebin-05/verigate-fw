@@ -88,7 +88,7 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P6-05 `stage2/explain.py`: Ollama client, strict JSON schema, retry, `LLM_ENABLED` switch; rationale → IPFS
 - [x] P6-06 Model revocation flow: revoke → stale query → re-verify job → dashboard shows delta
 - [x] P6-07 Attack scripts: vulnerable-but-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper
-- [ ] P6-08 Tag `v0.2.0` — full AI gate release
+- [x] P6-08 Tag `v0.2.0` — full AI gate release
 
 ## P7 — Evaluation (weeks 11–12)
 - [ ] P7-01 Experiment configs: latency_stage1, latency_stage2, gas_per_verdict_vs_batched, detection_f1, sbom_ranking, revocation_propagation, attack_matrix

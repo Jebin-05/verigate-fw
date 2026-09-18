@@ -103,7 +103,7 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P8-02 Paper draft in `docs/paper/` (LaTeX), figures from P7-04 only
 - [x] P8-03 Demo rehearsal ×3 with `scripts/demo.sh`; recorded video fallback
 - [x] P8-04 README updated with results summary and reproduction steps
-- [ ] P8-05 Tag `v1.0.0`; GitHub Release with models, wheel, gas report; Zenodo DOI (optional)
+- [x] P8-05 Tag `v1.0.0`; GitHub Release with models, wheel, gas report; Zenodo DOI (optional)
 - [x] P8-06 Final `pip-audit`, `npm audit`, slither clean; secrets scan clean
 - [ ] P8-07 Fresh-machine rehearsal: clone on a DIFFERENT computer (or clean VM), `make doctor && make up && make smoke`, run the demo — record time-to-running
 - [ ] P8-08 Offline demo mode verified: `VULN_CACHE_ONLY=true`, `LLM_ENABLED=false`, no internet, demo script completes

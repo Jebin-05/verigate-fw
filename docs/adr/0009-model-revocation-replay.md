@@ -27,6 +27,11 @@ that on-chain fact into re-evaluated devices, and it has to work when the succes
   changed verdicts.
 
 ## Consequences
+- The replay judges each pair against the device's *current* state, not the state at the time of
+  the stale verdict (the verdict record does not carry the installed version). A device that has
+  moved on since gets REJECT (`version_monotonic`) for the old release, which is correct — that
+  release must not be installed now — but it shows up as REJECT rows in the verdict log after a
+  revocation (seen in the docker demo rehearsals: 20 fleet devices × 3 older releases).
 - The replay costs one full verification per pair (Stage 2 inference, plus the LLM rationale for
   the release-level pair). Measured on the dev stack: 2 pairs, one release, 105 s including a
   ~100 s CPU-only LLM call; without the explainer the same replay is a few seconds.

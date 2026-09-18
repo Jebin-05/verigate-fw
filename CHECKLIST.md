@@ -101,8 +101,8 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 ## P8 — Paper, demo, hand-in (weeks 13–14)
 - [x] P8-01 SRS finalised in `docs/srs/`
 - [x] P8-02 Paper draft in `docs/paper/` (LaTeX), figures from P7-04 only
-- [ ] P8-03 Demo rehearsal ×3 with `scripts/demo.sh`; recorded video fallback
-- [ ] P8-04 README updated with results summary and reproduction steps
+- [x] P8-03 Demo rehearsal ×3 with `scripts/demo.sh`; recorded video fallback
+- [x] P8-04 README updated with results summary and reproduction steps
 - [ ] P8-05 Tag `v1.0.0`; GitHub Release with models, wheel, gas report; Zenodo DOI (optional)
 - [x] P8-06 Final `pip-audit`, `npm audit`, slither clean; secrets scan clean
 - [ ] P8-07 Fresh-machine rehearsal: clone on a DIFFERENT computer (or clean VM), `make doctor && make up && make smoke`, run the demo — record time-to-running

@@ -1,0 +1,36 @@
+Script started on 2026-09-18 21:04:14+05:30 [<not executed on terminal>]
+Friday 18 September 2026 09:04:14 PM IST
+ Container verigate-fleet-1  Started
+dashboard → http://localhost:5173   gateway → http://localhost:8000/docs
+
+real	1m18.613s
+user	0m25.196s
+sys	0m7.421s
+  stolen-key          expected REJECT   observed REJECT   check=publisher_active  PASS
+  rollback            expected REJECT   observed REJECT   check=version_monotonic  PASS
+  freeze              expected DEFER    observed DEFER    check=expiry  PASS
+  sbom-swap           expected REJECT   observed REJECT   check=sbom_hash  PASS
+  vulnerable-genuine  expected DEFER    observed DEFER    check=None  PASS
+  hidden-payload      expected DEFER    observed DEFER    check=None  PASS
+  bad-history         expected DEFER    observed DEFER    check=None  PASS
+  poisoned-model      expected REPLAYED observed REPLAYED check=None  PASS
+  policy-tamper       expected BLOCKED  observed BLOCKED  check=None  PASS
+
+[36m▶ verdict log tail + committed batches[0m
+  release-level  DEFER
+  release-level  REJECT   firmware_hash
+  hidden-payload-target DEFER
+  release-level  DEFER
+  attack-target  DEFER
+  release-level  DEFER
+  bad-history-target APPROVE
+  poisoned-model-target DEFER
+  5 batches on-chain, 61 verdicts
+
+[32m✔ demo complete in 58 s[0m
+
+real	0m57.805s
+user	0m0.463s
+sys	0m0.227s
+
+Script done on 2026-09-18 21:06:30+05:30 [COMMAND_EXIT_CODE="0"]

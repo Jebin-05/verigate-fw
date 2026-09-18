@@ -6,3 +6,6 @@ Makefile text eol=lf
 *.onnx binary
 *.png binary
 *.pdf binary
+# terminal recordings (script) are binary-ish: keep bytes as they are
+docs/demo/*.log -text
+docs/demo/*.timing -text

@@ -6,7 +6,7 @@ N ?= 20
 
 .PHONY: up down logs smoke doctor llm-pull help bootstrap lint format typecheck test test-unit test-integration test-contracts test-all \
         infra-up infra-down contracts-build contracts-deploy-local gateway fleet dashboard \
-        train models-hash models-register eval eval-all figures clean
+        train models-hash models-register vulndb-seed eval eval-all figures clean
 
 up:              ## run EVERYTHING in docker (any machine, no host toolchain needed)
 	[ -f .env ] || cp .env.example .env
@@ -24,6 +24,10 @@ smoke:           ## fresh-machine proof: up → deploy → publish → verify �
 
 doctor:          ## diagnose this machine before running anything
 	./scripts/doctor.sh
+
+vulndb-seed:     ## copy the host vulnerability cache (or SNAP=data/vulndb-demo) into the running gateway's volume
+	docker compose -f infra/docker-compose.yml --profile app cp $(or $(SNAP),data/processed/vulndb)/. gateway:/app/data/processed/vulndb/
+	@echo "seeded; the first Stage-2 verification is now warm"
 
 llm-pull:        ## start ollama and pull the explainer model once (~2 GB)
 	docker compose -f infra/docker-compose.yml --profile llm up -d ollama

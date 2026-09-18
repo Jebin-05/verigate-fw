@@ -5,7 +5,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ### Added
 - Evaluation (P7-01, P7-03): runners + configs for `latency_stage1`, `latency_stage2` (incl. explainer calls), `gas_per_verdict_vs_batched`, `revocation_propagation`, `attack_matrix`; all write raw.csv / summary.json / env.json with ≥ 5 repetitions and a stack snapshot (chain, contracts, model hashes, vulndb date). Measured on the dev laptop: deterministic gate 3 ms checks / 89 ms warm verify / 98 ms cold; Stage 2 115 ms + 104 ms cold, 0.1 + 1.3 ms warm, 216 ms per device verify over HTTP; explainer 43–91 s per rationale (CPU); gas 209 642 per batch regardless of size → 1 048 per verdict at 200/batch; revocation replay 7.5 / 8.8 / 11.7 s for 5 / 20 / 50 devices; attack matrix 11/11 at 100 % over 5 runs (poisoned-model 2 runs).
 - `evaluation/figures.py` (P7-04, the only figure producer; `make figures`), `docs/comparison.md` (P7-05, cited feature table) and `docs/limitations.md` (P7-06, thirteen measured limitations).
+- Demo runbook and three recorded rehearsals (`docs/demo/`, replay with `scriptreplay`); `make vulndb-seed`; README results table and reproduction steps; security audit record (`docs/security-audit.md`); SRS (`docs/srs/SRS.md`); paper draft with built PDF (`docs/paper/`) (P8-01..P8-04, P8-06).
 ### Fixed
+- Compose: the vulnerability-cache volume was root-owned in the container (every run re-fetched OSV/EPSS/KEV, one rehearsal took 31 min); the image now pre-creates the directory as `app`. One shared image per Dockerfile is built by one service (a parallel build of the same tag raced).
 - Kubo in compose is now a local node without DHT (`infra/ipfs-init.sh`): a fresh node blocked `add` for minutes while providing to the public network.
 
 ## [0.2.0] - 2026-09-18 — full AI gate

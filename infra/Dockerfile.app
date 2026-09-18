@@ -6,7 +6,9 @@ COPY src ./src
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
 
 FROM python:3.11.9-slim
-RUN useradd -m app && mkdir -p /app/fleet-state /app/contracts/deployments && chown -R app /app
+# /app/data/processed/vulndb is a named volume in compose; created here (owned by app) so a fresh
+# volume inherits writable ownership — otherwise every run re-fetches OSV/EPSS/KEV.
+RUN useradd -m app && mkdir -p /app/fleet-state /app/contracts/deployments /app/data/processed/vulndb && chown -R app /app
 COPY --from=build /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=build /usr/local/bin/verigate-* /usr/local/bin/
 COPY --chown=app models /app/models

@@ -4,7 +4,9 @@ repos:
     rev: v4.6.0
     hooks:
       - id: end-of-file-fixer
+        exclude: ^docs/demo/.*\.(log|timing)$   # terminal recordings stay verbatim
       - id: trailing-whitespace
+        exclude: ^docs/demo/.*\.(log|timing)$
       - id: check-yaml
       - id: check-json
       - id: check-added-large-files

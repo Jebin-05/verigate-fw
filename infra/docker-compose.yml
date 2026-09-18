@@ -5,7 +5,7 @@
 name: verigate
 
 x-python-app: &python-app
-  build: { context: .., dockerfile: infra/Dockerfile.app }
+  image: verigate-app:local       # one image for gateway / fleet / registrar; built by the gateway service only
   env_file: ../.env
   environment:
     RPC_URL: http://hardhat:8545
@@ -21,6 +21,7 @@ x-python-app: &python-app
 
 services:
   hardhat:
+    image: verigate-hardhat:local
     build: { context: .., dockerfile: infra/Dockerfile.hardhat }
     ports: ["${HARDHAT_PORT:-8545}:8545"]
     healthcheck:
@@ -49,7 +50,7 @@ services:
     profiles: ["llm"]          # optional: docker compose --profile llm up  (pull model once: make llm-pull)
 
   deployer:                     # one-shot: compiles + deploys contracts, writes deployments/localhost/addresses.json
-    build: { context: .., dockerfile: infra/Dockerfile.hardhat }
+    image: verigate-hardhat:local   # built by the hardhat service
     command: ["npx", "hardhat", "run", "scripts/deploy.ts", "--network", "docker"]
     environment: { RPC_URL: http://hardhat:8545 }
     volumes: ["../contracts/deployments:/app/contracts/deployments"]
@@ -65,6 +66,7 @@ services:
 
   gateway:
     <<: *python-app
+    build: { context: .., dockerfile: infra/Dockerfile.app }
     command: ["verigate-gateway"]
     ports: ["${GATEWAY_PORT:-8000}:8000"]
     depends_on:

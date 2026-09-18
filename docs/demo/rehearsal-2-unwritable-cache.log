@@ -1,0 +1,36 @@
+Script started on 2026-09-18 20:19:10+05:30 [<not executed on terminal>]
+Friday 18 September 2026 08:19:10 PM IST
+ Container verigate-dashboard-1  Started
+dashboard → http://localhost:5173   gateway → http://localhost:8000/docs
+
+real	1m31.087s
+user	0m26.042s
+sys	0m8.166s
+
+[36m▶ waiting for the gateway at http://localhost:8000[0m
+chain block 10 · releases 0 · devices 0
+
+[36m▶ publishing fixture release v1.0.0 (idempotent)[0m
+releaseId 0x1fe365d1dd144187ef1a1f469cc1ed3a8fcf71850c2dc614ed4033a66eeaf770
+
+[36m▶ release-level verification (expect APPROVE)[0m
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/usr/lib/python3.11/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+real	30m55.068s
+user	0m0.281s
+sys	0m0.114s
+
+Script done on 2026-09-18 20:51:36+05:30 [COMMAND_EXIT_CODE="0"]

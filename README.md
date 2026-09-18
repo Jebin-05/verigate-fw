@@ -50,9 +50,11 @@ idempotent end to end: same inputs → same CIDs and `"status": "unchanged"`. Id
 make up && ./scripts/demo.sh      # publish → devices install → eleven attacks caught
 DEMO_MODE=host ./scripts/demo.sh  # same against `make gateway` + `make infra-up`
 ```
-Measured on the development laptop (i7-1255U, no GPU): 53 s with the LLM explainer off (the
+Measured on the development laptop (i7-1255U, no GPU): 53–58 s with the LLM explainer off (the
 compose default — `--profile llm` adds Ollama), 348 s with a CPU-only `qwen2.5:3b-instruct`
 explaining each release-level verdict (~60–120 s per rationale; device polls never wait for it).
+The first run on an empty vulnerability cache takes 9–30 min (OSV/EPSS/KEV fetch); run the demo
+once the day before, or `make vulndb-seed` from a host cache — runbook in `docs/demo/README.md`.
 Dashboard: Releases · Verdicts (Merkle proof, on-chain `verifyLeaf` via direct RPC) · Fleet ·
 Publishers · Models · Policy · Attacks (buttons run `verigate-attack` through the gateway) with a
 live websocket log. Attack scripts: `verigate-attack run <name|all>` — Stage 1: tamper, forge, stolen-key,
@@ -95,5 +97,37 @@ Enable Stage 2 at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL
 | `docs/` | Guide, manual, SRS, ADRs, paper |
 | `.github/` | CI/CD workflows, templates, CODEOWNERS |
 
+## Results (v1.0.0, measured — every number has a directory under `evaluation/results/`)
+
+Machine: Intel i7-1255U, 15 GB RAM, no GPU; local Hardhat + Kubo; explainer off unless stated;
+≥ 5 repetitions, warm-up discarded, median (IQR in the summaries).
+
+| what | result | source |
+|---|---|---|
+| Stage 1: eight checks · warm verify · cold verify (IPFS + chain) | 3.3 ms · 89 ms · 98 ms | `latency_stage1/2026-09-18_1045_ec248b1` |
+| Stage 2: SBOM score cold / warm · image score cold / warm | 115 / 0.1 ms · 104 / 1.3 ms | `latency_stage2/2026-09-18_1100_ec248b1` |
+| full gate per device: in-process · over HTTP | 111 ms · 216 ms | same |
+| LLM rationale (qwen2.5:3b-instruct, CPU) | 43–91 s, median 88 s | same, `raw_llm.csv` |
+| gas per `commitBatch` · per verdict at 200/batch | 209 642 · 1 048 (−99.5 % vs 1 tx per verdict) | `gas_per_verdict_vs_batched/2026-09-18_1044_ec248b1_1` |
+| model revocation → 5 / 20 / 50 device verdicts replayed | 7.5 / 8.8 / 11.7 s (+2 s poll) | `revocation_propagation/2026-09-18_1109_ec248b1` |
+| attack matrix, 11 scenarios × 5 runs (poisoned-model × 2) | 52 / 52 expected outcomes | `attack_matrix/2026-09-18_1114_ec248b1` |
+| image anomaly: append · pack · byte-patch · section-swap · downgrade (recall @ r_img ≥ 0.5 / AUROC) | 1.00/1.00 · 0.06/0.90 · 0.01/0.54 · 0.01/0.50 · 0.00/0.43 | `detection_f1/2026-09-18_1125_ec248b1` |
+| SBOM risk model vs CVSS/EPSS/KEV baseline (held-out, Spearman / MAE) | 0.965 / 0.17 vs 0.976 / 1.01 | `sbom_ranking/2026-09-18_1125_ec248b1` |
+| demo (`scripts/demo.sh`, 11 attacks) | docker: 58 s warm cache, 553 s cold · host: 53 s without / 348 s with the CPU-only explainer | `docs/demo/README.md` |
+
+The weak rows are discussed, not hidden: `docs/limitations.md`. Figures: `evaluation/figures/`
+(regenerate with `make figures`). Paper: `docs/paper/main.pdf`. Requirements: `docs/srs/SRS.md`.
+
+### Reproduce
+```bash
+make up                                   # or: make infra-up && make contracts-deploy-local && make models-register && LLM_ENABLED=false make gateway
+./scripts/demo.sh                         # publish → fleet installs → eleven attacks (host mode: DEMO_MODE=host)
+make eval-all && make figures             # every experiment (needs the host toolchain; ~40 min, explainer section ~10 min)
+make train                                # retrain both models (byte-identical ONNX; needs the corpus: verigate-train data fetch|sbom|images)
+```
+Datasets are never committed; they regenerate from `data/sources.yaml` (hashes in `data/MANIFEST.sha256`).
+
 ## Status
-See `CHECKLIST.md`.
+All phases P0–P8 of the Developer Manual are done except the items that need the project's GitHub
+and funded testnet keys: P0-09/10/11 (push, branch protection, environment secrets) and P7-02
+(Arbitrum Sepolia deployment). See `CHECKLIST.md`.

@@ -3,6 +3,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 ### Added
+- Stage 1: eight pure, fail-closed checks (`gateway/stage1/checks.py`) and the short-circuiting runner with structured logs; `expiry` failure yields DEFER (freeze), everything else REJECT; table-driven tests with missing/malformed/boundary/dependency-down rows (P3-01, P3-02).
 - `verigate-publish` CLI (keygen / register / release / revoke) with JSON output and idempotent steps; three toy firmware release fixtures (ELF/ARM header, CycloneDX SBOMs) under `tests/fixtures/releases/`; publish-flow integration test (P2-01..P2-06).
 ### Fixed
 - Module-level loggers now follow `configure_logging()` (were bound to structlog's default stdout printer at import time).

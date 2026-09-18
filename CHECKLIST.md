@@ -19,7 +19,7 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [ ] P0-11 CI green on `main` for all four workflows (security may run on schedule)
 - [x] P0-12 Choose licence (MIT recommended for a research artefact) — add `LICENSE`
 - [x] P0-13 Portability scaffold: pinned images, `Dockerfile.app/.hardhat/.dashboard`, compose profiles, `make up/down/smoke/doctor`, `.gitattributes`, `.nvmrc`, `.python-version`
-- [ ] P0-14 `docker compose --profile app build` succeeds on a clean clone (needs lockfiles + dashboard bootstrap)
+- [x] P0-14 `docker compose --profile app build` succeeds on a clean clone (needs lockfiles + dashboard bootstrap)
 - [x] P0-15 `make doctor` passes; no absolute host paths anywhere in the repo (doctor greps for them)
 
 ## P1 — Common library & contracts (weeks 1–2)

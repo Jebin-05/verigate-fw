@@ -53,6 +53,9 @@ verigate-train = "verigate.ml.train.cli:app"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+verigate = ["py.typed", "common/abi/*.json"]
+
 # ---------------- ruff: lint + format (replaces black, isort, flake8) ----------------
 [tool.ruff]
 target-version = "py311"

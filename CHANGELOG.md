@@ -5,6 +5,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ### Added
 - Attack scenarios tamper / forge / stolen-key / rollback / freeze / sbom-swap (`verigate-attack run <name>|all`, JSON reports) with one e2e test each asserting the verdict and the verdict-log line; live Stage-1 integration test against deployed contracts (P3-08, P3-09).
 ### Fixed
+- Wheel/Docker image now ships the packaged contract ABIs (`verigate.common.abi` is a package with `package-data`); found by `make smoke`.
 - `ChainClient` now decodes custom errors carried by `Web3RPCError` (reverts raised at `eth_sendRawTransaction` time by Hardhat), not only by `ContractLogicError`.
 - Gateway service + FastAPI (`/health`, `/releases`, `/verify/{releaseId}`, `/verdicts`, device protocol, websocket `/logs`), resumable `NewRelease` listener with backoff, JSON stores under `STATE_DIR`; device emulator with NVS, A/B slots, self-verification and signed install receipts; asyncio fleet runner (`verigate-fleet run`); signed device↔gateway protocol with nonce + timestamp window (P3-03..P3-07).
 - Stage 1: eight pure, fail-closed checks (`gateway/stage1/checks.py`) and the short-circuiting runner with structured logs; `expiry` failure yields DEFER (freeze), everything else REJECT; table-driven tests with missing/malformed/boundary/dependency-down rows (P3-01, P3-02).

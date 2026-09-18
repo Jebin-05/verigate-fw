@@ -8,7 +8,10 @@ feature vector (what ``featureHash`` commits to) and the model hashes that produ
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
+from verigate.common.settings import Settings
+from verigate.gateway.stage2.sbom import SbomScorer, build_sbom_scorer
 from verigate.gateway.verdicts.record import feature_hash
 
 
@@ -18,7 +21,7 @@ class Stage2Scores:
 
     r_sbom_bp: int
     r_img_bp: int
-    features: dict[str, int] = field(default_factory=dict)
+    features: dict[str, Any] = field(default_factory=dict)
     model_hashes: tuple[str, ...] = ()
     rationale_cid: str | None = None
 
@@ -29,8 +32,39 @@ class Stage2Scores:
 
 
 class NullScorer:
-    """No models registered yet: zero risk from Stage 2, decision rests on Stage 1 + reputation."""
+    """No models configured: zero risk from Stage 2, the decision rests on Stage 1 + reputation."""
 
     def score(self, firmware: bytes, sbom: bytes) -> Stage2Scores:  # noqa: ARG002
         """Return zero scores with an empty feature vector."""
         return Stage2Scores(r_sbom_bp=0, r_img_bp=0)
+
+
+class Stage2Scorer:
+    """Composes the configured model scorers (SBOM in P5, image in P6)."""
+
+    def __init__(self, sbom: SbomScorer | None) -> None:
+        self.sbom = sbom
+
+    def score(self, firmware: bytes, sbom: bytes) -> Stage2Scores:  # noqa: ARG002 — image scorer lands in P6
+        """Run every configured model; the feature vector nests one dict per model."""
+        features: dict[str, Any] = {}
+        hashes: list[str] = []
+        r_sbom = 0
+        if self.sbom is not None:
+            result = self.sbom.score(sbom)
+            r_sbom = result.r_sbom_bp
+            features["sbom"] = {
+                **result.features,
+                "model": result.model_hash,
+                "top3": [[name, value] for name, value in result.top_features],
+            }
+            hashes.append(result.model_hash)
+        return Stage2Scores(
+            r_sbom_bp=r_sbom, r_img_bp=0, features=features, model_hashes=tuple(hashes)
+        )
+
+
+def build_scorer(settings: Settings) -> NullScorer | Stage2Scorer:
+    """The scorer for these settings (``NullScorer`` when no model is configured)."""
+    sbom = build_sbom_scorer(settings)
+    return Stage2Scorer(sbom) if sbom is not None else NullScorer()

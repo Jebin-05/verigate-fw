@@ -101,7 +101,9 @@ async def test_policy_reject_lowers_reputation(world: dict[str, Any]) -> None:
     chain.publisher_records[world["pid"]] = chain.get_publisher(world["pid"]).__class__(
         **{**chain.get_publisher(world["pid"]).__dict__, "reputation_bp": 100}
     )
-    chain.policy = chain.policy.__class__(0, 0, 10_000, 3000, 6000, 2, "0x" + "0" * 40, 1)
+    chain.policy_record = chain.policy_record.__class__(
+        0, 0, 10_000, 3000, 6000, 2, "0x" + "0" * 40, 1
+    )
     result = await service.verify(world["rid"])
     assert result.verdict.value == "REJECT" and result.r_bp == 9900 and result.stage1 is not None
     assert result.stage1.ok  # Stage 1 passed; the policy rejected on reputation alone

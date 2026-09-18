@@ -2,6 +2,8 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Added
+- Vulnerability data clients (OSV with client-side range evaluation and OpenWrt→upstream mapping, EPSS dated snapshots, CISA KEV as-of-date) with a disk cache and `VULN_CACHE_ONLY` offline mode; OpenWrt corpus pipeline (`verigate-train data fetch|sbom`, 624 CycloneDX SBOMs across 49 releases, `data/MANIFEST.sha256`); pure SBOM features with golden vectors; CVSS/EPSS/KEV baseline scorer; `verigate-admin` (register/revoke model, set policy, revoke publisher, grant gateway) (P5-01, P5-02, P5-03, P5-05).
 
 ## [0.1.0] - 2026-09-18 — crypto-path baseline
 ### Added

@@ -74,7 +74,7 @@ async def test_engine_caches_per_block_and_defers_on_outage() -> None:
     engine = PolicyEngine(chain)  # type: ignore[arg-type]
     first = await engine.decide(0, 0, 5000)
     assert first.verdict is Verdict.APPROVE and first.policy_version == 1
-    chain.policy = PolicyRecord(4000, 4000, 2000, 500, 600, 2, "0x" + "0" * 40, 2)
+    chain.policy_record = PolicyRecord(4000, 4000, 2000, 500, 600, 2, "0x" + "0" * 40, 2)
     assert (await engine.decide(0, 0, 5000)).policy_version == 1  # same block → cached
     chain.block += 1
     assert (await engine.decide(0, 0, 5000)).policy_version == 2  # new block → re-read

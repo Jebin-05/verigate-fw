@@ -57,7 +57,12 @@ class Settings(BaseSettings):
 
     # --- vulnerability data
     osv_api: str = "https://api.osv.dev/v1"
+    epss_url: str = "https://epss.empiricalsecurity.com"
+    kev_url: str = (
+        "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+    )
     vuln_cache_only: bool = False
+    vuln_cache_dir: Path = Path("data/processed/vulndb")
 
     # --- ports (host side; containers always listen on the defaults)
     hardhat_port: int = 8545
@@ -75,6 +80,9 @@ class Settings(BaseSettings):
     listener_poll_s: float = Field(default=2.0, gt=0)
     protocol_window_s: int = Field(default=120, ge=1)
     stage2_model_hashes: str = ""  # comma-separated hex; empty until P5 registers a model
+    models_dir: Path = Path("models")
+    sbom_model: str = ""  # e.g. sbom_risk.onnx — empty disables the SBOM scorer
+    stage2_epss_date: str = "2025-09-18"  # EPSS snapshot used at inference (recorded in results)
     batch_max_size: int = Field(default=50, ge=1)  # ADR-0005
     batch_max_wait_s: float = Field(default=10.0, gt=0)  # ADR-0005
     reputation_alpha_bp: int = Field(default=1000, ge=1, le=10_000)  # ADR-0006

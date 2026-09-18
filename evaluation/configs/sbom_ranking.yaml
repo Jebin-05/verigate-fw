@@ -1,0 +1,7 @@
+# P5-07: ranking quality of the SBOM risk model vs the CVSS/EPSS/KEV baseline on held-out releases.
+experiment: sbom_ranking
+seed: 42
+repetitions: 200            # bootstrap resamples of the held-out set (model is deterministic)
+test_fraction: 0.2          # newest 20 % of releases, same split as training
+model: models/sbom_risk.onnx
+dataset: data/processed/datasets/sbom_risk_2025-09-18_2026-09-18.csv

@@ -32,6 +32,7 @@ from verigate.gateway.api.logs import hub
 from verigate.gateway.listener import NewReleaseListener
 from verigate.gateway.service import GatewayService
 from verigate.gateway.stage1.inputs import DeviceView
+from verigate.gateway.stage2.scores import build_scorer
 
 log = get_logger(__name__)
 
@@ -294,12 +295,14 @@ async def _run_attack_cli(args: list[str]) -> dict[str, Any]:
 
 def build_service(settings: Settings) -> GatewayService:
     """Real clients from settings (used by ``run`` and by the attack CLI)."""
-    return GatewayService(
+    service = GatewayService(
         settings=settings,
         chain=ChainClient(settings),
         ipfs=make_backend(settings),
         state_dir=settings.state_dir,
     )
+    service.scorer = build_scorer(settings)
+    return service
 
 
 def run() -> None:

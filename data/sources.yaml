@@ -1,2 +1,76 @@
-# pinned upstream releases used for the benign dataset — filled in P5
-sources: []
+# Pinned upstream releases used for the benign SBOM corpus (P5-02). Everything here is public
+# OpenWrt release metadata: one package manifest per (release, target) listing every shipped
+# package with its exact version. `verigate-train data fetch` downloads them into data/raw/,
+# `verigate-train data sbom` converts them to CycloneDX under data/processed/, and
+# data/MANIFEST.sha256 records every file so the corpus is reproducible without committing it.
+#
+# ESPHome and Tasmota (mentioned in the Project Guide) ship monolithic ESP images without a
+# package manifest and syft cannot catalogue them, so they are not part of this corpus; the
+# model card states this.
+openwrt:
+  base_url: https://downloads.openwrt.org/releases
+  releases:
+    - 19.07.0
+    - 19.07.1
+    - 19.07.2
+    - 19.07.3
+    - 19.07.4
+    - 19.07.5
+    - 19.07.6
+    - 19.07.7
+    - 19.07.8
+    - 19.07.9
+    - 19.07.10
+    - 21.02.0
+    - 21.02.1
+    - 21.02.2
+    - 21.02.3
+    - 21.02.4
+    - 21.02.5
+    - 21.02.6
+    - 21.02.7
+    - 22.03.0
+    - 22.03.1
+    - 22.03.2
+    - 22.03.3
+    - 22.03.4
+    - 22.03.5
+    - 22.03.6
+    - 22.03.7
+    - 23.05.0
+    - 23.05.1
+    - 23.05.2
+    - 23.05.3
+    - 23.05.4
+    - 23.05.5
+    - 23.05.6
+    - 24.10.0
+    - 24.10.1
+    - 24.10.2
+    - 24.10.3
+    - 24.10.4
+    - 24.10.5
+    - 24.10.6
+    - 24.10.7
+    - 24.10.8
+    - 25.12.0
+    - 25.12.1
+    - 25.12.2
+    - 25.12.3
+    - 25.12.4
+    - 25.12.5
+  targets:
+    - x86/64
+    - x86/generic
+    - ath79/generic
+    - ramips/mt7621
+    - ramips/mt7620
+    - bcm27xx/bcm2711
+    - bcm27xx/bcm2710
+    - mediatek/filogic
+    - mvebu/cortexa9
+    - ipq40xx/generic
+    - rockchip/armv8
+    - sunxi/cortexa53
+    - lantiq/xrx200
+    - mpc85xx/p1020

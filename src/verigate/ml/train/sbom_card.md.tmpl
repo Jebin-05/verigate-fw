@@ -1,0 +1,55 @@
+# Model card — `{model_name}.onnx`
+
+- **Model hash (SHA-256 of the ONNX bytes, registered on-chain):** `{model_hash}`
+- **Trained:** {trained_on} · git `{git_sha}` · seed {seed} · Python {python_version}
+
+## Purpose
+Stage-2 SBOM risk score `r_sbom ∈ [0, 1]` for a firmware release: an estimate of the release's
+exposure to actively exploited vulnerabilities, computed from its SBOM and public vulnerability
+data. It only ever *tightens* a decision (Stage 1 cannot be overridden) and is anchored on-chain
+with the feature hash of every verdict so any score can be recomputed.
+
+## Training data
+- OpenWrt release manifests → CycloneDX SBOMs (`data/sources.yaml`): {n_rows} release×target rows
+  across {n_releases} releases ({first_release} … {last_release}).
+- `data/MANIFEST.sha256` (SHA-256 of the corpus manifest): `{data_manifest_sha}`.
+- Vulnerability data: OSV.dev (query by package name + version across every ecosystem,
+  de-duplicated by CVE), EPSS snapshot {t0} ({epss_version}), CISA KEV catalogue released
+  {kev_released}.
+- ESPHome / Tasmota (named in the Project Guide) are **not** included: they ship monolithic ESP
+  images without a package manifest, so no SBOM can be derived honestly.
+
+## Target (label)
+**KEV exposure at T1 = {t1}**: the fraction of a release's unique CVEs that CISA's KEV catalogue
+lists as known-exploited on T1. Features are computed as of T0 = {t0} (EPSS snapshot of T0, KEV
+membership as of T0), so the model predicts later exploitation exposure from earlier public data.
+The label is ground truth from CISA, not a hand-made severity score. The tampered / malicious sets
+used elsewhere in this project are synthetic; this model does not claim to detect malware.
+
+## Features (units) — order is the ONNX input order
+| # | name | unit |
+|---|---|---|
+{feature_rows}
+
+## Model
+`sklearn.ensemble.HistGradientBoostingRegressor`, `{hyperparams}`, `random_state={seed}`,
+no early stopping; exported with skl2onnx (opset 17 / ai.onnx.ml 3). ONNX output equals sklearn
+output on the test set (max abs diff {onnx_max_abs_diff:.2e}, tested at atol 1e-6).
+
+## Split and metrics (held-out = the newest releases, whole releases)
+- train rows: {train_rows} · test rows: {test_rows} · label mean (train / test): {label_mean_train:.4f} / {label_mean_test:.4f}
+
+| metric (test set) | model | baseline (CVSS/EPSS/KEV formula at T0) |
+|---|---|---|
+{metric_rows}
+
+## Known failure modes / limitations
+- One distribution family (OpenWrt); scores for very different SBOMs are extrapolations.
+- KEV is a curated list of *observed* exploitation: a release can be dangerous without any KEV entry.
+- OSV name-based matching can attach advisories of unrelated packages with the same name
+  (rare for firmware package names, but not impossible).
+- Per-target rows of one release share most packages; the split is by release so this cannot
+  inflate the metrics, but the effective sample size is closer to the number of releases.
+
+Regenerate with `make train` (`verigate-train sbom --seed 42`); `make models-hash` updates
+`models/MANIFEST.sha256`. Old model files are never overwritten once registered — bump the name.

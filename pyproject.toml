@@ -23,10 +23,13 @@ dependencies = [
   "pandas>=2.2",
   "onnxruntime>=1.18",
   "skl2onnx>=1.17",
+  "onnx>=1.16",
   "shap>=0.46",
   "typer>=0.12",
   "structlog>=24.1",
   "packaging>=24.0",
+  "pyyaml>=6.0",
+  "scipy>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +43,7 @@ dev = [
   "pre-commit>=3.8",
   "pip-audit>=2.7",
   "types-requests",
+  "types-PyYAML",
 ]
 eval = ["matplotlib>=3.9", "jupyter>=1.1", "pyarrow>=17"]
 
@@ -49,12 +53,13 @@ verigate-gateway = "verigate.gateway.api.main:run"
 verigate-fleet = "verigate.fleet.cli:app"
 verigate-attack = "verigate.attacks.cli:app"
 verigate-train = "verigate.ml.train.cli:app"
+verigate-admin = "verigate.gateway.admin:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-verigate = ["py.typed", "common/abi/*.json"]
+verigate = ["py.typed", "common/abi/*.json", "ml/train/*.tmpl"]
 
 # ---------------- ruff: lint + format (replaces black, isort, flake8) ----------------
 [tool.ruff]
@@ -81,8 +86,14 @@ warn_unreachable = true
 mypy_path = "src"
 packages = ["verigate"]
 [[tool.mypy.overrides]]
-module = ["sklearn.*", "shap.*", "skl2onnx.*", "onnxruntime.*", "multiformats.*", "nacl.*"]
+module = ["sklearn.*", "shap.*", "skl2onnx.*", "onnxruntime.*", "multiformats.*", "nacl.*", "scipy.*", "onnx.*"]
 ignore_missing_imports = true
+
+# ---------------- coverage ----------------
+[tool.coverage.run]
+# Attack scenarios are exercised end to end (tests/e2e/test_attack_*.py against a running stack),
+# not by the unit suite; the training CLI is exercised by `make train`.
+omit = ["src/verigate/attacks/*", "src/verigate/ml/train/cli.py"]
 
 # ---------------- pytest ----------------
 [tool.pytest.ini_options]

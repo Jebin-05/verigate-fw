@@ -71,11 +71,11 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P4-10 Tag `v0.1.0` — crypto-path baseline release
 
 ## P5 — SBOM risk model (weeks 7–8)
-- [ ] P5-01 `ml/vulndb`: OSV, EPSS, KEV clients with disk cache; offline mode
-- [ ] P5-02 `ml/data`: fetch pinned firmware releases; syft SBOMs; `data/MANIFEST.sha256`
-- [ ] P5-03 `ml/features/sbom_features.py` + golden vectors
+- [x] P5-01 `ml/vulndb`: OSV, EPSS, KEV clients with disk cache; offline mode
+- [x] P5-02 `ml/data`: fetch pinned firmware releases; syft SBOMs; `data/MANIFEST.sha256`
+- [x] P5-03 `ml/features/sbom_features.py` + golden vectors
 - [ ] P5-04 Training script (seed 42) → `models/sbom_risk.onnx` + card; ONNX == sklearn on test set
-- [ ] P5-05 Baseline: deterministic CVSS/EPSS/KEV scorer (arXiv 2601.01308-style) for comparison
+- [x] P5-05 Baseline: deterministic CVSS/EPSS/KEV scorer (arXiv 2601.01308-style) for comparison
 - [ ] P5-06 `stage2/sbom.py` inference; SHAP top-3; cached per release
 - [ ] P5-07 Evaluation config `sbom_ranking.yaml`; AUROC / Spearman vs baseline recorded
 - [ ] P5-08 Register model hash on-chain via admin CLI; verdict carries modelHash

@@ -28,7 +28,7 @@ from verigate.gateway.policy.engine import BASIS, Decision, PolicyEngine
 from verigate.gateway.reputation import ReputationUpdater
 from verigate.gateway.stage1.inputs import DeviceView, Stage1Input
 from verigate.gateway.stage1.runner import Stage1Result, run_stage1
-from verigate.gateway.stage2.scores import NullScorer, Stage2Scores
+from verigate.gateway.stage2.scores import NullScorer, Stage2Scorer, Stage2Scores
 from verigate.gateway.store import Cursor, DeviceRecord, DeviceStore, VerdictLog
 from verigate.gateway.verdicts.batch import VerdictBatcher
 from verigate.gateway.verdicts.record import VerdictRecord, feature_hash
@@ -111,7 +111,7 @@ class GatewayService:
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
     started_at: float = field(default_factory=time.time, init=False)
     policy: PolicyEngine = field(init=False)
-    scorer: NullScorer = field(default_factory=NullScorer)
+    scorer: NullScorer | Stage2Scorer = field(default_factory=NullScorer)
     batcher: VerdictBatcher | None = field(default=None, init=False)
     reputation: ReputationUpdater | None = field(default=None, init=False)
     gateway_account: LocalAccount | None = field(default=None, init=False)

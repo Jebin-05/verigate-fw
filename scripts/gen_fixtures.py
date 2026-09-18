@@ -17,6 +17,14 @@ from verigate.common.canonical import canonical_json
 from verigate.common.crypto import KeyPair, sha256_hex
 from verigate.common.manifest import Cids, Manifest
 from verigate.common.merkle import VERDICT_DOMAIN, MerkleTree, leaf_hash, node_hash
+from verigate.ml.baseline import baseline_bp
+from verigate.ml.data.sbom import Component
+from verigate.ml.features.sbom_features import (
+    FEATURE_NAMES,
+    CorpusContext,
+    VulnRecord,
+    sbom_features,
+)
 
 ROOT = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
 
@@ -153,7 +161,90 @@ def gen_crypto() -> None:
     )
 
 
+SBOM_CASES: dict[str, dict[str, Any]] = {
+    "01_clean": {
+        "components": [("busybox", "1.36.1-1"), ("dropbear", "2024.85-1")],
+        "vulns": {},
+    },
+    "02_typical": {
+        "components": [
+            ("openssl", "3.0.1"),
+            ("curl", "7.80.0"),
+            ("zlib", "1.2.11"),
+            ("cjson", "1.7.15"),
+        ],
+        "vulns": {
+            ("openssl", "3.0.1"): [
+                ("CVE-2022-0778", 7.5, 0.94, False),
+                ("CVE-2022-1292", 9.8, 0.60, True),
+            ],
+            ("curl", "7.80.0"): [
+                ("CVE-2023-38545", 8.8, 0.22, False),
+                ("CVE-2022-0778", 7.5, 0.94, False),
+            ],
+            ("zlib", "1.2.11"): [("CVE-2018-25032", 7.5, 0.05, None)],
+        },
+    },
+    "03_unknown_scores": {
+        "components": [("libfoo", "0.1")],
+        "vulns": {("libfoo", "0.1"): [("CVE-2099-0001", None, None, False)]},
+    },
+}
+SBOM_CONTEXT = {
+    "as_of": "2025-09-18",
+    "latest_version": {
+        "openssl": "3.0.14",
+        "curl": "8.9.1",
+        "zlib": "1.2.11",
+        "cjson": "1.7.18",
+        "busybox": "1.36.1-1",
+    },
+    "first_seen": {
+        "openssl@3.0.1": "2022-01-15",
+        "curl@7.80.0": "2021-11-10",
+        "zlib@1.2.11": "2017-01-15",
+        "busybox@1.36.1-1": "2023-05-18",
+    },
+}
+
+
+def gen_sbom_features() -> None:
+    """Feature vectors + baseline scores for hand-written vulnerability scenarios (no network)."""
+    from datetime import date  # noqa: PLC0415
+
+    context = CorpusContext(
+        as_of=date.fromisoformat(SBOM_CONTEXT["as_of"]),
+        latest_version=SBOM_CONTEXT["latest_version"],
+        first_seen={
+            (k.split("@")[0], k.split("@")[1]): date.fromisoformat(v)
+            for k, v in SBOM_CONTEXT["first_seen"].items()
+        },
+    )
+    for name, case in SBOM_CASES.items():
+        components = [Component(n, v) for n, v in case["components"]]
+        vulns = {
+            Component(n, v): [
+                VulnRecord(cve, cvss, epss, kev is True) for cve, cvss, epss, kev in recs
+            ]
+            for (n, v), recs in case["vulns"].items()
+        }
+        features = sbom_features(components, vulns, context)
+        all_records = [r for recs in vulns.values() for r in recs]
+        write(
+            ROOT / "features" / f"sbom_{name}.json",
+            {
+                "context": SBOM_CONTEXT,
+                "components": case["components"],
+                "vulns": {f"{n}@{v}": recs for (n, v), recs in case["vulns"].items()},
+                "feature_names": list(FEATURE_NAMES),
+                "features": features,
+                "baseline_bp": baseline_bp(all_records),
+            },
+        )
+
+
 if __name__ == "__main__":
     gen_canonical()
     gen_merkle()
     gen_crypto()
+    gen_sbom_features()

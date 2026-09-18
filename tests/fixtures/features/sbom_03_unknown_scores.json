@@ -1,0 +1,59 @@
+{
+  "context": {
+    "as_of": "2025-09-18",
+    "latest_version": {
+      "openssl": "3.0.14",
+      "curl": "8.9.1",
+      "zlib": "1.2.11",
+      "cjson": "1.7.18",
+      "busybox": "1.36.1-1"
+    },
+    "first_seen": {
+      "openssl@3.0.1": "2022-01-15",
+      "curl@7.80.0": "2021-11-10",
+      "zlib@1.2.11": "2017-01-15",
+      "busybox@1.36.1-1": "2023-05-18"
+    }
+  },
+  "components": [
+    [
+      "libfoo",
+      "0.1"
+    ]
+  ],
+  "vulns": {
+    "libfoo@0.1": [
+      [
+        "CVE-2099-0001",
+        null,
+        null,
+        false
+      ]
+    ]
+  },
+  "feature_names": [
+    "n_components",
+    "n_vulnerable_components",
+    "n_cves",
+    "max_cvss_x10",
+    "mean_cvss_x10",
+    "sum_epss_x1e4",
+    "max_epss_x1e4",
+    "kev_count",
+    "n_outdated",
+    "mean_dep_age_days"
+  ],
+  "features": {
+    "n_components": 1,
+    "n_vulnerable_components": 1,
+    "n_cves": 1,
+    "max_cvss_x10": 0,
+    "mean_cvss_x10": 0,
+    "sum_epss_x1e4": 0,
+    "max_epss_x1e4": 0,
+    "kev_count": 0,
+    "n_outdated": 0,
+    "mean_dep_age_days": 0
+  },
+  "baseline_bp": 0
+}

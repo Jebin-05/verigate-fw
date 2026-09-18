@@ -95,7 +95,7 @@ class FakeChain:
     reputations: list[tuple[bytes, int]] = field(default_factory=list)
     block: int = 100
     down: bool = False
-    policy: PolicyRecord = PolicyRecord(4000, 4000, 2000, 3000, 6000, 1, "0x" + "0" * 40, 1)
+    policy_record: PolicyRecord = PolicyRecord(4000, 4000, 2000, 3000, 6000, 1, "0x" + "0" * 40, 1)
 
     def __post_init__(self) -> None:
         from verigate.common.chain import ContractAddresses  # noqa: PLC0415
@@ -107,6 +107,7 @@ class FakeChain:
         self.publishers = _Contract(self)
         self.models = _Contract(self)
         self.verdicts = _Contract(self)
+        self.policy = _Contract(self)
 
     # --- fault injection
     def raise_if_down(self) -> None:
@@ -140,7 +141,7 @@ class FakeChain:
 
     def get_policy(self) -> PolicyRecord:
         self.raise_if_down()
-        return self.policy
+        return self.policy_record
 
     def release_count(self) -> int:
         self.raise_if_down()

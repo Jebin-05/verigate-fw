@@ -1,0 +1,99 @@
+{
+  "context": {
+    "as_of": "2025-09-18",
+    "latest_version": {
+      "openssl": "3.0.14",
+      "curl": "8.9.1",
+      "zlib": "1.2.11",
+      "cjson": "1.7.18",
+      "busybox": "1.36.1-1"
+    },
+    "first_seen": {
+      "openssl@3.0.1": "2022-01-15",
+      "curl@7.80.0": "2021-11-10",
+      "zlib@1.2.11": "2017-01-15",
+      "busybox@1.36.1-1": "2023-05-18"
+    }
+  },
+  "components": [
+    [
+      "openssl",
+      "3.0.1"
+    ],
+    [
+      "curl",
+      "7.80.0"
+    ],
+    [
+      "zlib",
+      "1.2.11"
+    ],
+    [
+      "cjson",
+      "1.7.15"
+    ]
+  ],
+  "vulns": {
+    "openssl@3.0.1": [
+      [
+        "CVE-2022-0778",
+        7.5,
+        0.94,
+        false
+      ],
+      [
+        "CVE-2022-1292",
+        9.8,
+        0.6,
+        true
+      ]
+    ],
+    "curl@7.80.0": [
+      [
+        "CVE-2023-38545",
+        8.8,
+        0.22,
+        false
+      ],
+      [
+        "CVE-2022-0778",
+        7.5,
+        0.94,
+        false
+      ]
+    ],
+    "zlib@1.2.11": [
+      [
+        "CVE-2018-25032",
+        7.5,
+        0.05,
+        null
+      ]
+    ]
+  },
+  "feature_names": [
+    "n_components",
+    "n_vulnerable_components",
+    "n_cves",
+    "max_cvss_x10",
+    "mean_cvss_x10",
+    "sum_epss_x1e4",
+    "max_epss_x1e4",
+    "kev_count",
+    "n_outdated",
+    "mean_dep_age_days"
+  ],
+  "features": {
+    "n_components": 4,
+    "n_vulnerable_components": 3,
+    "n_cves": 4,
+    "max_cvss_x10": 98,
+    "mean_cvss_x10": 84,
+    "sum_epss_x1e4": 18100,
+    "max_epss_x1e4": 9400,
+    "kev_count": 1,
+    "n_outdated": 3,
+    "mean_dep_age_days": 1973
+  },
+  "baseline_bp": 9057
+}

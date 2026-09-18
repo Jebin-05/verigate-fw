@@ -38,8 +38,13 @@ def _stderr_factory(*_args: Any) -> _StderrLogger:
     return _StderrLogger()
 
 
-def configure_logging(settings: Settings) -> None:
-    """Configure structlog + stdlib logging once per process. Idempotent."""
+def configure_logging(settings: Settings, extra_processors: list[Any] | None = None) -> None:
+    """Configure structlog + stdlib logging once per process. Idempotent.
+
+    Args:
+        settings: Supplies ``log_level`` and dev/CI mode.
+        extra_processors: Appended after the standard chain (the gateway adds its log hub here).
+    """
     level = _LEVELS.get(settings.log_level.upper(), logging.INFO)
     shared: list[Any] = [
         structlog.contextvars.merge_contextvars,
@@ -47,6 +52,7 @@ def configure_logging(settings: Settings) -> None:
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
+        *(extra_processors or []),
     ]
     renderer: Any = (
         structlog.dev.ConsoleRenderer(colors=sys.stderr.isatty())
@@ -60,6 +66,8 @@ def configure_logging(settings: Settings) -> None:
         cache_logger_on_first_use=False,
     )
     logging.basicConfig(level=level, stream=sys.stderr, format="%(message)s", force=True)
+    for noisy in ("httpx", "httpcore", "web3", "urllib3", "uvicorn.access"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> structlog.typing.FilteringBoundLogger:

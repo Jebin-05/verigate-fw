@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     # --- gateway
     gateway_host: str = "0.0.0.0"  # noqa: S104 — container-friendly default (ADR-0004)
     log_level: str = "INFO"
+    state_dir: Path = Path(".verigate/state")  # devices, verdict log, listener cursor
+    listener_poll_s: float = Field(default=2.0, gt=0)
+    protocol_window_s: int = Field(default=120, ge=1)
+    stage2_model_hashes: str = ""  # comma-separated hex; empty until P5 registers a model
 
     # --- Arbitrum Sepolia (evaluation only; never set in .env.example)
     arb_sepolia_rpc_url: str | None = None

@@ -50,11 +50,11 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 ## P3 — Gateway Stage 1 & fleet (weeks 3–4)
 - [x] P3-01 `stage1/checks.py`: 8 checks as pure functions returning `CheckResult`; table-driven tests
 - [x] P3-02 `stage1/runner.py`: fail-closed orchestration; first failure short-circuits; structured log
-- [ ] P3-03 `gateway/api`: `/health`, `/releases`, `/verify/{releaseId}`, websocket `/logs`
-- [ ] P3-04 Event listener for `NewRelease` (polling with backoff; resumable from last block)
-- [ ] P3-05 `fleet/device.py`: identity, NVS JSON, A/B slots, self-verify hash+sig, install receipt
-- [ ] P3-06 `fleet/runner.py`: asyncio N devices; `verigate-fleet run --count N`
-- [ ] P3-07 Device ↔ gateway protocol (HTTP, signed messages, nonce replay protection)
+- [x] P3-03 `gateway/api`: `/health`, `/releases`, `/verify/{releaseId}`, websocket `/logs`
+- [x] P3-04 Event listener for `NewRelease` (polling with backoff; resumable from last block)
+- [x] P3-05 `fleet/device.py`: identity, NVS JSON, A/B slots, self-verify hash+sig, install receipt
+- [x] P3-06 `fleet/runner.py`: asyncio N devices; `verigate-fleet run --count N`
+- [x] P3-07 Device ↔ gateway protocol (HTTP, signed messages, nonce replay protection)
 - [ ] P3-08 Attack scripts: tamper, forge, stolen-key, rollback, freeze, sbom-swap → each has an e2e test asserting REJECT/DEFER
 - [ ] P3-09 Integration tests for Stage 1 against deployed contracts
 

@@ -2,7 +2,10 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-09-18 — crypto-path baseline
 ### Added
+- `scripts/demo.sh` (docker or host mode) and the full-stack e2e test publish → verify → install → receipt → reputation → on-chain proof (P4-07, P4-08); `make smoke` proven from the compose stack (P4-09).
 - Dashboard: Releases, Verdicts (with Merkle proof + on-chain `verifyLeaf` via direct RPC), Fleet, Publishers, Models, Policy and Attacks pages; websocket live log; attack buttons call `POST /attacks/{name}` (the gateway spawns `verigate-attack`); OpenAPI-generated types (P4-05, P4-06).
 - Verdict records (frozen, basis-point scores, `featureHash`, EIP-191 gateway signature), Merkle batching with `VerdictRegistry.commitBatch` and `/verdicts/{id}/proof`, policy engine reading `PolicyContract` per block (DEFER on any outage), EWMA publisher reputation written by the gateway role; `/batches`, `/policy`, `/publishers`, `/models` endpoints; ADR-0005 (batching), ADR-0006 (reputation), ADR-0007 (version comparison) (P4-01..P4-04).
 - Attack scenarios tamper / forge / stolen-key / rollback / freeze / sbom-swap (`verigate-attack run <name>|all`, JSON reports) with one e2e test each asserting the verdict and the verdict-log line; live Stage-1 integration test against deployed contracts (P3-08, P3-09).

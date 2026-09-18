@@ -44,6 +44,16 @@ Every command prints one JSON object (`{"error": …}` and exit 1 on failure). `
 idempotent end to end: same inputs → same CIDs and `"status": "unchanged"`. Identity comes from
 `.env`: `PUBLISHER_DID`, `PUBLISHER_PRIVATE_KEY` (the transaction account), `KEYS_DIR`.
 
+## Demo
+
+```bash
+make up && ./scripts/demo.sh      # publish → 20 devices install → six attacks caught, ~40 s
+DEMO_MODE=host ./scripts/demo.sh  # same against `make gateway` + `make infra-up`
+```
+Dashboard: Releases · Verdicts (Merkle proof, on-chain `verifyLeaf` via direct RPC) · Fleet ·
+Publishers · Models · Policy · Attacks (buttons run `verigate-attack` through the gateway) with a
+live websocket log. Attack scripts: `verigate-attack run <tamper|forge|stolen-key|rollback|freeze|sbom-swap|all>`.
+
 ## Layout
 
 | Path | What lives here |

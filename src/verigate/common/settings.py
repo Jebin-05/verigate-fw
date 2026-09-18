@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     verdict_registry_addr: str | None = None
     deployments_dir: Path = Path("contracts/deployments")
 
+    # --- publisher CLI
+    publisher_did: str = "did:verigate:demo-publisher"
+    publisher_private_key: str = ""  # Ethereum account that pays for register/release txs
+    keys_dir: Path = Path("keys")  # Ed25519 signing keys (git-ignored)
+
     # --- IPFS
     ipfs_api: str = "http://127.0.0.1:5001"
     ipfs_backend: Literal["kubo", "local"] = "kubo"

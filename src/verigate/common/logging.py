@@ -24,6 +24,20 @@ from verigate.common.settings import Settings
 _LEVELS = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
 
 
+class _StderrLogger:
+    """Writes one rendered line to whatever ``sys.stderr`` is *now* (test runners swap it)."""
+
+    def msg(self, message: str) -> None:
+        sys.stderr.write(message + "\n")
+        sys.stderr.flush()
+
+    log = debug = info = warning = error = critical = msg
+
+
+def _stderr_factory(*_args: Any) -> _StderrLogger:
+    return _StderrLogger()
+
+
 def configure_logging(settings: Settings) -> None:
     """Configure structlog + stdlib logging once per process. Idempotent."""
     level = _LEVELS.get(settings.log_level.upper(), logging.INFO)
@@ -42,13 +56,17 @@ def configure_logging(settings: Settings) -> None:
     structlog.configure(
         processors=[*shared, renderer],
         wrapper_class=structlog.make_filtering_bound_logger(level),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        logger_factory=_stderr_factory,
         cache_logger_on_first_use=False,
     )
     logging.basicConfig(level=level, stream=sys.stderr, format="%(message)s", force=True)
 
 
 def get_logger(name: str) -> structlog.typing.FilteringBoundLogger:
-    """Return a bound logger tagged with ``module=name``."""
-    logger: structlog.typing.FilteringBoundLogger = structlog.get_logger().bind(module=name)
+    """Return a lazy logger tagged with ``module=name``.
+
+    Lazy on purpose: module-level ``log = get_logger(__name__)`` must pick up the configuration
+    applied later by :func:`configure_logging` (the proxy resolves on first use).
+    """
+    logger: structlog.typing.FilteringBoundLogger = structlog.get_logger(module=name)
     return logger

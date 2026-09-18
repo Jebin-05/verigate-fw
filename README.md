@@ -29,6 +29,21 @@ make fleet N=20     # 20 emulated devices
 make dashboard      # Vite dev server on :5173
 ```
 
+## Publish a release (host mode)
+
+```bash
+verigate-publish keygen                    # Ed25519 key under keys/ (git-ignored), reused if present
+verigate-publish register                  # PublisherRegistry.register (idempotent; rotates on key change)
+verigate-publish release --fw tests/fixtures/releases/v1.0.0/firmware.bin \
+    --sbom tests/fixtures/releases/v1.0.0/sbom.json --version 1.0.0 \
+    --model demo-device --expiry 2030-01-01T00:00:00Z --json
+verigate-publish revoke <releaseId>        # withdraw a release
+```
+
+Every command prints one JSON object (`{"error": …}` and exit 1 on failure). `release` is
+idempotent end to end: same inputs → same CIDs and `"status": "unchanged"`. Identity comes from
+`.env`: `PUBLISHER_DID`, `PUBLISHER_PRIVATE_KEY` (the transaction account), `KEYS_DIR`.
+
 ## Layout
 
 | Path | What lives here |

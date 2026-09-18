@@ -40,12 +40,12 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P1-15 `docs/threat-model.md` filled from Guide §9 with "test that proves it" column
 
 ## P2 — Publisher CLI (week 2)
-- [ ] P2-01 `verigate-publish keygen` → keys under `keys/` (git-ignored)
-- [ ] P2-02 `verigate-publish register` → PublisherRegistry
-- [ ] P2-03 `verigate-publish release --fw --sbom --version --model --expiry` → IPFS + manifest + on-chain
-- [ ] P2-04 `verigate-publish revoke <releaseId>`
-- [ ] P2-05 Integration test: full publish flow against hardhat + local IPFS
-- [ ] P2-06 Sample release fixtures (3 versions of a toy firmware + SBOMs) in `tests/fixtures/releases/`
+- [x] P2-01 `verigate-publish keygen` → keys under `keys/` (git-ignored)
+- [x] P2-02 `verigate-publish register` → PublisherRegistry
+- [x] P2-03 `verigate-publish release --fw --sbom --version --model --expiry` → IPFS + manifest + on-chain
+- [x] P2-04 `verigate-publish revoke <releaseId>`
+- [x] P2-05 Integration test: full publish flow against hardhat + local IPFS
+- [x] P2-06 Sample release fixtures (3 versions of a toy firmware + SBOMs) in `tests/fixtures/releases/`
 
 ## P3 — Gateway Stage 1 & fleet (weeks 3–4)
 - [ ] P3-01 `stage1/checks.py`: 8 checks as pure functions returning `CheckResult`; table-driven tests

@@ -74,3 +74,16 @@ def test_logging_console_in_dev(capsys: pytest.CaptureFixture[str]) -> None:
     get_logger("t").info("dev.event", k=1)
     assert "dev.event" in capsys.readouterr().err
     structlog.reset_defaults()
+
+
+def test_module_level_logger_follows_later_configuration(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    structlog.reset_defaults()
+    log = get_logger("early")  # created before configure_logging, like a module-level logger
+    configure_logging(Settings(_env_file=None, verigate_env="ci"))
+    log.info("late.event")
+    captured = capsys.readouterr()
+    assert captured.out == ""  # never on stdout (CLI JSON lives there)
+    assert json.loads(captured.err.strip())["event"] == "late.event"
+    structlog.reset_defaults()

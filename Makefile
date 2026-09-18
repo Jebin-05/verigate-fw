@@ -69,8 +69,9 @@ infra-up:        ## start hardhat node, kubo, ollama
 infra-down:      ## stop them
 	docker compose -f infra/docker-compose.yml down
 
-contracts-build: ## compile + typechain
+contracts-build: ## compile + typechain + sync ABIs into the python package
 	cd contracts && npx hardhat compile
+	$(PY) scripts/sync_abi.py
 
 contracts-deploy-local: contracts-build ## deploy to local node and write addresses into .env
 	cd contracts && npx hardhat run scripts/deploy.ts --network localhost

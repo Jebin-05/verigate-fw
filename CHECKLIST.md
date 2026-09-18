@@ -27,17 +27,17 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P1-02 `common/canonical.py` + golden vectors shared with TS (`tests/fixtures/canonical/*.json`)
 - [x] P1-03 `common/crypto.py` Ed25519 + SHA-256; property tests (hypothesis)
 - [x] P1-04 `common/manifest.py` model, sign, verify; rejects unknown fields; version parsed as SemVer
-- [~] P1-05 `common/merkle.py` domain-separated leaves, proofs; cross-checked against Solidity lib
-- [ ] P1-06 `PublisherRegistry.sol` + tests (register, rotate, revoke, reputation update, all revert paths)
-- [ ] P1-07 `ModelRegistry.sol` + tests (register, revoke, successor, revokedAt)
-- [ ] P1-08 `FirmwareRegistry.sol` + tests (ACTIVE-publisher-only, monotonic version per model, revoke, events)
-- [ ] P1-09 `PolicyContract.sol` + tests (bounded weights sum to 1e4, τ_approve < τ_reject, versioned, event)
-- [ ] P1-10 `VerdictRegistry.sol` + tests (gateway-role-only, batch root, leaf proof verify, stale-by-model query)
-- [ ] P1-11 `scripts/deploy.ts` idempotent; writes `deployments/<net>/addresses.json` and local `.env`
-- [ ] P1-12 Contract coverage ≥ 95 % lines; slither: no medium+ findings; gas report committed
-- [ ] P1-13 `common/chain.py` bindings from ABI artifacts; integration test: deploy → register → read
-- [ ] P1-14 `common/ipfs.py` Kubo + LocalCid backends produce identical CIDv1 for fixtures
-- [ ] P1-15 `docs/threat-model.md` filled from Guide §9 with "test that proves it" column
+- [x] P1-05 `common/merkle.py` domain-separated leaves, proofs; cross-checked against Solidity lib
+- [x] P1-06 `PublisherRegistry.sol` + tests (register, rotate, revoke, reputation update, all revert paths)
+- [x] P1-07 `ModelRegistry.sol` + tests (register, revoke, successor, revokedAt)
+- [x] P1-08 `FirmwareRegistry.sol` + tests (ACTIVE-publisher-only, monotonic version per model, revoke, events)
+- [x] P1-09 `PolicyContract.sol` + tests (bounded weights sum to 1e4, τ_approve < τ_reject, versioned, event)
+- [x] P1-10 `VerdictRegistry.sol` + tests (gateway-role-only, batch root, leaf proof verify, stale-by-model query)
+- [x] P1-11 `scripts/deploy.ts` idempotent; writes `deployments/<net>/addresses.json` and local `.env`
+- [x] P1-12 Contract coverage ≥ 95 % lines; slither: no medium+ findings; gas report committed
+- [x] P1-13 `common/chain.py` bindings from ABI artifacts; integration test: deploy → register → read
+- [x] P1-14 `common/ipfs.py` Kubo + LocalCid backends produce identical CIDv1 for fixtures
+- [x] P1-15 `docs/threat-model.md` filled from Guide §9 with "test that proves it" column
 
 ## P2 — Publisher CLI (week 2)
 - [ ] P2-01 `verigate-publish keygen` → keys under `keys/` (git-ignored)

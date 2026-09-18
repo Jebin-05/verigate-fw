@@ -42,6 +42,7 @@ dev = [
   "hypothesis>=6.112",
   "pre-commit>=3.8",
   "pip-audit>=2.7",
+  "slither-analyzer>=0.10",
   "types-requests",
   "types-PyYAML",
 ]

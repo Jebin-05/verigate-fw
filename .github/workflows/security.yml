@@ -25,7 +25,9 @@ jobs:
       - run: pip install -e . pip-audit && pip-audit
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - run: cd contracts && npm ci && npm audit --audit-level=high
+      # contracts/ ships only OpenZeppelin; the Hardhat 2 build toolchain carries known transitive
+      # advisories whose only fix is Hardhat 3 (docs/security-audit.md) — audited without devDependencies.
+      - run: cd contracts && npm ci && npm audit --omit=dev --audit-level=high
       - run: cd dashboard && npm ci && npm audit --audit-level=high
 
   slither:

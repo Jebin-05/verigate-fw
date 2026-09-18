@@ -14,6 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from eth_account.signers.local import LocalAccount
+
 from verigate.common.chain import ChainClient, ModelRecord, PublisherRecord, ReleaseRecord
 from verigate.common.crypto import parse_signature, verify
 from verigate.common.errors import ChainError, IpfsError, VerificationError, VerigateError
@@ -23,14 +25,21 @@ from verigate.common.manifest import SemVer, SignedManifest
 from verigate.common.protocol import SignedMessage, verify_message
 from verigate.common.settings import Settings
 from verigate.fleet.device import InstallReceipt
+from verigate.gateway.policy.engine import BASIS, Decision, PolicyEngine
+from verigate.gateway.reputation import ReputationUpdater
 from verigate.gateway.stage1.inputs import DeviceView, Stage1Input
 from verigate.gateway.stage1.runner import Stage1Result, run_stage1
+from verigate.gateway.stage2.scores import NullScorer, Stage2Scores
 from verigate.gateway.store import Cursor, DeviceRecord, DeviceStore, VerdictLog
+from verigate.gateway.verdicts.batch import VerdictBatcher
+from verigate.gateway.verdicts.record import VerdictRecord, feature_hash
 from verigate.gateway.verdicts.types import Verdict
 
 log = get_logger(__name__)
 
 REFERENCE_DEVICE_ID = "release-level"
+RELEASE_LEVEL_CHECKS = frozenset({"firmware_hash", "signature", "sbom_hash", "registry_record"})
+"""Stage-1 failures that are evidence against the release (its publisher), not the device."""
 
 
 @dataclass(frozen=True)
@@ -59,6 +68,11 @@ class VerificationResult:
     version: str | None = None
     device_model: str | None = None
     errors: tuple[str, ...] = ()
+    verdict_id: str | None = None
+    r_bp: int | None = None
+    policy_version: int | None = None
+    scores: Stage2Scores | None = None
+    reputation_bp: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """JSON form."""
@@ -72,6 +86,13 @@ class VerificationResult:
             "version": self.version,
             "deviceModel": self.device_model,
             "errors": list(self.errors),
+            "verdictId": self.verdict_id,
+            "R": self.r_bp,
+            "policyVersion": self.policy_version,
+            "rSbom": self.scores.r_sbom_bp if self.scores else None,
+            "rImg": self.scores.r_img_bp if self.scores else None,
+            "reputation": self.reputation_bp,
+            "modelHashes": list(self.scores.model_hashes) if self.scores else [],
         }
 
 
@@ -90,12 +111,30 @@ class GatewayService:
     _known_releases: dict[bytes, ReleaseRecord] = field(default_factory=dict, init=False)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
     started_at: float = field(default_factory=time.time, init=False)
+    policy: PolicyEngine = field(init=False)
+    scorer: NullScorer = field(default_factory=NullScorer)
+    batcher: VerdictBatcher | None = field(default=None, init=False)
+    reputation: ReputationUpdater | None = field(default=None, init=False)
+    gateway_account: LocalAccount | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        """Open the persistent stores under ``state_dir``."""
+        """Open the stores under ``state_dir``; wire batching/reputation if a gateway key exists."""
         self.devices = DeviceStore(self.state_dir / "devices.json")
         self.verdicts = VerdictLog(self.state_dir / "verdicts.jsonl")
         self.cursor = Cursor(self.state_dir / "listener.json")
+        self.policy = PolicyEngine(self.chain)
+        if self.settings.gateway_private_key:
+            self.gateway_account = self.chain.account(self.settings.gateway_private_key)
+            self.batcher = VerdictBatcher(
+                self.chain,
+                self.gateway_account,
+                self.state_dir / "batches",
+                max_size=self.settings.batch_max_size,
+                max_wait_s=self.settings.batch_max_wait_s,
+            )
+            self.reputation = ReputationUpdater(
+                self.chain, self.gateway_account, self.settings.reputation_alpha_bp
+            )
 
     # ------------------------------------------------------------------ helpers
 
@@ -129,6 +168,9 @@ class GatewayService:
             "knownReleases": len(self._known_releases),
             "devices": len(self.devices.all()),
             "uptimeS": int(time.time() - self.started_at),
+            "gateway": self.gateway_account.address if self.gateway_account else None,
+            "pendingVerdicts": self.batcher.pending if self.batcher else None,
+            "batches": self.batcher.commits if self.batcher else None,
         }
 
     # ------------------------------------------------------------------ releases
@@ -270,17 +312,54 @@ class GatewayService:
             now=checked_at,
         )
         stage1 = await asyncio.to_thread(run_stage1, inp, rid)
-        verdict = stage1.outcome if stage1.outcome is not None else Verdict.APPROVE
+        ts = int(checked_at.timestamp())
+        reputation_bp = bundle.publisher.reputation_bp if bundle.publisher else None
+        if stage1.outcome is not None:
+            # Stage 1 decided; nothing can override it. Record R as maximal risk.
+            verdict, r_bp, policy_version, scores = stage1.outcome, BASIS, None, None
+            record_features = feature_hash({"stage1Failed": stage1.failed})
+            model_hashes: list[str] = []
+        else:
+            assert bundle.firmware is not None and bundle.sbom is not None  # noqa: S101
+            scores = await asyncio.to_thread(self.scorer.score, bundle.firmware, bundle.sbom)
+            decision: Decision = await self.policy.decide(
+                scores.r_sbom_bp, scores.r_img_bp, reputation_bp
+            )
+            verdict, r_bp, policy_version = decision.verdict, decision.r_bp, decision.policy_version
+            record_features = scores.feature_hash
+            model_hashes = list(scores.model_hashes)
+        record = VerdictRecord(
+            releaseId=rid,
+            deviceId=view.device_id,
+            modelHashes=model_hashes,
+            featureHash=record_features,
+            r_sbom=scores.r_sbom_bp if scores else 0,
+            r_img=scores.r_img_bp if scores else 0,
+            reputation=reputation_bp if reputation_bp is not None else 0,
+            R=r_bp,
+            verdict=verdict,
+            rationaleCid=scores.rationale_cid if scores else None,
+            ts=ts,
+        )
+        verdict_id = "0x" + record.leaf().hex()
+        if self.batcher is not None and self.gateway_account is not None:
+            record = record.sign(self.settings.gateway_private_key)
+            verdict_id = await self.batcher.add(record)
         result = VerificationResult(
             rid,
             view.device_id,
             verdict,
             stage1,
-            stage1.reason,
+            stage1.reason if stage1.outcome is not None else decision.reason,
             checked_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             version=str(bundle.manifest.version) if bundle.manifest else None,
             device_model=bundle.manifest.deviceModel if bundle.manifest else None,
             errors=bundle.errors,
+            verdict_id=verdict_id,
+            r_bp=r_bp,
+            policy_version=policy_version,
+            scores=scores,
+            reputation_bp=reputation_bp,
         )
         log.info(
             "verify.verdict",
@@ -288,10 +367,75 @@ class GatewayService:
             device_id=view.device_id,
             verdict=verdict.value,
             failed=stage1.failed,
-            reason=stage1.reason,
+            reason=result.reason,
+            r_bp=r_bp,
+            verdict_id=verdict_id,
         )
         self.verdicts.append(result.to_dict())
+        if (
+            verdict is Verdict.REJECT
+            and self.reputation is not None
+            and bundle.publisher is not None
+            and bundle.publisher.exists
+            and (stage1.failed is None or stage1.failed in RELEASE_LEVEL_CHECKS)
+        ):
+            await self.reputation.on_reject(
+                bundle.publisher.publisher_id, stage1.failed or "policy"
+            )
         return result
+
+    # ------------------------------------------------------------------ registries
+
+    def _publisher_ids_from_events(self) -> list[bytes]:
+        logs = self.chain.publishers.events.PublisherRegistered().get_logs(from_block=0)
+        return [bytes(entry["args"]["publisherId"]) for entry in logs]
+
+    def _model_hashes_from_events(self) -> list[bytes]:
+        logs = self.chain.models.events.ModelRegistered().get_logs(from_block=0)
+        return [bytes(entry["args"]["modelHash"]) for entry in logs]
+
+    async def list_publishers(self) -> list[dict[str, Any]]:
+        """Publishers from ``PublisherRegistered`` events joined with their current record."""
+        try:
+            ids = await asyncio.to_thread(self._publisher_ids_from_events)
+            records = [await asyncio.to_thread(self.chain.get_publisher, pid) for pid in ids]
+        except Exception as exc:  # noqa: BLE001 — web3 raises many transport error types
+            log.warning("publishers.unavailable", error=str(exc))
+            return []
+        return [
+            {
+                "publisherId": "0x" + r.publisher_id.hex(),
+                "did": r.did,
+                "owner": r.owner,
+                "publicKey": "ed25519:" + r.pub_key.hex(),
+                "status": r.status,
+                "reputation": r.reputation_bp,
+                "keyVersion": r.key_version,
+                "registeredAt": r.registered_at,
+                "revokedAt": r.revoked_at,
+            }
+            for r in records
+        ]
+
+    async def list_models(self) -> list[dict[str, Any]]:
+        """Models from ``ModelRegistered`` events joined with their current record."""
+        try:
+            hashes = await asyncio.to_thread(self._model_hashes_from_events)
+            records = [await asyncio.to_thread(self.chain.get_model, h) for h in hashes]
+        except Exception as exc:  # noqa: BLE001 — web3 raises many transport error types
+            log.warning("models.unavailable", error=str(exc))
+            return []
+        return [
+            {
+                "modelHash": "0x" + r.model_hash.hex(),
+                "name": r.name,
+                "status": r.status,
+                "successor": "0x" + r.successor.hex(),
+                "registeredAt": r.registered_at,
+                "revokedAt": r.revoked_at,
+            }
+            for r in records
+        ]
 
     # ------------------------------------------------------------------ device protocol
 
@@ -419,7 +563,11 @@ class GatewayService:
                     "installedAt": receipt.installedAt,
                 }
             )
-            return updated
+        if self.reputation is not None:
+            release = self._known_releases.get(bytes.fromhex(receipt.releaseId[2:]))
+            if release is not None and release.exists:
+                await self.reputation.on_receipt(release.publisher_id)
+        return updated
 
     async def firmware(self, release_id: bytes) -> bytes:
         """Firmware bytes for a release (the device re-verifies them itself).

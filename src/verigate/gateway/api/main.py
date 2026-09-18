@@ -87,6 +87,8 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
                 service.chain, service.cursor, on_release, service.settings.listener_poll_s
             )
             tasks.append(asyncio.create_task(listener.run(stop)))
+        if service.batcher is not None:
+            tasks.append(asyncio.create_task(service.batcher.run(stop)))
         log.info("gateway.started", releases=len(service.known_releases()))
         try:
             yield
@@ -175,6 +177,50 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
     async def verdicts(limit: int = Query(default=100, ge=1, le=1000)) -> list[dict[str, Any]]:
         """Most recent verification results and receipts (newest last)."""
         return service.verdicts.recent(limit)
+
+    @app.get("/verdicts/{verdict_id}/proof")
+    async def verdict_proof(verdict_id: str) -> dict[str, Any]:
+        """Merkle proof of a verdict (its id is the leaf) against the committed batch root."""
+        if service.batcher is None:
+            raise HTTPException(503, "no gateway key configured; verdicts are not batched")
+        proof = service.batcher.proof(verdict_id)
+        if proof is None:
+            raise HTTPException(404, "unknown verdict id")
+        return proof
+
+    @app.get("/batches")
+    async def batches() -> list[dict[str, Any]]:
+        """Committed verdict batches (oldest first) without the per-record payloads."""
+        if service.batcher is None:
+            return []
+        return [
+            {k: v for k, v in b.to_dict().items() if k != "records"}
+            for b in service.batcher.batches()
+        ]
+
+    @app.post("/batches/flush")
+    async def flush_batches() -> dict[str, Any]:
+        """Commit pending verdicts now (demo/evaluation helper)."""
+        if service.batcher is None:
+            raise HTTPException(503, "no gateway key configured")
+        batch = await service.batcher.flush()
+        return {"committed": batch.to_dict() if batch else None, "pending": service.batcher.pending}
+
+    @app.get("/policy")
+    async def policy() -> dict[str, Any]:
+        """The policy in force on-chain (None if unreachable)."""
+        current = await asyncio.to_thread(service.policy.policy)
+        return {"policy": current.__dict__ if current else None}
+
+    @app.get("/publishers")
+    async def publishers() -> list[dict[str, Any]]:
+        """Every publisher that ever registered (from events) with its live record."""
+        return await service.list_publishers()
+
+    @app.get("/models")
+    async def models() -> list[dict[str, Any]]:
+        """Every model hash ever registered (from events) with its live status."""
+        return await service.list_models()
 
     @app.get("/devices")
     async def devices() -> list[dict[str, Any]]:

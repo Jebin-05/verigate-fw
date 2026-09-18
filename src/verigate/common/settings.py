@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     listener_poll_s: float = Field(default=2.0, gt=0)
     protocol_window_s: int = Field(default=120, ge=1)
     stage2_model_hashes: str = ""  # comma-separated hex; empty until P5 registers a model
+    batch_max_size: int = Field(default=50, ge=1)  # ADR-0005
+    batch_max_wait_s: float = Field(default=10.0, gt=0)  # ADR-0005
+    reputation_alpha_bp: int = Field(default=1000, ge=1, le=10_000)  # ADR-0006
 
     # --- Arbitrum Sepolia (evaluation only; never set in .env.example)
     arb_sepolia_rpc_url: str | None = None

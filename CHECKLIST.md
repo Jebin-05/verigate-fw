@@ -59,10 +59,10 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P3-09 Integration tests for Stage 1 against deployed contracts
 
 ## P4 — Verdicts, batching, reputation, dashboard (weeks 5–6)
-- [ ] P4-01 `verdicts/record.py` schema; featureHash = SHA-256(canonical feature vector)
-- [ ] P4-02 `verdicts/batch.py` Merkle batching + `VerdictRegistry` writer; proof endpoint
-- [ ] P4-03 Reputation update: receipts ↑, rejects ↓ (EWMA), written by gateway role
-- [ ] P4-04 `policy/engine.py` with on-chain weights; DEFER on outage; unit tests for every branch
+- [x] P4-01 `verdicts/record.py` schema; featureHash = SHA-256(canonical feature vector)
+- [x] P4-02 `verdicts/batch.py` Merkle batching + `VerdictRegistry` writer; proof endpoint
+- [x] P4-03 Reputation update: receipts ↑, rejects ↓ (EWMA), written by gateway role
+- [x] P4-04 `policy/engine.py` with on-chain weights; DEFER on outage; unit tests for every branch
 - [ ] P4-05 Dashboard pages: Releases, Verdicts, Fleet, Publishers, Models, Policy, Attacks
 - [ ] P4-06 Dashboard live log via websocket; attack buttons call gateway `/attacks/{name}`
 - [ ] P4-07 e2e: docker compose full stack, publish → verify → install → receipt → reputation

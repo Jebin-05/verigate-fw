@@ -3,6 +3,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 ### Added
+- Verdict records (frozen, basis-point scores, `featureHash`, EIP-191 gateway signature), Merkle batching with `VerdictRegistry.commitBatch` and `/verdicts/{id}/proof`, policy engine reading `PolicyContract` per block (DEFER on any outage), EWMA publisher reputation written by the gateway role; `/batches`, `/policy`, `/publishers`, `/models` endpoints; ADR-0005 (batching), ADR-0006 (reputation), ADR-0007 (version comparison) (P4-01..P4-04).
 - Attack scenarios tamper / forge / stolen-key / rollback / freeze / sbom-swap (`verigate-attack run <name>|all`, JSON reports) with one e2e test each asserting the verdict and the verdict-log line; live Stage-1 integration test against deployed contracts (P3-08, P3-09).
 ### Fixed
 - Wheel/Docker image now ships the packaged contract ABIs (`verigate.common.abi` is a package with `package-data`); found by `make smoke`.

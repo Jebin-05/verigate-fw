@@ -56,6 +56,10 @@ class NewReleaseListener:
             ChainError: If the RPC failed (the cursor is left untouched).
         """
         latest = await asyncio.to_thread(self.chain.block_number)
+        if self.cursor.last_block > latest:
+            # A local node was restarted from genesis (dev/demo). Re-processing is idempotent.
+            log.warning("listener.chain_reset", cursor=self.cursor.last_block, latest=latest)
+            self.cursor.advance(-1)
         start = self.cursor.last_block + 1
         if start > latest:
             return 0

@@ -87,6 +87,19 @@ async def test_rpc_error_leaves_cursor_untouched_and_backs_off(
     await task
 
 
+async def test_cursor_ahead_of_chain_rewinds(chain: FakeChain, tmp_path: Path) -> None:
+    seen: list[int] = []
+
+    async def on_release(_rid: bytes, block: int) -> None:
+        seen.append(block)
+
+    cursor = Cursor(tmp_path / "listener.json")
+    cursor.advance(5_000)  # persisted from a previous chain instance
+    listener = NewReleaseListener(chain, cursor, on_release)  # type: ignore[arg-type]
+    assert await listener.poll_once() == 2
+    assert seen == [101, 102] and cursor.last_block == chain.block
+
+
 async def test_get_logs_failure_is_a_chain_error(chain: FakeChain, tmp_path: Path) -> None:
     async def on_release(_rid: bytes, _block: int) -> None:
         pass

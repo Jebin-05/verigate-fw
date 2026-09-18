@@ -97,3 +97,19 @@ def test_missing_admin_key(monkeypatch: pytest.MonkeyPatch, settings: Settings) 
     )
     code, out = run("revoke-publisher", "did:verigate:x")
     assert code == 1 and "DEPLOYER_PRIVATE_KEY" in out["error"]
+
+
+def test_register_models_from_manifest(env: AdminChain, tmp_path: Path) -> None:
+    manifest = tmp_path / "MANIFEST.sha256"
+    manifest.write_text(
+        f"{'11' * 32}  sbom_risk.onnx\n{'22' * 32}  successor/image_anomaly.onnx\n\n"
+    )
+    code, out = run("register-models", "--manifest", str(manifest))
+    assert code == 0
+    assert [m["status"] for m in out["models"]] == ["registered", "registered"]
+    assert out["models"][1]["name"] == "successor/image_anomaly.onnx"
+    code, out = run("register-models", "--manifest", str(manifest))
+    assert code == 0 and [m["status"] for m in out["models"]] == ["unchanged", "unchanged"]
+    manifest.write_text("zz  bad.onnx\n")
+    code, out = run("register-models", "--manifest", str(manifest))
+    assert code == 1 and "error" in out

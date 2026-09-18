@@ -1,6 +1,5 @@
 /** Small shared building blocks: hex ids, verdict badges, status chips, data tables. */
 import type { ReactNode } from 'react';
-import type { Verdict } from '../api/types';
 
 export function Hex({ value, chars = 10 }: { value: string | null | undefined; chars?: number }) {
   if (!value) return <span className="muted">—</span>;
@@ -13,7 +12,7 @@ export function Hex({ value, chars = 10 }: { value: string | null | undefined; c
   );
 }
 
-export function VerdictBadge({ verdict }: { verdict: Verdict | null | undefined }) {
+export function VerdictBadge({ verdict }: { verdict: string | null | undefined }) {
   if (!verdict) return <span className="badge badge-none">none</span>;
   return <span className={`badge badge-${verdict.toLowerCase()}`}>{verdict}</span>;
 }

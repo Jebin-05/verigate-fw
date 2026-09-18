@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Demo script v1 (P4-08): publish → fleet installs → all six Stage-1 attacks, end to end, < 5 min.
+# Demo script (P4-08, P6-07): publish → fleet installs → all eleven attacks, end to end, < 5 min.
 # Docker mode (default): the stack from `make up` (gateway, fleet, hardhat, ipfs). Host mode
 # (DEMO_MODE=host): `make gateway` + `make infra-up` running on this machine.
 set -euo pipefail
@@ -59,7 +59,7 @@ ds = json.loads(os.environ["DATA"])
 print(len(ds), "devices · installed versions:", sorted({d["installed_version"] for d in ds}))
 PY
 
-step "six Stage-1 attacks (tamper, forge, stolen-key, rollback, freeze, sbom-swap)"
+step "eleven attacks: six Stage-1 (tamper … sbom-swap) + five AI-gate (vulnerable-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper)"
 ATTACK_URL=$GATEWAY_URL; [ "$DEMO_MODE" = "docker" ] && ATTACK_URL=http://127.0.0.1:8000
 run_in_gateway verigate-attack run all --gateway "$ATTACK_URL" 2>/dev/null > /tmp/verigate-demo-attacks.json || true
 python3 - <<'PY'
@@ -69,7 +69,7 @@ while i < len(txt):
     while i < len(txt) and txt[i].isspace(): i += 1
     if i >= len(txt): break
     r, i = dec.raw_decode(txt, i); failed += not r["passed"]
-    print(f'  {r["name"]:11} expected {r["expected"]:7} observed {str(r["observed"]):7} check={r["check"]}  {"PASS" if r["passed"] else "FAIL"}')
+    print(f'  {r["name"]:19} expected {r["expected"]:8} observed {str(r["observed"]):8} check={r["check"]}  {"PASS" if r["passed"] else "FAIL"}')
 raise SystemExit(1 if failed else 0)
 PY
 

@@ -7,6 +7,8 @@ does not verify under the key registered for the DID the manifest names → REJE
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from verigate.attacks.common import AttackContext, AttackReport, fill
 
 NAME = "forge"
@@ -22,6 +24,9 @@ def run(ctx: AttackContext) -> AttackReport:
         ctx.fixture("2.0.0", "sbom.json"),
         ctx.next_version(attacker_did),
         did=ctx.did,  # the lie
+        # releaseId = hash of the manifest: a distinct expiry keeps the forgery from colliding
+        # with a genuine release of the same fixture (first registrant owns the id).
+        expiry=datetime(2031, 6, 1, tzinfo=UTC),
     )
     release_id = ctx.publish(manifest.sign(attacker_key), attacker_account)
     report = AttackReport(NAME, EXPECTED, release_id=release_id)

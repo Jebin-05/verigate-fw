@@ -174,8 +174,8 @@ export interface Policy {
 
 export interface AttackReport {
   name: string;
-  expected: Verdict;
-  observed: Verdict | null;
+  expected: string; // a verdict, or an outcome label (REPLAYED, BLOCKED) for the flow scenarios
+  observed: string | null;
   check: string | null;
   reason: string | null;
   release_id: string | null;

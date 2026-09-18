@@ -47,12 +47,13 @@ idempotent end to end: same inputs → same CIDs and `"status": "unchanged"`. Id
 ## Demo
 
 ```bash
-make up && ./scripts/demo.sh      # publish → 20 devices install → six attacks caught, ~40 s
+make up && ./scripts/demo.sh      # publish → 20 devices install → eleven attacks caught
 DEMO_MODE=host ./scripts/demo.sh  # same against `make gateway` + `make infra-up`
 ```
 Dashboard: Releases · Verdicts (Merkle proof, on-chain `verifyLeaf` via direct RPC) · Fleet ·
 Publishers · Models · Policy · Attacks (buttons run `verigate-attack` through the gateway) with a
-live websocket log. Attack scripts: `verigate-attack run <tamper|forge|stolen-key|rollback|freeze|sbom-swap|all>`.
+live websocket log. Attack scripts: `verigate-attack run <name|all>` — Stage 1: tamper, forge, stolen-key,
+rollback, freeze, sbom-swap; AI gate: vulnerable-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper.
 
 ## Models and evaluation
 

@@ -8,6 +8,7 @@ tests, the smoke test, the demo and the attack scripts:
 | v1.0.0 | OpenWrt 22.03.7 `busybox` (mips_24kc, stripped ELF) | ath79/generic 22.03.7 package manifest |
 | v1.1.0 | OpenWrt 23.05.3 `busybox` | ath79/generic 23.05.3 manifest |
 | v2.0.0 | OpenWrt 24.10.0 `busybox` | ath79/generic 24.10.0 manifest |
+| legacy-19.07.10 | OpenWrt 19.07.10 `busybox` (EOL base) | ath79/generic 19.07.10 manifest — the `vulnerable-genuine` attack |
 
 The binaries are real OpenWrt builds (BusyBox is GPL-2.0; OpenWrt is GPL-2.0 — see
 https://openwrt.org and https://busybox.net) redistributed unmodified for testing. They keep the

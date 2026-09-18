@@ -42,11 +42,15 @@ RELEASES: dict[str, dict[str, str]] = {
         "changelog": "Major release: OpenWrt 24.10.0 userland (new kernel branch, new libraries).",
     },
 }
+# The "vulnerable-but-genuine" attack fixture: an honest build on an end-of-life base
+# (OpenWrt 19.07, last release 2022-04); same derivation, kept out of the version lineage.
+LEGACY: dict[str, str] = {"dir": "legacy-19.07.10", "openwrt": "19.07.10", "version": "0.19.7"}
 # SHA-256 of the busybox .ipk per OpenWrt release — filled by the first run, verified afterwards.
 IPK_SHA256: dict[str, str] = {
     "22.03.7": "0ad4e2da05cace114dbd4fe62c5ee1f9a2ea1c4e66f445c7331308d976bcefa2",
     "23.05.3": "cbc32f7ee614e457a4a543ab628404f8833f671a0dd7b7bbecd09e2aeca3984b",
     "24.10.0": "5df3a0a918072bb0a2a944e0ee477bc1fdd922b2af3e816d8d069a35a3e4bf39",
+    "19.07.10": "0a235651ad9be5934d446c82e1bb7061b80432d9309b03d4ab199d1aec88ccb2",
 }
 
 
@@ -109,6 +113,15 @@ def main() -> None:
             for name, data in files.items():
                 (d / name).write_bytes(data)
                 lines.append(f"{hashlib.sha256(data).hexdigest()}  v{version}/{name}")
+        d = ROOT / LEGACY["dir"]
+        d.mkdir(parents=True, exist_ok=True)
+        legacy = {
+            "firmware.bin": busybox_elf(client, LEGACY["openwrt"]),
+            "sbom.json": manifest_sbom(client, LEGACY["openwrt"], LEGACY["version"]).encode(),
+        }
+        for name, data in legacy.items():
+            (d / name).write_bytes(data)
+            lines.append(f"{hashlib.sha256(data).hexdigest()}  {LEGACY['dir']}/{name}")
     (ROOT / "MANIFEST.sha256").write_text("\n".join(lines) + "\n")
 
 

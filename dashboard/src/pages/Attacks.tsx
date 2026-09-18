@@ -12,6 +12,15 @@ const DESCRIPTIONS: Record<string, string> = {
   rollback: 'genuine older release replayed to a newer device → check #4',
   freeze: 'manifest past its expiry → check #5 → DEFER + alert (takes ~10–40 s)',
   'sbom-swap': 'clean SBOM hashed, dirty SBOM served → check #6',
+  'vulnerable-genuine':
+    'honest release built on EOL OpenWrt 19.07 (72 CVEs) → Stage 2 r_sbom → policy DEFER/REJECT',
+  'hidden-payload': '200 KiB of packed bytes appended to a genuine build → Stage 2 r_img → DEFER',
+  'bad-history':
+    'publisher with four fresh rejections ships the same borderline release an honest one gets approved → DEFER',
+  'poisoned-model':
+    'admin revokes the image model in use → stale batches → gateway swaps successor and replays (see Models)',
+  'policy-tamper':
+    'non-admin tries to lower τ on-chain → AccessControl revert; audit log unchanged',
 };
 
 export function Attacks() {
@@ -43,7 +52,7 @@ export function Attacks() {
               </td>
               <td>{DESCRIPTIONS[name] ?? ''}</td>
               <td>
-                <VerdictBadge verdict={spec.expected as AttackReport['expected']} />
+                <VerdictBadge verdict={spec.expected} />
               </td>
               <td>
                 <button disabled={running !== null} onClick={() => void run(name)}>

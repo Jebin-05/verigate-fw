@@ -40,6 +40,7 @@ class AttackReport:
 
     name: str
     expected: str
+    accepted: tuple[str, ...] = ()  # other outcomes the scenario also counts as caught
     observed: str | None = None
     check: str | None = None
     reason: str | None = None
@@ -50,7 +51,7 @@ class AttackReport:
     @property
     def passed(self) -> bool:
         """True iff the gateway produced the verdict the scenario predicts."""
-        return self.observed == self.expected
+        return self.observed is not None and self.observed in (self.expected, *self.accepted)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON form (includes ``passed``)."""
@@ -97,8 +98,25 @@ class AttackContext:
     # ------------------------------------------------------------------ helpers
 
     def fixture(self, version: str, name: str) -> bytes:
-        """Bytes of ``tests/fixtures/releases/v<version>/<name>``."""
-        return (self.fixtures / f"v{version}" / name).read_bytes()
+        """Bytes of ``tests/fixtures/releases/v<version>/<name>`` (or ``<dir>/<name>``)."""
+        directory = version if (self.fixtures / version).is_dir() else f"v{version}"
+        return (self.fixtures / directory / name).read_bytes()
+
+    def get(self, path: str, timeout: float = 60) -> Any:  # noqa: ANN401 — JSON
+        """``GET`` on the gateway."""
+        resp = httpx.get(f"{self.gateway_url}{path}", timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def post(self, path: str, timeout: float = 300) -> Any:  # noqa: ANN401 — JSON
+        """``POST`` on the gateway (no body)."""
+        resp = httpx.post(f"{self.gateway_url}{path}", timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def reputation_bp(self, did: str) -> int:
+        """Current on-chain reputation of a publisher."""
+        return self.chain.get_publisher(publisher_id(did)).reputation_bp
 
     def next_version(self, did: str | None = None, model: str = DEVICE_MODEL) -> SemVer:
         """A version strictly above the publisher's last on-chain version for ``model``."""
@@ -196,7 +214,8 @@ class AttackContext:
     def verify(self, release_id: str, device_id: str | None = None) -> dict[str, Any]:
         """``POST /verify/{releaseId}`` on the gateway."""
         params = {"device_id": device_id} if device_id else None
-        resp = httpx.post(f"{self.gateway_url}/verify/{release_id}", params=params, timeout=60)
+        # Release-level verification waits for the LLM rationale (ADR-0002) — allow for a CPU host.
+        resp = httpx.post(f"{self.gateway_url}/verify/{release_id}", params=params, timeout=300)
         resp.raise_for_status()
         body: dict[str, Any] = resp.json()
         return body
@@ -218,4 +237,12 @@ def fill(report: AttackReport, verdict: dict[str, Any]) -> AttackReport:
     report.check = stage1.get("failed")
     report.reason = verdict.get("reason")
     report.device_id = verdict.get("deviceId")
+    report.details = {
+        **report.details,
+        "R": verdict.get("R"),
+        "rSbom": verdict.get("rSbom"),
+        "rImg": verdict.get("rImg"),
+        "reputation": verdict.get("reputation"),
+        "modelHashes": verdict.get("modelHashes"),
+    }
     return report

@@ -9,16 +9,41 @@ from typing import Annotated
 
 import typer
 
-from verigate.attacks import forge, freeze, rollback, sbom_swap, stolen_key, tamper
+from verigate.attacks import (
+    bad_history,
+    forge,
+    freeze,
+    hidden_payload,
+    poisoned_model,
+    policy_tamper,
+    rollback,
+    sbom_swap,
+    stolen_key,
+    tamper,
+    vulnerable_genuine,
+)
 from verigate.attacks.common import AttackContext
 from verigate.common.errors import VerigateError
 from verigate.common.logging import configure_logging
 from verigate.common.settings import get_settings
 
 ATTACKS: dict[str, ModuleType] = {
-    m.NAME: m for m in (tamper, forge, stolen_key, rollback, freeze, sbom_swap)
+    m.NAME: m
+    for m in (
+        tamper,
+        forge,
+        stolen_key,
+        rollback,
+        freeze,
+        sbom_swap,
+        vulnerable_genuine,
+        hidden_payload,
+        bad_history,
+        poisoned_model,
+        policy_tamper,
+    )
 }
-"""Registry of scenarios in demo order (Guide §9 rows 1–6)."""
+"""Registry of scenarios in demo order (Guide §9 rows 1–6 Stage 1, 7–11 the AI gate)."""
 
 app = typer.Typer(help="Attack scenarios.", add_completion=False, pretty_exceptions_enable=False)
 

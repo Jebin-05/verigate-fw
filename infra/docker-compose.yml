@@ -1,6 +1,6 @@
 # ONE file, two profiles.
 #   docker compose -f infra/docker-compose.yml up -d                 → infra only (hardhat, ipfs, ollama)
-#   docker compose -f infra/docker-compose.yml --profile app up -d   → everything: + deployer, gateway, fleet, dashboard
+#   docker compose -f infra/docker-compose.yml --profile app up -d   → everything: + deployer, registrar, gateway, fleet, dashboard
 # Every image is pinned. Every port is overridable via .env. No host paths other than the repo itself.
 name: verigate
 
@@ -54,6 +54,13 @@ services:
     depends_on: { hardhat: { condition: service_healthy } }
     profiles: ["app"]
 
+  registrar:                    # one-shot admin step: register models/MANIFEST.sha256 hashes on ModelRegistry
+    <<: *python-app
+    command: ["verigate-admin", "register-models", "--manifest", "/app/models/MANIFEST.sha256"]
+    depends_on:
+      deployer: { condition: service_completed_successfully }
+    profiles: ["app"]
+
   gateway:
     <<: *python-app
     command: ["verigate-gateway"]
@@ -62,6 +69,7 @@ services:
       hardhat: { condition: service_healthy }
       ipfs: { condition: service_healthy }
       deployer: { condition: service_completed_successfully }
+      registrar: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
       interval: 5s

@@ -44,7 +44,10 @@ def _chain(settings: Settings) -> ChainClient:
 
 
 def _hash32(text: str) -> bytes:
-    raw = bytes.fromhex(text.removeprefix("0x"))
+    try:
+        raw = bytes.fromhex(text.removeprefix("0x"))
+    except ValueError as exc:
+        raise VerigateError(f"not a hex hash: {text!r}") from exc
     if len(raw) != 32:
         raise VerigateError("expected a 32-byte hex hash")
     return raw
@@ -92,6 +95,43 @@ def register_model(
             "txHash": "0x" + bytes(receipt["transactionHash"]).hex(),
         }
     )
+
+
+@app.command("register-models")
+def register_models(
+    manifest: Annotated[
+        Path, typer.Option("--manifest", exists=True, help="models/MANIFEST.sha256")
+    ] = Path("models/MANIFEST.sha256"),
+) -> None:
+    """Register every hash in ``MANIFEST.sha256`` (idempotent; the one-shot for a fresh stack)."""
+    settings = get_settings()
+    configure_logging(settings)
+    results: list[dict[str, Any]] = []
+    try:
+        chain = _chain(settings)
+        account = chain.account(settings.deployer_private_key)
+        for line in manifest.read_text().splitlines():
+            if not line.strip():
+                continue
+            digest_hex, _, name = line.partition("  ")
+            digest = _hash32(digest_hex.strip())
+            record = chain.get_model(digest)
+            if record.status != 0:
+                results.append({"modelHash": "0x" + digest.hex(), "status": "unchanged"})
+                continue
+            receipt = chain.send(chain.models.functions.register(digest, name.strip()), account)
+            results.append(
+                {
+                    "modelHash": "0x" + digest.hex(),
+                    "name": name.strip(),
+                    "status": "registered",
+                    "txHash": "0x" + bytes(receipt["transactionHash"]).hex(),
+                }
+            )
+    except (OSError, VerigateError) as exc:
+        _fail(exc)
+        return
+    _emit({"models": results})
 
 
 @app.command("revoke-model")

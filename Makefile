@@ -6,7 +6,7 @@ N ?= 20
 
 .PHONY: up down logs smoke doctor llm-pull help bootstrap lint format typecheck test test-unit test-integration test-contracts test-all \
         infra-up infra-down contracts-build contracts-deploy-local gateway fleet dashboard \
-        train models-hash eval clean
+        train models-hash models-register eval clean
 
 up:              ## run EVERYTHING in docker (any machine, no host toolchain needed)
 	[ -f .env ] || cp .env.example .env
@@ -75,6 +75,9 @@ contracts-build: ## compile + typechain + sync ABIs into the python package
 
 contracts-deploy-local: contracts-build ## deploy to local node and write addresses into .env
 	cd contracts && npx hardhat run scripts/deploy.ts --network localhost
+
+models-register: ## register every hash in models/MANIFEST.sha256 on the local ModelRegistry (idempotent)
+	.venv/bin/verigate-admin register-models --manifest models/MANIFEST.sha256
 
 gateway:         ## run the gateway API with reload
 	.venv/bin/uvicorn verigate.gateway.api.main:app --reload --port 8000

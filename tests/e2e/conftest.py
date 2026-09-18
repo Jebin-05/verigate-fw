@@ -17,6 +17,12 @@ from verigate.common.errors import ChainError, VerigateError
 from verigate.common.settings import Settings
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Run the happy path first: the attack scenarios burn the demo publisher's reputation
+    (ADR-0006), after which its genuine releases are — correctly — deferred, not approved."""
+    items.sort(key=lambda item: 0 if "test_full_stack" in item.nodeid else 1)
+
+
 @pytest.fixture(scope="session")
 def gateway_url() -> str:
     url = os.environ.get("GATEWAY_URL", f"http://127.0.0.1:{Settings().gateway_port}")

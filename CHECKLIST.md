@@ -63,8 +63,8 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P4-02 `verdicts/batch.py` Merkle batching + `VerdictRegistry` writer; proof endpoint
 - [x] P4-03 Reputation update: receipts ↑, rejects ↓ (EWMA), written by gateway role
 - [x] P4-04 `policy/engine.py` with on-chain weights; DEFER on outage; unit tests for every branch
-- [ ] P4-05 Dashboard pages: Releases, Verdicts, Fleet, Publishers, Models, Policy, Attacks
-- [ ] P4-06 Dashboard live log via websocket; attack buttons call gateway `/attacks/{name}`
+- [x] P4-05 Dashboard pages: Releases, Verdicts, Fleet, Publishers, Models, Policy, Attacks
+- [x] P4-06 Dashboard live log via websocket; attack buttons call gateway `/attacks/{name}`
 - [ ] P4-07 e2e: docker compose full stack, publish → verify → install → receipt → reputation
 - [ ] P4-08 Demo script v1 (`scripts/demo.sh`) runs all P3 attacks end-to-end in < 5 min
 - [ ] P4-09 `make smoke` passes from a fresh clone (CI portability job green) — the stack is provably movable

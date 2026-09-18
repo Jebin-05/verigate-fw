@@ -1,4 +1,4 @@
-"""Copy the compiled contract ABIs into the Python package (``verigate/common/abi/*.json``).
+"""Copy the compiled contract ABIs into the Python package and the dashboard.
 
 The gateway image contains no ``contracts/`` directory, so the ABIs the Python bindings need must
 ship inside the package. Run after ``npx hardhat compile`` (``make contracts-build`` does this);
@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = ROOT / "contracts" / "artifacts" / "contracts"
 TARGET = ROOT / "src" / "verigate" / "common" / "abi"
+DASHBOARD_TARGET = ROOT / "dashboard" / "src" / "chain" / "abi"
 CONTRACTS = (
     "PublisherRegistry",
     "ModelRegistry",
@@ -33,15 +34,16 @@ def extract(name: str) -> str:
 def main(check_only: bool = False) -> int:
     """Write (or, with ``--check``, compare) every ABI. Returns a process exit code."""
     TARGET.mkdir(parents=True, exist_ok=True)
+    DASHBOARD_TARGET.mkdir(parents=True, exist_ok=True)
     drift: list[str] = []
     for name in CONTRACTS:
         text = extract(name)
-        out = TARGET / f"{name}.json"
-        if check_only:
-            if not out.exists() or out.read_text() != text:
-                drift.append(name)
-        else:
-            out.write_text(text)
+        for out in (TARGET / f"{name}.json", DASHBOARD_TARGET / f"{name}.json"):
+            if check_only:
+                if not out.exists() or out.read_text() != text:
+                    drift.append(name)
+            else:
+                out.write_text(text)
     if drift:
         sys.stderr.write(f"ABI drift: {', '.join(drift)} — run scripts/sync_abi.py\n")
         return 1

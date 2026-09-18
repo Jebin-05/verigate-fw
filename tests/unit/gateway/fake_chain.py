@@ -98,6 +98,11 @@ class FakeChain:
     policy: PolicyRecord = PolicyRecord(4000, 4000, 2000, 3000, 6000, 1, "0x" + "0" * 40, 1)
 
     def __post_init__(self) -> None:
+        from verigate.common.chain import ContractAddresses  # noqa: PLC0415
+
+        self.addresses = ContractAddresses(
+            *["0x" + f"{i:040x}" for i in range(1, 6)], chain_id=31337
+        )
         self.firmware = _Contract(self)
         self.publishers = _Contract(self)
         self.models = _Contract(self)

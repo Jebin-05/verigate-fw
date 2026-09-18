@@ -10,7 +10,11 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import re
+import shutil
+import sys
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -242,6 +246,22 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
         """Submit a signed install receipt."""
         return (await service.device_receipt(msg)).__dict__
 
+    @app.get("/attacks")
+    async def attacks() -> dict[str, Any]:
+        """Available attack scenarios (from ``verigate-attack list``)."""
+        return await _run_attack_cli(["list"])
+
+    @app.post("/attacks/{name}")
+    async def run_attack(name: str) -> dict[str, Any]:
+        """Run one scenario against this gateway (dashboard attack buttons). Synchronous."""
+        if not re.fullmatch(r"[a-z\-]+", name):
+            raise HTTPException(400, "bad attack name")
+        own_url = f"http://127.0.0.1:{service.settings.gateway_port}"
+        report = await _run_attack_cli(["run", name, "--gateway", own_url])
+        if "error" in report:
+            raise HTTPException(400, str(report["error"]))
+        return report
+
     @app.websocket("/logs")
     async def logs(websocket: WebSocket) -> None:
         """Stream structured log events as JSON lines."""
@@ -253,6 +273,23 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
             return
 
     return app
+
+
+async def _run_attack_cli(args: list[str]) -> dict[str, Any]:
+    """Spawn ``verigate-attack`` (keeps the gateway free of fleet/attack imports) and parse JSON."""
+    exe = shutil.which("verigate-attack") or str(Path(sys.executable).with_name("verigate-attack"))
+    proc = await asyncio.create_subprocess_exec(
+        exe, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    out, err = await asyncio.wait_for(proc.communicate(), timeout=180)
+    text = out.decode()
+    if not text.strip():
+        raise HTTPException(500, "attack produced no output: " + err.decode()[-500:])
+    decoder = json.JSONDecoder()
+    obj, _ = decoder.raw_decode(text.lstrip())
+    if not isinstance(obj, dict):
+        raise HTTPException(500, "unexpected attack output")
+    return obj
 
 
 def build_service(settings: Settings) -> GatewayService:

@@ -22,9 +22,8 @@ from verigate.common.errors import ChainError, IpfsError, VerificationError, Ver
 from verigate.common.ipfs import IpfsBackend
 from verigate.common.logging import get_logger
 from verigate.common.manifest import SemVer, SignedManifest
-from verigate.common.protocol import SignedMessage, verify_message
+from verigate.common.protocol import InstallReceipt, SignedMessage, verify_message
 from verigate.common.settings import Settings
-from verigate.fleet.device import InstallReceipt
 from verigate.gateway.policy.engine import BASIS, Decision, PolicyEngine
 from verigate.gateway.reputation import ReputationUpdater
 from verigate.gateway.stage1.inputs import DeviceView, Stage1Input
@@ -169,6 +168,13 @@ class GatewayService:
             "devices": len(self.devices.all()),
             "uptimeS": int(time.time() - self.started_at),
             "gateway": self.gateway_account.address if self.gateway_account else None,
+            "contracts": {
+                "PublisherRegistry": self.chain.addresses.publisher_registry,
+                "ModelRegistry": self.chain.addresses.model_registry,
+                "FirmwareRegistry": self.chain.addresses.firmware_registry,
+                "PolicyContract": self.chain.addresses.policy_contract,
+                "VerdictRegistry": self.chain.addresses.verdict_registry,
+            },
             "pendingVerdicts": self.batcher.pending if self.batcher else None,
             "batches": self.batcher.commits if self.batcher else None,
         }

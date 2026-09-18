@@ -13,8 +13,8 @@ from verigate.common.crypto import KeyPair, parse_signature, sha256_hex, verify
 from verigate.common.errors import VerificationError
 from verigate.common.ipfs import compute_cid
 from verigate.common.manifest import Cids, Manifest, SemVer, SignedManifest
-from verigate.common.protocol import verify_message
-from verigate.fleet.device import Device, InstallReceipt, NvsState
+from verigate.common.protocol import InstallReceipt, verify_message
+from verigate.fleet.device import Device, NvsState
 
 PUB = KeyPair.generate()
 Mutator = Callable[[bytes, SignedManifest], tuple[bytes, SignedManifest]]

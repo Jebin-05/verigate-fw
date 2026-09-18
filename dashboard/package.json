@@ -8,11 +8,15 @@
     "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build",
     "lint": "eslint . && prettier --check \"src/**/*.{ts,tsx,css}\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "api:types": "openapi-typescript ${GATEWAY_URL:-http://127.0.0.1:8000}/openapi.json -o src/api/schema.d.ts"
   },
   "dependencies": {
+    "ethers": "^6.17.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.6",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.12.0",
@@ -24,6 +28,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.12",
     "globals": "^15.11.0",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.3.3",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.8.1",

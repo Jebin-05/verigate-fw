@@ -62,6 +62,29 @@ def sign_message(
     )
 
 
+class InstallReceipt(BaseModel):
+    """Signed proof that a device switched to a release (drives publisher reputation)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    deviceId: str  # noqa: N815 — wire format
+    releaseId: str  # noqa: N815
+    version: str
+    installedAt: str  # noqa: N815
+    signature: str
+
+    def signed_bytes(self) -> bytes:
+        """Canonical JSON of the receipt body (everything but the signature)."""
+        return canonical_json(
+            {
+                "deviceId": self.deviceId,
+                "releaseId": self.releaseId,
+                "version": self.version,
+                "installedAt": self.installedAt,
+            }
+        )
+
+
 @dataclass(frozen=True)
 class MessageCheck:
     """Result of :func:`verify_message`."""

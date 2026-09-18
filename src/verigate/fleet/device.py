@@ -17,41 +17,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
-
 from verigate.common.canonical import canonical_json
 from verigate.common.crypto import KeyPair, parse_hash, sha256
 from verigate.common.errors import VerificationError
 from verigate.common.logging import get_logger
 from verigate.common.manifest import SemVer, SignedManifest
-from verigate.common.protocol import SignedMessage, sign_message
+from verigate.common.protocol import InstallReceipt, SignedMessage, sign_message
 
 log = get_logger(__name__)
 
 SLOTS = ("a", "b")
-
-
-class InstallReceipt(BaseModel):
-    """Signed proof that a device switched to a release (raises publisher reputation in P4)."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    deviceId: str  # noqa: N815 — wire format
-    releaseId: str  # noqa: N815
-    version: str
-    installedAt: str  # noqa: N815
-    signature: str
-
-    def signed_bytes(self) -> bytes:
-        """Canonical JSON of the receipt body (everything but the signature)."""
-        return canonical_json(
-            {
-                "deviceId": self.deviceId,
-                "releaseId": self.releaseId,
-                "version": self.version,
-                "installedAt": self.installedAt,
-            }
-        )
 
 
 @dataclass(frozen=True)

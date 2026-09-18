@@ -138,6 +138,29 @@ export interface Model {
   revokedAt: number;
 }
 
+export interface ReverifiedPair {
+  releaseId: string;
+  deviceId: string;
+  before: Verdict;
+  beforeId: string;
+  after: Verdict;
+  afterId: string | null;
+  rBefore: number;
+  rAfter: number | null;
+}
+
+export interface RevocationReport {
+  modelHash: string;
+  successor: string;
+  swapped: boolean;
+  staleBatches: number[];
+  pairs: ReverifiedPair[];
+  changed: number;
+  startedAt: number;
+  finishedAt: number;
+  error: string | null;
+}
+
 export interface Policy {
   w_sbom: number;
   w_img: number;

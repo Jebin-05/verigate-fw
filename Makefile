@@ -89,7 +89,7 @@ train:           ## train both ML models, export ONNX, write model cards
 	.venv/bin/verigate-train all --seed 42
 
 models-hash:     ## regenerate models/MANIFEST.sha256
-	cd models && sha256sum *.onnx > MANIFEST.sha256 && cat MANIFEST.sha256
+	cd models && find . -name '*.onnx' | sort | sed 's|^\./||' | xargs sha256sum > MANIFEST.sha256 && cat MANIFEST.sha256
 
 eval:            ## run an experiment: make eval EXP=evaluation/configs/gas_batching.yaml
 	.venv/bin/python evaluation/runners/run.py $(EXP)

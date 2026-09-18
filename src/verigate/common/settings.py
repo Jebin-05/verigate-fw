@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     ollama_url: str = "http://127.0.0.1:11434"
     llm_model: str = "qwen2.5:3b-instruct"
     llm_enabled: bool = True
-    llm_timeout_s: float = 180.0  # CPU-only hosts evaluate a ~600-token prompt in ~40-80 s
+    llm_timeout_s: float = 120.0  # per attempt (manual §P6); raise on slow CPU-only hosts
 
     # --- vulnerability data
     osv_api: str = "https://api.osv.dev/v1"

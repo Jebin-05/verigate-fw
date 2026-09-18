@@ -30,6 +30,7 @@ from verigate.common.protocol import SignedMessage
 from verigate.common.settings import Settings, get_settings
 from verigate.gateway.api.logs import hub
 from verigate.gateway.listener import NewReleaseListener
+from verigate.gateway.revocation import RevocationJob
 from verigate.gateway.service import GatewayService
 from verigate.gateway.stage1.inputs import DeviceView
 from verigate.gateway.stage2.explain import build_explainer
@@ -95,6 +96,8 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
             tasks.append(asyncio.create_task(listener.run(stop)))
         if service.batcher is not None:
             tasks.append(asyncio.create_task(service.batcher.run(stop)))
+        if start_listener:
+            tasks.append(asyncio.create_task(revocations.run(stop)))
         log.info("gateway.started", releases=len(service.known_releases()))
         try:
             yield
@@ -105,6 +108,9 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
+    revocations = RevocationJob(
+        service, service.state_dir / "revocations.json", service.settings.listener_poll_s
+    )
     app = FastAPI(title="VeriGate-FW gateway", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
@@ -193,6 +199,16 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
         if proof is None:
             raise HTTPException(404, "unknown verdict id")
         return proof
+
+    @app.get("/revocations")
+    async def revocation_reports() -> list[dict[str, Any]]:
+        """Model revocations this gateway has replayed (before/after per stale verdict)."""
+        return [r.to_dict() for r in revocations.reports]
+
+    @app.post("/revocations/check")
+    async def revocation_check() -> list[dict[str, Any]]:
+        """Poll model status now instead of waiting for the job (the demo/attack path)."""
+        return [r.to_dict() for r in await revocations.check_once()]
 
     @app.get("/rationales/{cid}")
     async def rationale(cid: str) -> dict[str, Any]:

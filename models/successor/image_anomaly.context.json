@@ -1,0 +1,37 @@
+{
+ "background": [
+  65.0,
+  3564.0,
+  2017.0,
+  6618.0,
+  0.0,
+  317.0,
+  1.0,
+  0.0,
+  10.0,
+  65.0,
+  0.0,
+  0.0,
+  0.0,
+  100.0
+ ],
+ "feature_names": [
+  "size_kb",
+  "entropy_mean_x1000",
+  "entropy_std_x1000",
+  "entropy_max_x1000",
+  "high_entropy_chunks_pct",
+  "printable_ratio_x1000",
+  "header_valid",
+  "n_sections",
+  "n_segments",
+  "declared_size_kb",
+  "appended_kb",
+  "size_delta_kb",
+  "entropy_delta_x1000",
+  "changed_chunks_pct"
+ ],
+ "offset": -0.5,
+ "s_median": 0.45235469937324524,
+ "s_p99": 0.6237567543983458
+}

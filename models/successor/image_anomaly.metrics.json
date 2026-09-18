@@ -1,0 +1,49 @@
+{
+  "model": "models/successor/image_anomaly.onnx",
+  "model_hash": "85f2d91ea0eac0c4d139ff725ca8308004324f3dae66bfc3efbbbe9408afcdbc",
+  "benign": 165,
+  "tampered": 825,
+  "onnx_max_abs_diff": 3.3662647008769753e-07,
+  "calibration": {
+    "s_median": 0.45235469937324524,
+    "s_p99": 0.6237567543983458
+  },
+  "metrics": {
+    "benign": {
+      "false_positive_rate": 0.012121212121212121,
+      "n": 165.0
+    },
+    "byte-patch": {
+      "precision": 0.5,
+      "recall": 0.012121212121212121,
+      "auroc": 0.5439302112029385,
+      "n": 165.0
+    },
+    "append": {
+      "precision": 0.9880239520958084,
+      "recall": 1.0,
+      "auroc": 0.9994490358126722,
+      "n": 165.0
+    },
+    "section-swap": {
+      "precision": 0.5,
+      "recall": 0.012121212121212121,
+      "auroc": 0.5051239669421488,
+      "n": 165.0
+    },
+    "pack": {
+      "precision": 0.9259259259259259,
+      "recall": 0.15151515151515152,
+      "auroc": 0.9270523415977961,
+      "n": 165.0
+    },
+    "downgrade-relabel": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "auroc": 0.42839302112029387,
+      "n": 165.0
+    }
+  },
+  "dataset_csv": "data/processed/datasets/image_anomaly_seed43.csv",
+  "seed": 43
+}

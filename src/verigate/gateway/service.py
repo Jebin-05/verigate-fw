@@ -29,7 +29,7 @@ from verigate.gateway.reputation import ReputationUpdater
 from verigate.gateway.stage1.inputs import DeviceView, Stage1Input
 from verigate.gateway.stage1.runner import Stage1Result, run_stage1
 from verigate.gateway.stage2.explain import Explainer, ExplainInput, Explanation, sbom_diff
-from verigate.gateway.stage2.scores import NullScorer, Scorer, Stage2Scores
+from verigate.gateway.stage2.scores import NullScorer, Scorer, Stage2Scores, swap_model
 from verigate.gateway.store import Cursor, DeviceRecord, DeviceStore, VerdictLog
 from verigate.gateway.verdicts.batch import VerdictBatcher
 from verigate.gateway.verdicts.record import VerdictRecord, feature_hash
@@ -115,6 +115,7 @@ class GatewayService:
     policy: PolicyEngine = field(init=False)
     scorer: Scorer = field(default_factory=NullScorer)
     explainer: Explainer | None = None
+    _model_hashes: list[bytes] = field(default_factory=list, init=False)
     _rationales: dict[str, asyncio.Task[Explanation | None]] = field(
         default_factory=dict, init=False
     )
@@ -128,6 +129,8 @@ class GatewayService:
         self.verdicts = VerdictLog(self.state_dir / "verdicts.jsonl")
         self.cursor = Cursor(self.state_dir / "listener.json")
         self.policy = PolicyEngine(self.chain)
+        raw = [h.strip() for h in self.settings.stage2_model_hashes.split(",") if h.strip()]
+        self._model_hashes = [bytes.fromhex(h.removeprefix("0x")) for h in raw]
         if self.settings.gateway_private_key:
             self.gateway_account = self.chain.account(self.settings.gateway_private_key)
             self.batcher = VerdictBatcher(
@@ -148,9 +151,31 @@ class GatewayService:
         return datetime.now(UTC)
 
     def model_hashes(self) -> tuple[bytes, ...]:
-        """Model hashes the gate uses (``STAGE2_MODEL_HASHES``), empty until P5."""
-        raw = [h.strip() for h in self.settings.stage2_model_hashes.split(",") if h.strip()]
-        return tuple(bytes.fromhex(h.removeprefix("0x")) for h in raw)
+        """Model hashes the gate uses: ``STAGE2_MODEL_HASHES`` until a revocation swaps one."""
+        return tuple(self._model_hashes)
+
+    async def swap_model(self, revoked: str, successor: str) -> bool:
+        """Replace a revoked model by its registry successor (P6-06); ``False`` = fail closed.
+
+        Only the slot that ran ``revoked`` changes; the successor file is found by hash under
+        ``MODELS_DIR``. On success ``model_hashes()`` names the successor, so Stage 1's
+        ``model_active`` check reads the new record and Stage 2 runs the new model.
+        """
+        digest = bytes.fromhex(revoked.removeprefix("0x"))
+        if digest not in self._model_hashes or int(successor, 16) == 0:
+            log.warning("model.swap_unavailable", revoked=revoked, successor=successor)
+            return False
+        replacement = await asyncio.to_thread(
+            swap_model, self.scorer, self.settings, revoked, successor
+        )
+        if replacement is None:
+            log.warning("model.swap_unavailable", revoked=revoked, successor=successor)
+            return False
+        self.scorer = replacement
+        self._model_hashes[self._model_hashes.index(digest)] = bytes.fromhex(successor[2:])
+        self._rationales.clear()  # a rationale describes the scores of the model that ran
+        log.warning("model.swapped", revoked=revoked, successor=successor)
+        return True
 
     # ------------------------------------------------------------------ health
 

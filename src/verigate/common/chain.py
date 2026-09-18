@@ -364,6 +364,10 @@ class ChainClient:
         r = self.call(self.verdicts.functions.getBatch(batch_id))
         return BatchRecord(batch_id, bytes(r[0]), r[1], r[2], r[3], tuple(bytes(h) for h in r[4]))
 
+    def stale_by_model(self, model_hash: bytes) -> tuple[int, ...]:
+        """Batch ids that used ``model_hash`` — non-empty only once the model is REVOKED."""
+        return tuple(int(b) for b in self.call(self.verdicts.functions.staleByModel(model_hash)))
+
     def release_count(self) -> int:
         """Number of releases registered so far."""
         return int(self.call(self.firmware.functions.count()))

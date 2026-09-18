@@ -86,7 +86,7 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P6-03 Isolation Forest training → `models/image_anomaly.onnx` + card
 - [x] P6-04 `stage2/image.py` inference; per-mutation-class precision/recall in evaluation
 - [x] P6-05 `stage2/explain.py`: Ollama client, strict JSON schema, retry, `LLM_ENABLED` switch; rationale → IPFS
-- [ ] P6-06 Model revocation flow: revoke → stale query → re-verify job → dashboard shows delta
+- [x] P6-06 Model revocation flow: revoke → stale query → re-verify job → dashboard shows delta
 - [ ] P6-07 Attack scripts: vulnerable-but-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper
 - [ ] P6-08 Tag `v0.2.0` — full AI gate release
 

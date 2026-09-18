@@ -11,6 +11,7 @@ import type {
   Publisher,
   Rationale,
   Release,
+  RevocationReport,
   VerdictLogEntry,
   VerificationResult,
 } from './types';
@@ -55,6 +56,8 @@ export const api = {
   devices: () => request<Device[]>('/devices'),
   publishers: () => request<Publisher[]>('/publishers'),
   models: () => request<Model[]>('/models'),
+  revocations: () => request<RevocationReport[]>('/revocations'),
+  checkRevocations: () => request<RevocationReport[]>('/revocations/check', { method: 'POST' }),
   policy: () => request<{ policy: Policy | null }>('/policy'),
   attacks: () => request<Record<string, { expected: string }>>('/attacks'),
   runAttack: (name: string) => request<AttackReport>(`/attacks/${name}`, { method: 'POST' }),

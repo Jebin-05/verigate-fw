@@ -8,7 +8,9 @@ the decision rests on Stage 1 plus reputation.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 
 from verigate.common.settings import Settings
@@ -112,3 +114,34 @@ def build_scorer(settings: Settings) -> Scorer:
     if sbom is None and image is None:
         return NullScorer()
     return Stage2Scorer(sbom, image)
+
+
+def find_model_file(models_dir: Path, model_hash: str) -> Path | None:
+    """The ``.onnx`` under ``models_dir`` (recursively) whose SHA-256 is ``model_hash``."""
+    want = model_hash.lower().removeprefix("0x")
+    for path in sorted(models_dir.rglob("*.onnx")):
+        if hashlib.sha256(path.read_bytes()).hexdigest() == want:
+            return path
+    return None
+
+
+def swap_model(scorer: Scorer, settings: Settings, revoked: str, successor: str) -> Scorer | None:
+    """A scorer with the slot that ran ``revoked`` replaced by ``successor`` (P6-06).
+
+    The successor is located by hash under ``MODELS_DIR`` — the gateway never trusts a file
+    name, only bytes whose hash the registry names. ``None`` when the revoked hash is not in use
+    or no file with the successor's hash exists (the gate then stays fail-closed).
+    """
+    if not isinstance(scorer, Stage2Scorer):
+        return None
+    path = find_model_file(settings.models_dir, successor)
+    if path is None:
+        return None
+    rel = str(path.relative_to(settings.models_dir))
+    if scorer.sbom is not None and scorer.sbom.model_hash.lower() == revoked.lower():
+        sbom = build_sbom_scorer(settings.model_copy(update={"sbom_model": rel}))
+        return Stage2Scorer(sbom, scorer.image)
+    if scorer.image is not None and scorer.image.model_hash.lower() == revoked.lower():
+        image = build_image_scorer(settings.model_copy(update={"image_model": rel}))
+        return Stage2Scorer(scorer.sbom, image)
+    return None

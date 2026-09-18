@@ -10,6 +10,7 @@ an unreachable Ollama or a malformed answer all degrade to "no rationale", never
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -42,7 +43,7 @@ class Rationale(BaseModel):
     recommended_action: Literal["install", "review", "block"]
 
 
-MAX_DIFF_ITEMS = 12
+MAX_DIFF_ITEMS = 8
 
 RATIONALE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -182,6 +183,9 @@ class Explainer:
             timeout=httpx.Timeout(timeout_s, connect=5.0), transport=transport
         )
         self._cache: dict[str, Explanation | None] = {}
+        self._unavailable_until = 0.0
+
+    COOLDOWN_S = 60.0  # after a connection failure, skip (not cache) for this long
 
     def _ask(self, prompt: str) -> Rationale:
         resp = self._http.post(
@@ -207,6 +211,9 @@ class Explainer:
             return None
         if inp.release_id in self._cache:
             return self._cache[inp.release_id]
+        if time.monotonic() < self._unavailable_until:
+            log.info("explain.skipped_unavailable", release_id=inp.release_id)
+            return None
         prompt = build_prompt(inp)
         result: Explanation | None = None
         attempts = 0
@@ -221,6 +228,10 @@ class Explainer:
                     error=str(exc)[:200],
                     release_id=inp.release_id,
                 )
+                if isinstance(exc, httpx.ConnectError):
+                    # Ollama is not running: do not stall every release for two connect timeouts.
+                    self._unavailable_until = time.monotonic() + self.COOLDOWN_S
+                    return None
                 continue
             payload = rationale.model_dump_json(indent=2).encode()
             cid = self.ipfs.put(payload)

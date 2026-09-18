@@ -221,3 +221,12 @@ def test_rationale_endpoint(world: dict[str, Any]) -> None:
         assert c.get(f"/rationales/{cid}").json() == {"cid": cid, **GOOD}
         assert c.get(f"/rationales/{bad}").status_code == 404
         assert c.get("/rationales/bafkreinotthere").status_code == 404
+
+
+def test_connection_failure_backs_off_without_caching(tmp_path: Path) -> None:
+    transport, seen = ollama([httpx.ConnectError("refused"), GOOD])
+    ex = Explainer("http://llm", "m", LocalCidBackend(tmp_path), transport=transport)
+    assert ex.explain(explain_input()) is None and len(seen) == 1  # no retry on connect errors
+    assert ex.explain(explain_input(release_id="0x" + "cd" * 32)) is None and len(seen) == 1
+    ex._unavailable_until = 0.0  # noqa: SLF001 — cooldown elapsed
+    assert ex.explain(explain_input()) is not None and len(seen) == 2  # was not cached as failed

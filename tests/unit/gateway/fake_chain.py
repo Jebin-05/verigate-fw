@@ -11,6 +11,8 @@ from typing import Any
 from verigate.common.chain import (
     STATUS_ACTIVE,
     STATUS_NONE,
+    STATUS_REVOKED,
+    BatchRecord,
     ModelRecord,
     PolicyRecord,
     PublisherRecord,
@@ -143,6 +145,19 @@ class FakeChain:
         self.raise_if_down()
         return self.policy_record
 
+    def get_batch(self, batch_id: int) -> BatchRecord:
+        self.raise_if_down()
+        b = self.committed[batch_id]
+        return BatchRecord(
+            batch_id, b["root"], b["count"], b["gateway"], b["block"], tuple(b["modelHashes"])
+        )
+
+    def stale_by_model(self, h: bytes) -> tuple[int, ...]:
+        self.raise_if_down()
+        if self.get_model(h).status != STATUS_REVOKED:
+            return ()
+        return tuple(i for i, b in enumerate(self.committed) if h in b["modelHashes"])
+
     def release_count(self) -> int:
         self.raise_if_down()
         return len(self.releases)
@@ -208,6 +223,11 @@ class FakeChain:
 
     def add_model(self, h: bytes, status: int = STATUS_ACTIVE) -> None:
         self.model_records[h] = ModelRecord(h, "m", status, b"\x00" * 32, 1, 0)
+
+    def revoke_model(self, h: bytes, successor: bytes = b"\x00" * 32) -> None:
+        self.block += 1
+        r = self.get_model(h)
+        self.model_records[h] = ModelRecord(h, r.name, STATUS_REVOKED, successor, 1, self.block)
 
     def add_release(
         self, signed: SignedManifest, manifest_cid: str, revoked: bool = False

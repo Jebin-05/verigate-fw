@@ -55,8 +55,8 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P3-05 `fleet/device.py`: identity, NVS JSON, A/B slots, self-verify hash+sig, install receipt
 - [x] P3-06 `fleet/runner.py`: asyncio N devices; `verigate-fleet run --count N`
 - [x] P3-07 Device ↔ gateway protocol (HTTP, signed messages, nonce replay protection)
-- [ ] P3-08 Attack scripts: tamper, forge, stolen-key, rollback, freeze, sbom-swap → each has an e2e test asserting REJECT/DEFER
-- [ ] P3-09 Integration tests for Stage 1 against deployed contracts
+- [x] P3-08 Attack scripts: tamper, forge, stolen-key, rollback, freeze, sbom-swap → each has an e2e test asserting REJECT/DEFER
+- [x] P3-09 Integration tests for Stage 1 against deployed contracts
 
 ## P4 — Verdicts, batching, reputation, dashboard (weeks 5–6)
 - [ ] P4-01 `verdicts/record.py` schema; featureHash = SHA-256(canonical feature vector)

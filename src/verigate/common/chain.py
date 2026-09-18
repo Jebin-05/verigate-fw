@@ -281,11 +281,8 @@ class ChainClient:
         return self._errors.get(raw[:4])
 
     def _wrap(self, exc: Exception) -> ChainError:
-        if isinstance(exc, ContractLogicError):  # ContractCustomError is a subclass
-            raw = getattr(exc, "data", None)
-            if isinstance(raw, dict):  # Hardhat nests {"message": ..., "data": "0x..."}
-                raw = raw.get("data")
-            data = raw if isinstance(raw, str) and raw.startswith("0x") else None
+        data = _revert_data(exc)
+        if isinstance(exc, ContractLogicError) or data is not None:
             return ContractRevertError(self.decode_error(data), data)
         return ChainError(f"rpc failure: {exc}")
 
@@ -376,6 +373,30 @@ class ChainClient:
         total = self.release_count()
         end = min(total, start + limit)
         return [bytes(self.call(self.firmware.functions.releaseIdAt(i))) for i in range(start, end)]
+
+
+def _revert_data(obj: object, depth: int = 0) -> str | None:
+    """Find ``0x``-prefixed revert data anywhere in an exception payload (web3/Hardhat nest it)."""
+    if depth > 6:
+        return None
+    if isinstance(obj, str):
+        return obj if obj.startswith("0x") and len(obj) >= 10 else None
+    if isinstance(obj, dict):
+        found = _revert_data(obj.get("data"), depth + 1)
+        return found or next(
+            (r for r in (_revert_data(v, depth + 1) for v in obj.values()) if r), None
+        )
+    if isinstance(obj, list | tuple):
+        return next((r for r in (_revert_data(v, depth + 1) for v in obj) if r), None)
+    if isinstance(obj, BaseException):
+        data = getattr(obj, "data", None)
+        response = getattr(obj, "rpc_response", None)
+        return (
+            _revert_data(data, depth + 1)
+            or _revert_data(response, depth + 1)
+            or _revert_data(obj.args, depth + 1)
+        )
+    return None
 
 
 def publisher_id(did: str) -> bytes:

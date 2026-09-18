@@ -14,6 +14,7 @@ from verigate.common.chain import (
     ChainClient,
     ContractAddresses,
     ContractRevertError,
+    _revert_data,
     device_model_id,
     load_abi,
     load_addresses,
@@ -157,3 +158,24 @@ def test_ids_and_roles() -> None:
     )
     assert len(device_model_id("demo-device")) == 32
     assert ADMIN_ROLE.hex() == "a49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775"
+
+
+def test_revert_data_is_found_in_rpc_error_payloads(offline_client: ChainClient) -> None:
+    from web3.exceptions import Web3RPCError  # noqa: PLC0415
+
+    selector = next(k for k, v in offline_client._errors.items() if v == "InvalidExpiry")  # noqa: SLF001
+    data = "0x" + selector.hex() + "00" * 64
+    hardhat_style = Web3RPCError(
+        {
+            "code": -32603,
+            "message": "reverted with custom error 'InvalidExpiry(1, 2)'",
+            "data": {"message": "m", "data": data},
+        }
+    )
+    wrapped = offline_client._wrap(hardhat_style)  # noqa: SLF001
+    assert isinstance(wrapped, ContractRevertError) and wrapped.name == "InvalidExpiry"
+    assert _revert_data({"a": [1, {"data": data}]}) == data
+    assert _revert_data("0x12") is None and _revert_data(None) is None and _revert_data(5) is None
+    assert _revert_data({"x": {"y": {"z": {"w": {"v": {"u": {"t": data}}}}}}}) is None  # depth cap
+    plain = offline_client._wrap(Web3RPCError({"code": -32000, "message": "insufficient funds"}))  # noqa: SLF001
+    assert type(plain) is ChainError

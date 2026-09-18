@@ -14,17 +14,25 @@ with the feature hash of every verdict so any score can be recomputed.
   across {n_releases} releases ({first_release} … {last_release}).
 - `data/MANIFEST.sha256` (SHA-256 of the corpus manifest): `{data_manifest_sha}`.
 - Vulnerability data: OSV.dev (query by package name + version across every ecosystem,
-  de-duplicated by CVE), EPSS snapshot {t0} ({epss_version}), CISA KEV catalogue released
-  {kev_released}.
+  re-evaluated client-side against upstream versions, de-duplicated by CVE; the Linux kernel and
+  OpenWrt-internal components are not matched), EPSS snapshots {epss_version}, CISA KEV catalogue
+  released {kev_released}.
 - ESPHome / Tasmota (named in the Project Guide) are **not** included: they ship monolithic ESP
   images without a package manifest, so no SBOM can be derived honestly.
 
 ## Target (label)
-**KEV exposure at T1 = {t1}**: the fraction of a release's unique CVEs that CISA's KEV catalogue
-lists as known-exploited on T1. Features are computed as of T0 = {t0} (EPSS snapshot of T0, KEV
-membership as of T0), so the model predicts later exploitation exposure from earlier public data.
-The label is ground truth from CISA, not a hand-made severity score. The tampered / malicious sets
-used elsewhere in this project are synthetic; this model does not claim to detect malware.
+**Expected exploited-CVE count at T1 = {t1}**: `Σ EPSS_T1(cve)` over every CVE of the release
+published by T1 — with EPSS the 30-day exploitation probability of each CVE, the sum is the
+expected number of the release's vulnerabilities that are exploited in the wild (the additive form
+keeps a dynamic range that "at least one exploited" loses for firmware with 50–200 CVEs). At the
+gateway `r_sbom = 1 − exp(−prediction / {r_scale})` (six expected exploited CVEs → 0.63; the scale is
+stored in `{model_name}.context.json`). Features are computed as of T0 = {t0}: only CVEs published by T0, the EPSS snapshot of
+T0 and KEV membership as of T0, so the model predicts *future* exposure (including vulnerabilities
+not yet disclosed at T0) from data that was public at T0. The label comes from an external,
+evidence-driven scoring system, not from a hand-made severity formula. CISA KEV was tried first as
+the label and is degenerate for this corpus (no KEV entry matches OpenWrt userland packages); it is
+kept as a feature only. The tampered / malicious sets used elsewhere in this project are synthetic;
+this model does not claim to detect malware.
 
 ## Features (units) — order is the ONNX input order
 | # | name | unit |
@@ -33,13 +41,16 @@ used elsewhere in this project are synthetic; this model does not claim to detec
 
 ## Model
 `sklearn.ensemble.HistGradientBoostingRegressor`, `{hyperparams}`, `random_state={seed}`,
-no early stopping; exported with skl2onnx (opset 17 / ai.onnx.ml 3). ONNX output equals sklearn
-output on the test set (max abs diff {onnx_max_abs_diff:.2e}, tested at atol 1e-6).
+no early stopping; exported with skl2onnx (opset 17 / ai.onnx.ml 3). The ONNX output is the
+**growth ratio** `label / (Σ EPSS at T0)`; the prediction is `Σ EPSS_T0 × ratio` (a direct
+regressor was measured first and could not extrapolate to the newest, less-vulnerable releases:
+trees predict a constant outside the training range). ONNX output equals sklearn output on the
+test set (max abs diff {onnx_max_abs_diff:.2e}, tested at atol 1e-6).
 
 ## Split and metrics (held-out = the newest releases, whole releases)
-- train rows: {train_rows} · test rows: {test_rows} · label mean (train / test): {label_mean_train:.4f} / {label_mean_test:.4f}
+- train rows: {train_rows} · test rows: {test_rows} · label mean (train / test): {label_mean_train:.3f} / {label_mean_test:.3f} expected exploited CVEs
 
-| metric (test set) | model | baseline (CVSS/EPSS/KEV formula at T0) |
+| metric (test set) | model | baseline (CVSS/EPSS/KEV formula at T0, mapped to −ln(1−p)) |
 |---|---|---|
 {metric_rows}
 

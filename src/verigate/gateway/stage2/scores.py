@@ -1,16 +1,18 @@
-"""Stage-2 risk scores for a release (Guide §6). Until P5/P6 ship models this is the null scorer.
+"""Stage-2 risk scores for a release (Guide §6): the composition point for the model scorers.
 
-The interface is fixed now so the policy engine, verdict record and dashboard do not change when
-the ONNX models land: ``score(bundle) -> Stage2Scores`` with basis-point scores, the quantised
-feature vector (what ``featureHash`` commits to) and the model hashes that produced them.
+``score(firmware, sbom, previous) -> Stage2Scores`` with basis-point scores, the quantised
+feature vector (what ``featureHash`` commits to, one nested dict per model) and the model hashes
+that produced them. Without any configured model the :class:`NullScorer` returns zero risk and
+the decision rests on Stage 1 plus reputation.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from verigate.common.settings import Settings
+from verigate.gateway.stage2.image import ImageScorer, build_image_scorer
 from verigate.gateway.stage2.sbom import SbomScorer, build_sbom_scorer
 from verigate.gateway.verdicts.record import feature_hash
 
@@ -31,10 +33,22 @@ class Stage2Scores:
         return feature_hash(self.features)
 
 
+class Scorer(Protocol):
+    """What the service calls; implemented by ``NullScorer`` and ``Stage2Scorer``."""
+
+    def score(self, firmware: bytes, sbom: bytes, previous: bytes | None = None) -> Stage2Scores:
+        """Score one release."""
+
+
 class NullScorer:
     """No models configured: zero risk from Stage 2, the decision rests on Stage 1 + reputation."""
 
-    def score(self, firmware: bytes, sbom: bytes) -> Stage2Scores:  # noqa: ARG002
+    def score(
+        self,
+        firmware: bytes,  # noqa: ARG002
+        sbom: bytes,  # noqa: ARG002
+        previous: bytes | None = None,  # noqa: ARG002
+    ) -> Stage2Scores:
         """Return zero scores with an empty feature vector."""
         return Stage2Scores(r_sbom_bp=0, r_img_bp=0)
 
@@ -42,14 +56,15 @@ class NullScorer:
 class Stage2Scorer:
     """Composes the configured model scorers (SBOM in P5, image in P6)."""
 
-    def __init__(self, sbom: SbomScorer | None) -> None:
+    def __init__(self, sbom: SbomScorer | None, image: ImageScorer | None = None) -> None:
         self.sbom = sbom
+        self.image = image
 
-    def score(self, firmware: bytes, sbom: bytes) -> Stage2Scores:  # noqa: ARG002 — image scorer lands in P6
+    def score(self, firmware: bytes, sbom: bytes, previous: bytes | None = None) -> Stage2Scores:
         """Run every configured model; the feature vector nests one dict per model."""
         features: dict[str, Any] = {}
         hashes: list[str] = []
-        r_sbom = 0
+        r_sbom = r_img = 0
         if self.sbom is not None:
             result = self.sbom.score(sbom)
             r_sbom = result.r_sbom_bp
@@ -59,12 +74,25 @@ class Stage2Scorer:
                 "top3": [[name, value] for name, value in result.top_features],
             }
             hashes.append(result.model_hash)
+        if self.image is not None:
+            img = self.image.score(firmware, previous)
+            r_img = img.r_img_bp
+            features["img"] = {
+                **img.features,
+                "model": img.model_hash,
+                "top3": [[name, value] for name, value in img.top_features],
+                "previous": previous is not None,
+            }
+            hashes.append(img.model_hash)
         return Stage2Scores(
-            r_sbom_bp=r_sbom, r_img_bp=0, features=features, model_hashes=tuple(hashes)
+            r_sbom_bp=r_sbom, r_img_bp=r_img, features=features, model_hashes=tuple(hashes)
         )
 
 
-def build_scorer(settings: Settings) -> NullScorer | Stage2Scorer:
+def build_scorer(settings: Settings) -> Scorer:
     """The scorer for these settings (``NullScorer`` when no model is configured)."""
     sbom = build_sbom_scorer(settings)
-    return Stage2Scorer(sbom) if sbom is not None else NullScorer()
+    image = build_image_scorer(settings)
+    if sbom is None and image is None:
+        return NullScorer()
+    return Stage2Scorer(sbom, image)

@@ -1,0 +1,7 @@
+# P6-04 / P7-01: image anomaly detector precision/recall per mutation class at the policy-relevant
+# operating point (r_img >= 0.5 = benign 99th percentile), with a threshold sweep.
+experiment: detection_f1
+seed: 42
+repetitions: 200
+threshold: 0.5
+dataset: data/processed/datasets/image_anomaly_seed42.csv

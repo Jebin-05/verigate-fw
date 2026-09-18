@@ -32,7 +32,7 @@ ROWS: dict[str, list[tuple[str, Mutation, bool, str | None]]] = {
         ("manifest missing", lambda i: replace(i, manifest=None), False, "manifest unavailable"),
         (
             "one byte flipped",
-            lambda i: replace(i, firmware=i.firmware[:-1] + b"\x00"),
+            lambda i: replace(i, firmware=i.firmware[:-1] + bytes([i.firmware[-1] ^ 0xFF])),
             False,
             "!= manifest",
         ),

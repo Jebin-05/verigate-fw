@@ -1,3 +1,3 @@
 # demo-device 1.0.0
 
-Initial release of the demo-device firmware.
+Initial demo-device release (OpenWrt 22.03.7 userland).

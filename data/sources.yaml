@@ -74,3 +74,58 @@ openwrt:
     - sunxi/cortexa53
     - lantiq/xrx200
     - mpc85xx/p1020
+
+# Benign firmware *binaries* for the image anomaly detector (P6-03): real ELF executables and
+# libraries from OpenWrt's package feeds (one architecture, many releases). Each .ipk is
+# downloaded, its largest ELF extracted into data/raw/elf/<release>/<package>.elf and hashed in
+# data/MANIFEST.sha256. Consecutive releases of the same package give the "previous version"
+# deltas. The tampered set is generated from these by verigate.ml.data.mutate.
+images:
+  arch: mips_24kc
+  feed: base
+  releases:
+    - 21.02.5
+    - 21.02.7
+    - 22.03.3
+    - 22.03.5
+    - 22.03.7
+    - 23.05.0
+    - 23.05.2
+    - 23.05.3
+    - 23.05.4
+    - 23.05.5
+    - 24.10.0
+    - 24.10.2
+  packages:
+    - busybox
+    - dropbear
+    - dnsmasq
+    - uhttpd
+    - odhcpd
+    - netifd
+    - procd
+    - opkg
+    - logd
+    - iw
+    - jshn
+    - ubusd
+    - uci
+    - ubus
+    - rpcd
+    - fstools
+    - mtd
+    - swconfig
+    - libubox
+    - libuci
+    - libubus
+    - libjson-c
+    - libblobmsg-json
+    - libnl-tiny
+    - libiwinfo
+    - libmbedtls
+    - libwolfssl
+    - libustream-wolfssl
+    - libustream-mbedtls
+    - libuclient
+    - libgcc
+    - libpthread

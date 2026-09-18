@@ -1,11 +1,18 @@
 """Train the SBOM risk model (P5-04): corpus → features@T0 → label@T1 → HGBR → ONNX + card.
 
-Target (stated exactly, Manual §11): **KEV exposure at T1** — the fraction of the release's
-unique CVEs that CISA lists as known-exploited on date T1, predicted from features computed
-with the EPSS snapshot and KEV membership as of an earlier date T0. Rows are whole releases;
-the train/test split is by release date (the newest releases are held out), so nothing about a
-test release leaks into training. The label is exploitation ground truth, not a hand-made
-severity score; the baseline scorer (``ml/baseline.py``) is evaluated on the same label.
+Target (stated exactly, Manual §11): **expected exploited-CVE count at T1** — ``Σ EPSS_T1(cve)``
+over every CVE of the release published by T1, using FIRST's EPSS snapshot of T1 (each EPSS value
+is the probability that the CVE is exploited within 30 days, so the sum is the expected number of
+the release's vulnerabilities that are exploited). The additive form keeps a dynamic range that
+the "at least one exploited" composition loses for firmware carrying 50–200 CVEs. Features are
+computed as of an earlier T0: only CVEs published by T0, the EPSS snapshot of T0 and KEV
+membership as of T0, so the model predicts *future* exposure (including vulnerabilities not yet
+disclosed at T0) from data that was public at T0. Rows are whole releases; the train/test split is
+by release date (the newest releases are held out). The label comes from an external, evidence-
+driven scoring system, not from a hand-made severity formula; the baseline scorer
+(``ml/baseline.py``) is evaluated on the same label. (CISA KEV was tried first as the label and is
+degenerate for this corpus: no KEV entry matches OpenWrt userland packages, so it is kept only as
+a feature.)
 
 Every step is seeded and deterministic: running ``verigate-train sbom`` twice produces
 byte-identical ONNX files (tested).
@@ -21,7 +28,7 @@ import shutil
 import subprocess
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, time
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -112,13 +119,16 @@ class VulnLookup:
     def records(
         self, components: list[Component] | tuple[Component, ...]
     ) -> dict[Component, list[VulnRecord]]:
-        """CVE records per component (deduplicated inside each component)."""
+        """CVE records per component, restricted to CVEs published by ``as_of``."""
         cves_by_component = self.osv.cves_for_many(list(components))
+        cutoff = datetime.combine(self.as_of, time.max, tzinfo=UTC)
         out: dict[Component, list[VulnRecord]] = {}
         for c in components:
             records = []
             for cve in sorted(cves_by_component.get(c, ())):
                 info = self.osv.vuln(cve)
+                if info.published is not None and info.published > cutoff:
+                    continue  # not yet public on the snapshot date
                 records.append(
                     VulnRecord(cve, info.cvss, self.epss.get(cve), self.kev.is_kev(cve, self.as_of))
                 )
@@ -126,36 +136,51 @@ class VulnLookup:
         return out
 
 
-def kev_exposure(
-    records: dict[Component, list[VulnRecord]], kev: KevCatalogue, as_of: date
-) -> float:
-    """Label: fraction of the release's unique CVEs that are in KEV as of ``as_of``."""
-    cves = {r.cve for recs in records.values() for r in recs}
-    if not cves:
-        return 0.0
-    return sum(1 for cve in cves if kev.is_kev(cve, as_of)) / len(cves)
+R_SCALE = 6.0
+"""``r_sbom = 1 − exp(−expected_exploited / R_SCALE)``: six expected exploited CVEs → 0.63."""
+
+
+def expected_exploited(records: dict[Component, list[VulnRecord]]) -> float:
+    """Label: ``Σ epss`` over the release's unique CVEs (unknown EPSS counts as 0)."""
+    unique: dict[str, VulnRecord] = {}
+    for recs in records.values():
+        for r in recs:
+            unique.setdefault(r.cve, r)
+    return float(sum(r.epss or 0.0 for r in unique.values()))
+
+
+def to_r_sbom(expected: np.ndarray | float, scale: float = R_SCALE) -> np.ndarray:
+    """Map an expected exploited count (≥ 0) to ``r_sbom`` in [0, 1)."""
+    return 1.0 - np.exp(-np.clip(np.asarray(expected, dtype=np.float64), 0.0, None) / scale)
 
 
 def build_dataset(
-    rows: list[CorpusRow], lookup_t0: VulnLookup, kev: KevCatalogue, t1: date
+    rows: list[CorpusRow], lookup_t0: VulnLookup, lookup_t1: VulnLookup
 ) -> list[dict[str, Any]]:
-    """Feature rows with the T1 label and the T0 baseline score."""
+    """Feature rows (as of T0) with the T1 label and the T0 baseline score."""
     context = corpus_context(rows, lookup_t0.as_of)
     dataset: list[dict[str, Any]] = []
     for row in rows:
-        records = lookup_t0.records(row.components)
-        features = sbom_features(row.components, records, context)
+        records_t0 = lookup_t0.records(row.components)
+        records_t1 = lookup_t1.records(row.components)
+        features = sbom_features(row.components, records_t0, context)
         dataset.append(
             {
                 "id": row.id,
                 "release": row.release,
                 "released_at": row.released_at.isoformat(),
                 **features,
-                "baseline_bp": baseline_bp([r for recs in records.values() for r in recs]),
-                "label": kev_exposure(records, kev, t1),
+                "n_cves_t1": len({r.cve for recs in records_t1.values() for r in recs}),
+                "baseline_bp": baseline_bp([r for recs in records_t0.values() for r in recs]),
+                "label": expected_exploited(records_t1),
             }
         )
-    log.info("dataset.built", rows=len(dataset), t0=lookup_t0.as_of.isoformat(), t1=t1.isoformat())
+    log.info(
+        "dataset.built",
+        rows=len(dataset),
+        t0=lookup_t0.as_of.isoformat(),
+        t1=lookup_t1.as_of.isoformat(),
+    )
     return dataset
 
 
@@ -171,17 +196,46 @@ def temporal_split(
     return train, test
 
 
+SUM_EPSS_INDEX = FEATURE_NAMES.index("sum_epss_x1e4")
+MIN_T0_EXPOSURE = 1e-3
+
+
+def t0_exposure(x: np.ndarray) -> np.ndarray:
+    """Σ EPSS at T0 (the feature ``sum_epss_x1e4`` back on the probability scale)."""
+    exposure: np.ndarray = np.maximum(
+        np.asarray(x, dtype=np.float64)[:, SUM_EPSS_INDEX] / 10_000, MIN_T0_EXPOSURE
+    )
+    return exposure
+
+
 def matrix(dataset: list[dict[str, Any]]) -> tuple[np.ndarray, np.ndarray]:
-    """``(X, y)`` in :data:`FEATURE_NAMES` order."""
+    """``(X, y)`` in :data:`FEATURE_NAMES` order; ``y`` is the expected exploited count at T1."""
     x = np.array([as_vector(d) for d in dataset], dtype=np.float32)
     y = np.array([d["label"] for d in dataset], dtype=np.float64)
     return x, y
 
 
+def growth_ratio(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """The learning target: ``label / T0 exposure`` (how much exposure grows by T1)."""
+    ratio: np.ndarray = np.asarray(y, dtype=np.float64) / t0_exposure(x)
+    return ratio
+
+
+def expected_from_ratio(x: np.ndarray, ratio: np.ndarray) -> np.ndarray:
+    """Model output (ratio) → expected exploited count: ``T0 exposure × ratio``."""
+    expected: np.ndarray = np.clip(t0_exposure(x) * np.asarray(ratio, dtype=np.float64), 0.0, None)
+    return expected
+
+
 def train_model(x: np.ndarray, y: np.ndarray, seed: int) -> HistGradientBoostingRegressor:
-    """Seeded HGBR (no early stopping, so the tree structure is a pure function of the data)."""
+    """Seeded HGBR on the growth ratio (no early stopping: the trees are a function of the data).
+
+    Trees cannot extrapolate: a direct regressor predicts a constant for releases with fewer CVEs
+    than any training release (the newest ones). Learning the ratio to the T0 exposure keeps the
+    ranking structure of the T0 data and lets the model learn how exposure grows.
+    """
     model = HistGradientBoostingRegressor(random_state=seed, early_stopping=False, **HYPERPARAMS)
-    model.fit(x, y)
+    model.fit(x, growth_ratio(x, y))
     return model
 
 
@@ -214,17 +268,40 @@ def export_onnx(model: HistGradientBoostingRegressor, n_features: int) -> bytes:
             initial_types=[("features", FloatTensorType([None, n_features]))],
             target_opset={"": 17, "ai.onnx.ml": 3},
         )
-    onnx_model.graph.name = MODEL_NAME  # skl2onnx assigns a random uuid → non-reproducible bytes
+    return finalise_onnx(onnx_model, MODEL_NAME, list(FEATURE_NAMES))
+
+
+def finalise_onnx(onnx_model: onnx.ModelProto, name: str, features: list[str]) -> bytes:
+    """Make the serialised bytes reproducible: fixed graph name / metadata, sorted opset imports.
+
+    skl2onnx assigns a random uuid as graph name and emits ``opset_import`` in dict order, which
+    depends on Python's per-process string hashing.
+    """
+    onnx_model.graph.name = name
     onnx_model.producer_name = "verigate-train"
     onnx_model.producer_version = "1"
-    onnx_model.doc_string = f"{MODEL_NAME}: features={list(FEATURE_NAMES)}"
+    onnx_model.doc_string = f"{name}: features={features}"
     onnx_model.model_version = 1
+    opsets = sorted(onnx_model.opset_import, key=lambda o: o.domain)
+    del onnx_model.opset_import[:]
+    onnx_model.opset_import.extend(opsets)
     return bytes(onnx_model.SerializeToString())
+
+
+_SESSIONS: dict[str, ort.InferenceSession] = {}
+
+
+def onnx_session(onnx_bytes: bytes) -> ort.InferenceSession:
+    """An onnxruntime session for these bytes (cached: session creation dominates)."""
+    key = hashlib.sha256(onnx_bytes).hexdigest()
+    if key not in _SESSIONS:
+        _SESSIONS[key] = ort.InferenceSession(onnx_bytes, providers=["CPUExecutionProvider"])
+    return _SESSIONS[key]
 
 
 def onnx_predict(onnx_bytes: bytes, x: np.ndarray) -> np.ndarray:
     """Run the ONNX model with onnxruntime (what the gateway does)."""
-    session = ort.InferenceSession(onnx_bytes, providers=["CPUExecutionProvider"])
+    session = onnx_session(onnx_bytes)
     name = session.get_inputs()[0].name
     out = session.run(None, {name: x.astype(np.float32)})[0]
     return np.asarray(out, dtype=np.float64).reshape(-1)
@@ -241,9 +318,9 @@ def metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     }
     if len(y_true) > 2 and np.std(y_true) > 0 and np.std(y_pred) > 0:
         out["spearman"] = float(spearmanr(y_true, y_pred).statistic)
-    binary = (y_true > 0).astype(int)
+    binary = (y_true >= R_SCALE / 2).astype(int)  # "≥ 3 expected exploited CVEs" vs the rest
     if 0 < binary.sum() < len(binary):
-        out["auroc_any_kev"] = float(roc_auc_score(binary, y_pred))
+        out["auroc_high_exposure"] = float(roc_auc_score(binary, y_pred))
     return out
 
 
@@ -321,6 +398,7 @@ def card_fields(
             f"| {i + 1} | `{name}` | {units[name]} |" for i, name in enumerate(FEATURE_NAMES)
         ),
         "hyperparams": json.dumps(HYPERPARAMS, sort_keys=True),
+        "r_scale": R_SCALE,
         "onnx_max_abs_diff": onnx_max_abs_diff,
         "train_rows": len(train),
         "test_rows": len(test),

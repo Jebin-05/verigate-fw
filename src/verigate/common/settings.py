@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     stage2_model_hashes: str = ""  # comma-separated hex; empty until P5 registers a model
     models_dir: Path = Path("models")
     sbom_model: str = ""  # e.g. sbom_risk.onnx — empty disables the SBOM scorer
+    image_model: str = ""  # e.g. image_anomaly.onnx — empty disables the image scorer
     stage2_epss_date: str = "2025-09-18"  # EPSS snapshot used at inference (recorded in results)
     batch_max_size: int = Field(default=50, ge=1)  # ADR-0005
     batch_max_wait_s: float = Field(default=10.0, gt=0)  # ADR-0005

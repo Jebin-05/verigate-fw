@@ -1,4 +1,4 @@
-"""P5-07: model vs baseline ranking of held-out releases by KEV exposure (AUROC, Spearman).
+"""P5-07: model vs baseline on held-out releases — expected exploited CVEs (Spearman, MAE, AUROC).
 
 Repetitions are bootstrap resamples of the held-out set (the model itself is deterministic), so
 the summary reports median and IQR over ``repetitions`` resamples plus the point estimate.
@@ -17,16 +17,16 @@ from scipy.stats import spearmanr
 from sklearn.metrics import roc_auc_score
 
 from verigate.ml.features.sbom_features import FEATURE_NAMES
-from verigate.ml.train.sbom import onnx_predict, temporal_split
+from verigate.ml.train.sbom import expected_from_ratio, onnx_predict, temporal_split
 
 
 def _metrics(y: np.ndarray, pred: np.ndarray) -> dict[str, float]:
     out: dict[str, float] = {}
     if np.std(y) > 0 and np.std(pred) > 0:
         out["spearman"] = float(spearmanr(y, pred).statistic)
-    binary = (y > 0).astype(int)
+    binary = (y >= 3.0).astype(int)  # "≥ 3 expected exploited CVEs" vs the rest
     if 0 < binary.sum() < len(binary):
-        out["auroc_any_kev"] = float(roc_auc_score(binary, pred))
+        out["auroc_high_exposure"] = float(roc_auc_score(binary, pred))
     out["mae"] = float(np.mean(np.abs(y - pred)))
     return out
 
@@ -48,8 +48,8 @@ def run(config: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     _, test = temporal_split(rows, float(config.get("test_fraction", 0.2)))
     x = np.array([[float(r[k]) for k in FEATURE_NAMES] for r in test], dtype=np.float32)
     y = np.array([r["label"] for r in test])
-    model_pred = np.clip(onnx_predict(onnx_bytes, x), 0, 1)
-    base_pred = np.array([r["baseline_bp"] / 10_000 for r in test])
+    model_pred = expected_from_ratio(x, onnx_predict(onnx_bytes, x))
+    base_pred = -np.log1p(-np.array([r["baseline_bp"] / 10_000 for r in test]).clip(0, 0.9999))
 
     point = {"model": _metrics(y, model_pred), "baseline": _metrics(y, base_pred)}
     rng = np.random.default_rng(seed)
@@ -69,7 +69,7 @@ def run(config: dict[str, Any], out_dir: Path) -> dict[str, Any]:
         "model_hash": "0x" + hashlib.sha256(onnx_bytes).hexdigest(),
     }
     for scorer in ("model", "baseline"):
-        for metric in ("auroc_any_kev", "spearman", "mae"):
+        for metric in ("auroc_high_exposure", "spearman", "mae"):
             values = [r[metric] for r in raw if r["scorer"] == scorer and metric in r]
             if values:
                 summary["bootstrap"][f"{scorer}.{metric}"] = median_iqr(values)

@@ -27,7 +27,7 @@ from verigate.ml.features.sbom_features import (
     as_vector,
     sbom_features,
 )
-from verigate.ml.train.sbom import VulnLookup
+from verigate.ml.train.sbom import R_SCALE, VulnLookup, expected_from_ratio, to_r_sbom
 from verigate.ml.vulndb.cache import OfflineMissError
 
 log = get_logger(__name__)
@@ -42,6 +42,7 @@ class SbomScore:
     model_hash: str
     top_features: tuple[tuple[str, int], ...]  # (feature, shap value in bp), |value| descending
     cves: int
+    expected_exploited: float = 0.0
 
 
 def load_context(path: Path, as_of: date) -> CorpusContext:
@@ -61,7 +62,12 @@ class SbomScorer:
     """ONNX SBOM risk model plus the vulnerability lookups it needs."""
 
     def __init__(
-        self, model_path: Path, lookup: VulnLookup, context: CorpusContext, background: list[float]
+        self,
+        model_path: Path,
+        lookup: VulnLookup,
+        context: CorpusContext,
+        background: list[float],
+        r_scale: float = R_SCALE,
     ) -> None:
         self.model_bytes = model_path.read_bytes()
         self.model_hash = "0x" + hashlib.sha256(self.model_bytes).hexdigest()
@@ -70,13 +76,18 @@ class SbomScorer:
         self.lookup = lookup
         self.context = context
         self.background = np.array([background], dtype=np.float32)
+        self.r_scale = r_scale
         self._cache: dict[str, SbomScore] = {}
         log.info("stage2.sbom_model_loaded", model=str(model_path), model_hash=self.model_hash)
 
-    def predict(self, x: np.ndarray) -> np.ndarray:
-        """Raw model output in [0, 1] for rows of feature vectors."""
+    def expected(self, x: np.ndarray) -> np.ndarray:
+        """Expected exploited-CVE count: T0 exposure × the model's growth ratio (≥ 0)."""
         out = self.session.run(None, {self.input_name: x.astype(np.float32)})[0]
-        return np.clip(np.asarray(out, dtype=np.float64).reshape(-1), 0.0, 1.0)
+        return expected_from_ratio(x, np.asarray(out, dtype=np.float64).reshape(-1))
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """``r_sbom`` in [0, 1): ``1 − exp(−expected / r_scale)``."""
+        return to_r_sbom(self.expected(x), self.r_scale)
 
     def _shap_top3(self, x: np.ndarray) -> tuple[tuple[str, int], ...]:
         import shap  # noqa: PLC0415 — heavy import, only when a model is configured
@@ -105,13 +116,15 @@ class SbomScorer:
             raise VerigateError(str(exc)) from exc
         features = sbom_features(components, records, self.context)
         x = np.array([as_vector(features)], dtype=np.float32)
-        r = float(self.predict(x)[0])
+        expected = float(self.expected(x)[0])
+        r = float(to_r_sbom(expected, self.r_scale))
         result = SbomScore(
             r_sbom_bp=round(r * 10_000),
             features=features,
             model_hash=self.model_hash,
             top_features=self._shap_top3(x),
             cves=features["n_cves"],
+            expected_exploited=expected,
         )
         self._cache[key] = result
         log.info(
@@ -142,4 +155,6 @@ def build_sbom_scorer(settings: Any) -> SbomScorer | None:  # noqa: ANN401 — S
     doc = json.loads(context_path.read_text())
     # ages are measured against the same fixed snapshot date, so a score is reproducible later
     context = load_context(context_path, as_of)
-    return SbomScorer(model_path, lookup, context, doc["background"])
+    return SbomScorer(
+        model_path, lookup, context, doc["background"], float(doc.get("r_scale", R_SCALE))
+    )

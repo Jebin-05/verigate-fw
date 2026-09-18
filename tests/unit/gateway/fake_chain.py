@@ -95,7 +95,7 @@ class FakeChain:
     reputations: list[tuple[bytes, int]] = field(default_factory=list)
     block: int = 100
     down: bool = False
-    policy_record: PolicyRecord = PolicyRecord(4000, 4000, 2000, 3000, 6000, 1, "0x" + "0" * 40, 1)
+    policy_record: PolicyRecord = PolicyRecord(4000, 4000, 2000, 4500, 7000, 1, "0x" + "0" * 40, 1)
 
     def __post_init__(self) -> None:
         from verigate.common.chain import ContractAddresses  # noqa: PLC0415

@@ -98,7 +98,7 @@ class OsvClient:
     def records_for(self, name: str, version: str) -> list[dict[str, Any]]:
         """Every OSV record OSV itself matches for ``name@version`` (full records, cached by id)."""
         key = f"{name}@{version}"
-        cached = self.cache.get("osv-query", key)
+        cached = self.cache.get("osv-query-v2", key)
         if cached is not None:
             ids = json.loads(cached)
             return [self._record(i) for i in ids]
@@ -106,7 +106,7 @@ class OsvClient:
         records = self._query_all_pages(name, version)
         for record in records:
             self.cache.put("osv-record", str(record["id"]), json.dumps(record).encode())
-        self.cache.put("osv-query", key, json.dumps([str(r["id"]) for r in records]).encode())
+        self.cache.put("osv-query-v2", key, json.dumps([str(r["id"]) for r in records]).encode())
         log.debug("osv.query", package=key, records=len(records))
         return records
 

@@ -1,130 +1,115 @@
-"""Generate the toy firmware releases under ``tests/fixtures/releases/<version>/``.
+"""Generate the demo-device release fixtures under ``tests/fixtures/releases/<version>/``.
 
-Each release is ``firmware.bin`` (a valid ELF32/ARM header followed by ~300 KiB of seeded
-pseudo-random bytes and a few printable strings) plus ``sbom.json`` (CycloneDX 1.5 with real
-package names/versions so P5 can query OSV for them) and ``changelog.md``. Deterministic: the
-same script always produces the same bytes; ``MANIFEST.sha256`` in the directory records them.
-Sizes are > 256 KiB on purpose so the chunked-CID path of ``common/ipfs.py`` is exercised.
+Each fixture release is a **real** OpenWrt build (GPL-2.0, see the README next to the fixtures):
+
+* ``firmware.bin`` — the ``busybox`` ELF executable (MIPS 24Kc, stripped) extracted from the
+  pinned ``.ipk`` of that OpenWrt release; the .ipk SHA-256 is verified against ``IPK_SHA256``;
+* ``sbom.json`` — CycloneDX 1.5 derived from that release's ``ath79/generic`` package manifest,
+  the same conversion the training corpus uses;
+* ``changelog.md`` — a short note.
+
+Real binaries (rather than synthetic bytes) keep Stage-2 inputs in the same distribution as the
+image-anomaly training corpus. Re-running is deterministic given the pinned hashes;
+``MANIFEST.sha256`` in the directory records every output.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import struct
 from pathlib import Path
 
+import httpx
+
+from verigate.ml.data.images import largest_elf, parse_packages_index
+from verigate.ml.data.sbom import cyclonedx, parse_manifest
+
 ROOT = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "releases"
-SIZE = 300 * 1024
+BASE = "https://downloads.openwrt.org/releases"
+ARCH, FEED, TARGET = "mips_24kc", "base", "ath79/generic"
 
-# ELF32 header for an ARM executable (e_ident, e_type=EXEC, e_machine=ARM(0x28), e_version=1).
-ELF32_ARM_HEADER = (
-    b"\x7fELF"
-    + bytes([1, 1, 1, 0])
-    + b"\x00" * 8  # e_ident: class32, LE, version 1, SysV ABI
-    + struct.pack("<HHIIIIIHHHHHH", 2, 0x28, 1, 0x8000, 52, 0, 0x5000400, 52, 32, 1, 40, 4, 3)
-)
-
-RELEASES: dict[str, dict[str, object]] = {
+RELEASES: dict[str, dict[str, str]] = {
     "1.0.0": {
-        "components": [
-            ("openssl", "3.0.1"),
-            ("curl", "7.80.0"),
-            ("zlib", "1.2.11"),
-            ("mbedtls", "2.28.0"),
-            ("lwip", "2.1.3"),
-            ("freertos-kernel", "10.4.6"),
-            ("cjson", "1.7.15"),
-        ],
-        "changelog": "Initial release of the demo-device firmware.",
-        "mutations": [],
+        "openwrt": "22.03.7",
+        "changelog": "Initial demo-device release (OpenWrt 22.03.7 userland).",
     },
     "1.1.0": {
-        "components": [
-            ("openssl", "3.0.14"),
-            ("curl", "7.80.0"),
-            ("zlib", "1.3.1"),
-            ("mbedtls", "2.28.0"),
-            ("lwip", "2.1.3"),
-            ("freertos-kernel", "10.4.6"),
-            ("cjson", "1.7.15"),
-        ],
-        "changelog": "Upgrade OpenSSL 3.0.1 -> 3.0.14 and zlib 1.2.11 -> 1.3.1 (security fixes).",
-        "mutations": [(0x1000, 0x400), (0x20000, 0x800)],
+        "openwrt": "23.05.3",
+        "changelog": "Maintenance release: OpenWrt 23.05.3 userland and security fixes.",
     },
     "2.0.0": {
-        "components": [
-            ("openssl", "3.0.14"),
-            ("curl", "8.9.1"),
-            ("zlib", "1.3.1"),
-            ("mbedtls", "3.6.0"),
-            ("lwip", "2.2.0"),
-            ("freertos-kernel", "11.1.0"),
-            ("cjson", "1.7.18"),
-        ],
-        "changelog": "Major update: new network stack (lwIP 2.2, mbedTLS 3.6), FreeRTOS 11.",
-        "mutations": [(0x1000, 0x400), (0x8000, 0x4000), (0x20000, 0x800), (0x30000, 0x2000)],
+        "openwrt": "24.10.0",
+        "changelog": "Major release: OpenWrt 24.10.0 userland (new kernel branch, new libraries).",
     },
+}
+# SHA-256 of the busybox .ipk per OpenWrt release — filled by the first run, verified afterwards.
+IPK_SHA256: dict[str, str] = {
+    "22.03.7": "0ad4e2da05cace114dbd4fe62c5ee1f9a2ea1c4e66f445c7331308d976bcefa2",
+    "23.05.3": "cbc32f7ee614e457a4a543ab628404f8833f671a0dd7b7bbecd09e2aeca3984b",
+    "24.10.0": "5df3a0a918072bb0a2a944e0ee477bc1fdd922b2af3e816d8d069a35a3e4bf39",
 }
 
 
-def prng(seed: bytes, n: int) -> bytes:
-    """Deterministic bytes: SHA-256 counter mode."""
-    out = bytearray()
-    counter = 0
-    while len(out) < n:
-        out += hashlib.sha256(seed + counter.to_bytes(8, "big")).digest()
-        counter += 1
-    return bytes(out[:n])
+def fetch(client: httpx.Client, url: str) -> bytes:
+    """GET with a hard failure on any non-200."""
+    resp = client.get(url)
+    resp.raise_for_status()
+    return resp.content
 
 
-def firmware(version: str, mutations: list[tuple[int, int]]) -> bytes:
-    """Base image v1.0.0 with ``mutations`` (offset, length) regions re-seeded per version."""
-    body = bytearray(prng(b"verigate-demo-firmware-base", SIZE))
-    body[: len(ELF32_ARM_HEADER)] = ELF32_ARM_HEADER
-    for i, (offset, length) in enumerate(mutations):
-        body[offset : offset + length] = prng(f"mutation-{version}-{i}".encode(), length)
-    strings = (
-        f"demo-device firmware {version}\0Copyright (c) 2026 VeriGate demo publisher\0"
-        "https://example.invalid/demo-device\0OTA slot A/B\0"
-    ).encode()
-    body[0x400 : 0x400 + len(strings)] = strings
-    return bytes(body)
+def busybox_elf(client: httpx.Client, release: str) -> bytes:
+    """Download the pinned busybox .ipk for ``release`` and extract its ELF."""
+    index = parse_packages_index(
+        fetch(client, f"{BASE}/{release}/packages/{ARCH}/{FEED}/Packages").decode()
+    )
+    _version, filename = index["busybox"]
+    ipk = fetch(client, f"{BASE}/{release}/packages/{ARCH}/{FEED}/{filename}")
+    digest = hashlib.sha256(ipk).hexdigest()
+    pinned = IPK_SHA256.get(release)
+    if pinned is None:
+        print(f"pin this in IPK_SHA256: {release!r}: {digest!r}")  # noqa: T201 — one-off helper
+    elif pinned != digest:
+        raise SystemExit(f"{filename}: sha256 {digest} != pinned {pinned}")
+    elf = largest_elf(ipk)
+    if elf is None:
+        raise SystemExit(f"{filename}: no ELF inside")
+    return elf
 
 
-def sbom(version: str, components: list[tuple[str, str]]) -> str:
-    """CycloneDX 1.5 JSON with purl identifiers (generic type: real names, no ecosystem claim)."""
-    doc = {
-        "bomFormat": "CycloneDX",
-        "specVersion": "1.5",
-        "version": 1,
-        "metadata": {
-            "component": {"type": "firmware", "name": "demo-device", "version": version},
-            "tools": [{"name": "verigate-fixture-generator", "version": "1"}],
-        },
-        "components": [
-            {"type": "library", "name": name, "version": ver, "purl": f"pkg:generic/{name}@{ver}"}
-            for name, ver in components
-        ],
-    }
+def manifest_sbom(client: httpx.Client, release: str, version: str) -> str:
+    """CycloneDX JSON from the release's target manifest."""
+    listing = fetch(client, f"{BASE}/{release}/targets/{TARGET}/").decode()
+    name = next(
+        part.split('"')[0]
+        for part in listing.split('href="')[1:]
+        if part.split('"')[0].endswith(".manifest")
+    )
+    components = parse_manifest(fetch(client, f"{BASE}/{release}/targets/{TARGET}/{name}").decode())
+    doc = cyclonedx(
+        "demo-device",
+        version,
+        components,
+        {"verigate:openwrt_release": release, "verigate:source": name},
+    )
     return json.dumps(doc, indent=2, sort_keys=True) + "\n"
 
 
 def main() -> None:
     """Write every release and a MANIFEST.sha256 covering all files."""
-    manifest_lines: list[str] = []
-    for version, spec in RELEASES.items():
-        d = ROOT / f"v{version}"
-        d.mkdir(parents=True, exist_ok=True)
-        files = {
-            "firmware.bin": firmware(version, spec["mutations"]),  # type: ignore[arg-type]
-            "sbom.json": sbom(version, spec["components"]).encode(),  # type: ignore[arg-type]
-            "changelog.md": f"# demo-device {version}\n\n{spec['changelog']}\n".encode(),
-        }
-        for name, data in files.items():
-            (d / name).write_bytes(data)
-            manifest_lines.append(f"{hashlib.sha256(data).hexdigest()}  v{version}/{name}")
-    (ROOT / "MANIFEST.sha256").write_text("\n".join(manifest_lines) + "\n")
+    lines: list[str] = []
+    with httpx.Client(timeout=120, follow_redirects=True) as client:
+        for version, spec in RELEASES.items():
+            d = ROOT / f"v{version}"
+            d.mkdir(parents=True, exist_ok=True)
+            files = {
+                "firmware.bin": busybox_elf(client, spec["openwrt"]),
+                "sbom.json": manifest_sbom(client, spec["openwrt"], version).encode(),
+                "changelog.md": f"# demo-device {version}\n\n{spec['changelog']}\n".encode(),
+            }
+            for name, data in files.items():
+                (d / name).write_bytes(data)
+                lines.append(f"{hashlib.sha256(data).hexdigest()}  v{version}/{name}")
+    (ROOT / "MANIFEST.sha256").write_text("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":

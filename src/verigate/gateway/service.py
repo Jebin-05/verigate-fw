@@ -28,7 +28,7 @@ from verigate.gateway.policy.engine import BASIS, Decision, PolicyEngine
 from verigate.gateway.reputation import ReputationUpdater
 from verigate.gateway.stage1.inputs import DeviceView, Stage1Input
 from verigate.gateway.stage1.runner import Stage1Result, run_stage1
-from verigate.gateway.stage2.scores import NullScorer, Stage2Scorer, Stage2Scores
+from verigate.gateway.stage2.scores import NullScorer, Scorer, Stage2Scores
 from verigate.gateway.store import Cursor, DeviceRecord, DeviceStore, VerdictLog
 from verigate.gateway.verdicts.batch import VerdictBatcher
 from verigate.gateway.verdicts.record import VerdictRecord, feature_hash
@@ -111,7 +111,7 @@ class GatewayService:
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
     started_at: float = field(default_factory=time.time, init=False)
     policy: PolicyEngine = field(init=False)
-    scorer: NullScorer | Stage2Scorer = field(default_factory=NullScorer)
+    scorer: Scorer = field(default_factory=NullScorer)
     batcher: VerdictBatcher | None = field(default=None, init=False)
     reputation: ReputationUpdater | None = field(default=None, init=False)
     gateway_account: LocalAccount | None = field(default=None, init=False)
@@ -210,6 +210,29 @@ class GatewayService:
             if r.device_model == device_model and not r.revoked and r.version > above.as_tuple()
         ]
         return max(candidates, key=lambda r: r.version) if candidates else None
+
+    def previous_release(self, release: ReleaseRecord) -> ReleaseRecord | None:
+        """The newest known release of the same publisher + model with a lower version."""
+        candidates = [
+            r
+            for r in self._known_releases.values()
+            if r.publisher_id == release.publisher_id
+            and r.device_model_id == release.device_model_id
+            and r.version < release.version
+        ]
+        return max(candidates, key=lambda r: r.version) if candidates else None
+
+    async def previous_firmware(self, bundle: ReleaseBundle) -> bytes | None:
+        """Firmware bytes of the previous release (for version-delta features), if any."""
+        if bundle.release is None or not bundle.release.exists:
+            return None
+        if bundle.release.release_id not in self._known_releases:
+            self._known_releases[bundle.release.release_id] = bundle.release
+        previous = self.previous_release(bundle.release)
+        if previous is None:
+            return None
+        prev_bundle = await self.bundle(previous.release_id)
+        return prev_bundle.firmware
 
     def _fetch_bundle(self, release_id: bytes) -> ReleaseBundle:
         errors: list[str] = []
@@ -327,7 +350,10 @@ class GatewayService:
             model_hashes: list[str] = []
         else:
             assert bundle.firmware is not None and bundle.sbom is not None  # noqa: S101
-            scores = await asyncio.to_thread(self.scorer.score, bundle.firmware, bundle.sbom)
+            previous = await self.previous_firmware(bundle)
+            scores = await asyncio.to_thread(
+                self.scorer.score, bundle.firmware, bundle.sbom, previous
+            )
             decision: Decision = await self.policy.decide(
                 scores.r_sbom_bp, scores.r_img_bp, reputation_bp
             )

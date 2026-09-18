@@ -87,7 +87,7 @@ def test_install_switches_slot_and_signs_receipt(tmp_path: Path, fw: bytes) -> N
 @pytest.mark.parametrize(
     ("mutate", "match"),
     [
-        (lambda fw, m: (fw[:-1] + b"\x00", m), "hash mismatch"),
+        (lambda fw, m: (fw[:-1] + bytes([fw[-1] ^ 0xFF]), m), "hash mismatch"),
         (
             lambda fw, m: (fw, m.model_copy(update={"version": SemVer(9, 9, 9)})),
             "signature invalid",

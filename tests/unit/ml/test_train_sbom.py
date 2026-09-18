@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +26,7 @@ class FakeOsv:
     def vuln(self, cve: str) -> Any:
         class Info:
             cvss = 7.5 if cve.endswith("1") else 9.8
-            published = None
+            published = datetime(2024, 6, 1, tzinfo=UTC) if cve.endswith("3") else None
 
         return Info()
 
@@ -92,8 +92,11 @@ def test_corpus_context_and_lookup(corpus: Path) -> None:
     assert len(records[Component("busybox", rows[0].components[0].version)]) == 2
     assert records[Component("dropbear", "2022.82-1")] == []
     assert isinstance(next(iter(records.values()))[0], VulnRecord)
-    assert trainer.kev_exposure(records, kev, date(2025, 1, 1)) == 0.5
-    assert trainer.kev_exposure({}, kev, date(2025, 1, 1)) == 0.0
+    assert trainer.expected_exploited(records) == pytest.approx(0.55)
+    assert trainer.expected_exploited({}) == 0.0
+    assert float(trainer.to_r_sbom(0.0)) == 0.0 and float(trainer.to_r_sbom(6.0)) == pytest.approx(
+        0.632, abs=1e-3
+    )
 
 
 def test_build_split_train_export_deterministic(corpus: Path, tmp_path: Path) -> None:
@@ -110,7 +113,8 @@ def test_build_split_train_export_deterministic(corpus: Path, tmp_path: Path) ->
         kev,
         date(2025, 1, 1),
     )  # type: ignore[arg-type]
-    dataset = trainer.build_dataset(rows, lookup, kev, date(2026, 1, 1))
+    lookup_t1 = trainer.VulnLookup(lookup.osv, FakeEpss(), kev, date(2026, 1, 1))
+    dataset = trainer.build_dataset(rows, lookup, lookup_t1)
     assert len(dataset) == 16 and set(FEATURE_NAMES) <= set(dataset[0])
     assert all(0.0 <= d["label"] <= 1.0 for d in dataset) and all(
         0 <= d["baseline_bp"] <= 10_000 for d in dataset
@@ -132,7 +136,10 @@ def test_build_split_train_export_deterministic(corpus: Path, tmp_path: Path) ->
     x_test, y_test = trainer.matrix(test)
     diff = np.abs(model_a.predict(x_test) - trainer.onnx_predict(onnx_a, x_test)).max()
     assert diff <= 1e-6
-    m = trainer.metrics(y_test, trainer.onnx_predict(onnx_a, x_test))
+    m = trainer.metrics(
+        y_test, trainer.expected_from_ratio(x_test, trainer.onnx_predict(onnx_a, x_test))
+    )
+    assert np.all(trainer.growth_ratio(x, y) >= 0) and trainer.t0_exposure(x).min() >= 1e-3
     assert "mae" in m and "median_ae" in m
     fields = trainer.card_fields(
         onnx_a,
@@ -152,13 +159,13 @@ def test_build_split_train_export_deterministic(corpus: Path, tmp_path: Path) ->
     card = tmp_path / "card.md"
     trainer.write_card(card, fields)
     text = card.read_text()
-    assert "sbom_risk.onnx" in text and "KEV exposure" in text and "| mae |" in text
+    assert "sbom_risk.onnx" in text and "Expected exploited" in text and "| mae |" in text
     assert fields["model_hash"] in text and "mean_dep_age_days" in text
     assert trainer.git_sha()
 
 
 def test_metrics_edge_cases() -> None:
     m = trainer.metrics(np.array([0.0, 0.0]), np.array([0.1, 0.2]))
-    assert "spearman" not in m and "auroc_any_kev" not in m
-    m2 = trainer.metrics(np.array([0.0, 0.5, 1.0, 0.2]), np.array([0.1, 0.4, 0.9, 0.3]))
-    assert m2["spearman"] > 0.9 and m2["auroc_any_kev"] == 1.0
+    assert "spearman" not in m and "auroc_high_exposure" not in m
+    m2 = trainer.metrics(np.array([0.0, 2.0, 5.0, 1.0]), np.array([0.1, 1.5, 4.0, 0.8]))
+    assert m2["spearman"] > 0.9 and m2["auroc_high_exposure"] == 1.0

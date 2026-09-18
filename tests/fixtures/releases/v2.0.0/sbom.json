@@ -2,46 +2,844 @@
   "bomFormat": "CycloneDX",
   "components": [
     {
-      "name": "openssl",
-      "purl": "pkg:generic/openssl@3.0.14",
+      "name": "base-files",
+      "purl": "pkg:generic/base-files@1655~6df0e3d02a",
       "type": "library",
-      "version": "3.0.14"
+      "version": "1655~6df0e3d02a"
     },
     {
-      "name": "curl",
-      "purl": "pkg:generic/curl@8.9.1",
+      "name": "busybox",
+      "purl": "pkg:generic/busybox@1.36.1-r2",
       "type": "library",
-      "version": "8.9.1"
+      "version": "1.36.1-r2"
     },
     {
-      "name": "zlib",
-      "purl": "pkg:generic/zlib@1.3.1",
+      "name": "ca-bundle",
+      "purl": "pkg:generic/ca-bundle@20240203-r1",
       "type": "library",
-      "version": "1.3.1"
+      "version": "20240203-r1"
     },
     {
-      "name": "mbedtls",
-      "purl": "pkg:generic/mbedtls@3.6.0",
+      "name": "cgi-io",
+      "purl": "pkg:generic/cgi-io@2022.08.10~901b0f04-r21",
       "type": "library",
-      "version": "3.6.0"
+      "version": "2022.08.10~901b0f04-r21"
     },
     {
-      "name": "lwip",
-      "purl": "pkg:generic/lwip@2.2.0",
+      "name": "dnsmasq",
+      "purl": "pkg:generic/dnsmasq@2.90-r4",
       "type": "library",
-      "version": "2.2.0"
+      "version": "2.90-r4"
     },
     {
-      "name": "freertos-kernel",
-      "purl": "pkg:generic/freertos-kernel@11.1.0",
+      "name": "dropbear",
+      "purl": "pkg:generic/dropbear@2024.86-r1",
       "type": "library",
-      "version": "11.1.0"
+      "version": "2024.86-r1"
     },
     {
-      "name": "cjson",
-      "purl": "pkg:generic/cjson@1.7.18",
+      "name": "firewall4",
+      "purl": "pkg:generic/firewall4@2024.12.18~18fc0ead-r1",
       "type": "library",
-      "version": "1.7.18"
+      "version": "2024.12.18~18fc0ead-r1"
+    },
+    {
+      "name": "fstools",
+      "purl": "pkg:generic/fstools@2024.07.14~408c2cc4-r1",
+      "type": "library",
+      "version": "2024.07.14~408c2cc4-r1"
+    },
+    {
+      "name": "fwtool",
+      "purl": "pkg:generic/fwtool@2019.11.12~8f7fe925-r1",
+      "type": "library",
+      "version": "2019.11.12~8f7fe925-r1"
+    },
+    {
+      "name": "getrandom",
+      "purl": "pkg:generic/getrandom@2024.04.26~85f10530-r1",
+      "type": "library",
+      "version": "2024.04.26~85f10530-r1"
+    },
+    {
+      "name": "hostapd-common",
+      "purl": "pkg:generic/hostapd-common@2024.09.15~5ace39b0-r2",
+      "type": "library",
+      "version": "2024.09.15~5ace39b0-r2"
+    },
+    {
+      "name": "iw",
+      "purl": "pkg:generic/iw@6.9-r1",
+      "type": "library",
+      "version": "6.9-r1"
+    },
+    {
+      "name": "iwinfo",
+      "purl": "pkg:generic/iwinfo@2024.10.20~b94f066e-r1",
+      "type": "library",
+      "version": "2024.10.20~b94f066e-r1"
+    },
+    {
+      "name": "jansson4",
+      "purl": "pkg:generic/jansson4@2.14-r3",
+      "type": "library",
+      "version": "2.14-r3"
+    },
+    {
+      "name": "jshn",
+      "purl": "pkg:generic/jshn@2024.03.29~eb9bcb64-r1",
+      "type": "library",
+      "version": "2024.03.29~eb9bcb64-r1"
+    },
+    {
+      "name": "jsonfilter",
+      "purl": "pkg:generic/jsonfilter@2024.01.23~594cfa86-r1",
+      "type": "library",
+      "version": "2024.01.23~594cfa86-r1"
+    },
+    {
+      "name": "kernel",
+      "purl": "pkg:generic/kernel@6.6.73~c2bc166c1ba350209562f87ffdd33884-r1",
+      "type": "library",
+      "version": "6.6.73~c2bc166c1ba350209562f87ffdd33884-r1"
+    },
+    {
+      "name": "kmod-ath",
+      "purl": "pkg:generic/kmod-ath@6.6.73.6.12.6-r1",
+      "type": "library",
+      "version": "6.6.73.6.12.6-r1"
+    },
+    {
+      "name": "kmod-ath9k",
+      "purl": "pkg:generic/kmod-ath9k@6.6.73.6.12.6-r1",
+      "type": "library",
+      "version": "6.6.73.6.12.6-r1"
+    },
+    {
+      "name": "kmod-ath9k-common",
+      "purl": "pkg:generic/kmod-ath9k-common@6.6.73.6.12.6-r1",
+      "type": "library",
+      "version": "6.6.73.6.12.6-r1"
+    },
+    {
+      "name": "kmod-cfg80211",
+      "purl": "pkg:generic/kmod-cfg80211@6.6.73.6.12.6-r1",
+      "type": "library",
+      "version": "6.6.73.6.12.6-r1"
+    },
+    {
+      "name": "kmod-crypto-acompress",
+      "purl": "pkg:generic/kmod-crypto-acompress@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-aead",
+      "purl": "pkg:generic/kmod-crypto-aead@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-ccm",
+      "purl": "pkg:generic/kmod-crypto-ccm@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-cmac",
+      "purl": "pkg:generic/kmod-crypto-cmac@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-crc32c",
+      "purl": "pkg:generic/kmod-crypto-crc32c@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-ctr",
+      "purl": "pkg:generic/kmod-crypto-ctr@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-gcm",
+      "purl": "pkg:generic/kmod-crypto-gcm@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-geniv",
+      "purl": "pkg:generic/kmod-crypto-geniv@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-gf128",
+      "purl": "pkg:generic/kmod-crypto-gf128@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-ghash",
+      "purl": "pkg:generic/kmod-crypto-ghash@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-hash",
+      "purl": "pkg:generic/kmod-crypto-hash@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-hmac",
+      "purl": "pkg:generic/kmod-crypto-hmac@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-manager",
+      "purl": "pkg:generic/kmod-crypto-manager@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-null",
+      "purl": "pkg:generic/kmod-crypto-null@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-rng",
+      "purl": "pkg:generic/kmod-crypto-rng@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-seqiv",
+      "purl": "pkg:generic/kmod-crypto-seqiv@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-sha3",
+      "purl": "pkg:generic/kmod-crypto-sha3@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-crypto-sha512",
+      "purl": "pkg:generic/kmod-crypto-sha512@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-gpio-button-hotplug",
+      "purl": "pkg:generic/kmod-gpio-button-hotplug@6.6.73-r5",
+      "type": "library",
+      "version": "6.6.73-r5"
+    },
+    {
+      "name": "kmod-lib-crc-ccitt",
+      "purl": "pkg:generic/kmod-lib-crc-ccitt@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-lib-crc32c",
+      "purl": "pkg:generic/kmod-lib-crc32c@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-lib-lzo",
+      "purl": "pkg:generic/kmod-lib-lzo@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-mac80211",
+      "purl": "pkg:generic/kmod-mac80211@6.6.73.6.12.6-r1",
+      "type": "library",
+      "version": "6.6.73.6.12.6-r1"
+    },
+    {
+      "name": "kmod-nf-conntrack",
+      "purl": "pkg:generic/kmod-nf-conntrack@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nf-conntrack6",
+      "purl": "pkg:generic/kmod-nf-conntrack6@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nf-flow",
+      "purl": "pkg:generic/kmod-nf-flow@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nf-log",
+      "purl": "pkg:generic/kmod-nf-log@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nf-log6",
+      "purl": "pkg:generic/kmod-nf-log6@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nf-nat",
+      "purl": "pkg:generic/kmod-nf-nat@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nf-reject",
+      "purl": "pkg:generic/kmod-nf-reject@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nf-reject6",
+      "purl": "pkg:generic/kmod-nf-reject6@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nfnetlink",
+      "purl": "pkg:generic/kmod-nfnetlink@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nft-core",
+      "purl": "pkg:generic/kmod-nft-core@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nft-fib",
+      "purl": "pkg:generic/kmod-nft-fib@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nft-nat",
+      "purl": "pkg:generic/kmod-nft-nat@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-nft-offload",
+      "purl": "pkg:generic/kmod-nft-offload@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-ppp",
+      "purl": "pkg:generic/kmod-ppp@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-pppoe",
+      "purl": "pkg:generic/kmod-pppoe@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-pppox",
+      "purl": "pkg:generic/kmod-pppox@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-random-core",
+      "purl": "pkg:generic/kmod-random-core@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "kmod-slhc",
+      "purl": "pkg:generic/kmod-slhc@6.6.73-r1",
+      "type": "library",
+      "version": "6.6.73-r1"
+    },
+    {
+      "name": "libblobmsg-json20240329",
+      "purl": "pkg:generic/libblobmsg-json20240329@2024.03.29~eb9bcb64-r1",
+      "type": "library",
+      "version": "2024.03.29~eb9bcb64-r1"
+    },
+    {
+      "name": "libc",
+      "purl": "pkg:generic/libc@1.2.5-r4",
+      "type": "library",
+      "version": "1.2.5-r4"
+    },
+    {
+      "name": "libgcc1",
+      "purl": "pkg:generic/libgcc1@13.3.0-r4",
+      "type": "library",
+      "version": "13.3.0-r4"
+    },
+    {
+      "name": "libiwinfo-data",
+      "purl": "pkg:generic/libiwinfo-data@2024.10.20~b94f066e-r1",
+      "type": "library",
+      "version": "2024.10.20~b94f066e-r1"
+    },
+    {
+      "name": "libiwinfo20230701",
+      "purl": "pkg:generic/libiwinfo20230701@2024.10.20~b94f066e-r1",
+      "type": "library",
+      "version": "2024.10.20~b94f066e-r1"
+    },
+    {
+      "name": "libjson-c5",
+      "purl": "pkg:generic/libjson-c5@0.18-r1",
+      "type": "library",
+      "version": "0.18-r1"
+    },
+    {
+      "name": "libjson-script20240329",
+      "purl": "pkg:generic/libjson-script20240329@2024.03.29~eb9bcb64-r1",
+      "type": "library",
+      "version": "2024.03.29~eb9bcb64-r1"
+    },
+    {
+      "name": "liblucihttp-ucode",
+      "purl": "pkg:generic/liblucihttp-ucode@2023.03.15~9b5b683f-r1",
+      "type": "library",
+      "version": "2023.03.15~9b5b683f-r1"
+    },
+    {
+      "name": "liblucihttp0",
+      "purl": "pkg:generic/liblucihttp0@2023.03.15~9b5b683f-r1",
+      "type": "library",
+      "version": "2023.03.15~9b5b683f-r1"
+    },
+    {
+      "name": "libmbedtls21",
+      "purl": "pkg:generic/libmbedtls21@3.6.2-r1",
+      "type": "library",
+      "version": "3.6.2-r1"
+    },
+    {
+      "name": "libmnl0",
+      "purl": "pkg:generic/libmnl0@1.0.5-r1",
+      "type": "library",
+      "version": "1.0.5-r1"
+    },
+    {
+      "name": "libnftnl11",
+      "purl": "pkg:generic/libnftnl11@1.2.8-r1",
+      "type": "library",
+      "version": "1.2.8-r1"
+    },
+    {
+      "name": "libnl-tiny1",
+      "purl": "pkg:generic/libnl-tiny1@2023.12.05~965c4bf4-r1",
+      "type": "library",
+      "version": "2023.12.05~965c4bf4-r1"
+    },
+    {
+      "name": "libpthread",
+      "purl": "pkg:generic/libpthread@1.2.5-r4",
+      "type": "library",
+      "version": "1.2.5-r4"
+    },
+    {
+      "name": "libubox20240329",
+      "purl": "pkg:generic/libubox20240329@2024.03.29~eb9bcb64-r1",
+      "type": "library",
+      "version": "2024.03.29~eb9bcb64-r1"
+    },
+    {
+      "name": "libubus20250102",
+      "purl": "pkg:generic/libubus20250102@2025.01.02~afa57cce-r1",
+      "type": "library",
+      "version": "2025.01.02~afa57cce-r1"
+    },
+    {
+      "name": "libuci20250120",
+      "purl": "pkg:generic/libuci20250120@2025.01.20~16ff0bad-r1",
+      "type": "library",
+      "version": "2025.01.20~16ff0bad-r1"
+    },
+    {
+      "name": "libuclient20201210",
+      "purl": "pkg:generic/libuclient20201210@2024.10.22~88ae8f20-r1",
+      "type": "library",
+      "version": "2024.10.22~88ae8f20-r1"
+    },
+    {
+      "name": "libucode20230711",
+      "purl": "pkg:generic/libucode20230711@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "libudebug",
+      "purl": "pkg:generic/libudebug@2023.12.06~6d3f51f9",
+      "type": "library",
+      "version": "2023.12.06~6d3f51f9"
+    },
+    {
+      "name": "libustream-mbedtls20201210",
+      "purl": "pkg:generic/libustream-mbedtls20201210@2024.07.28~99bd3d2b-r1",
+      "type": "library",
+      "version": "2024.07.28~99bd3d2b-r1"
+    },
+    {
+      "name": "logd",
+      "purl": "pkg:generic/logd@2024.04.26~85f10530-r1",
+      "type": "library",
+      "version": "2024.04.26~85f10530-r1"
+    },
+    {
+      "name": "luci",
+      "purl": "pkg:generic/luci@24.297.79519~bcd13b9",
+      "type": "library",
+      "version": "24.297.79519~bcd13b9"
+    },
+    {
+      "name": "luci-app-firewall",
+      "purl": "pkg:generic/luci-app-firewall@25.014.06885~bd39c63",
+      "type": "library",
+      "version": "25.014.06885~bd39c63"
+    },
+    {
+      "name": "luci-app-package-manager",
+      "purl": "pkg:generic/luci-app-package-manager@24.341.02353~276fef8",
+      "type": "library",
+      "version": "24.341.02353~276fef8"
+    },
+    {
+      "name": "luci-base",
+      "purl": "pkg:generic/luci-base@25.014.55016~7046a1c",
+      "type": "library",
+      "version": "25.014.55016~7046a1c"
+    },
+    {
+      "name": "luci-light",
+      "purl": "pkg:generic/luci-light@23.024.33244~34dee82",
+      "type": "library",
+      "version": "23.024.33244~34dee82"
+    },
+    {
+      "name": "luci-mod-admin-full",
+      "purl": "pkg:generic/luci-mod-admin-full@19.253.48496~3f93650",
+      "type": "library",
+      "version": "19.253.48496~3f93650"
+    },
+    {
+      "name": "luci-mod-network",
+      "purl": "pkg:generic/luci-mod-network@25.021.30718~36b6107",
+      "type": "library",
+      "version": "25.021.30718~36b6107"
+    },
+    {
+      "name": "luci-mod-status",
+      "purl": "pkg:generic/luci-mod-status@25.009.65022~20bf9a4",
+      "type": "library",
+      "version": "25.009.65022~20bf9a4"
+    },
+    {
+      "name": "luci-mod-system",
+      "purl": "pkg:generic/luci-mod-system@24.336.49068~ef16778",
+      "type": "library",
+      "version": "24.336.49068~ef16778"
+    },
+    {
+      "name": "luci-proto-ipv6",
+      "purl": "pkg:generic/luci-proto-ipv6@24.350.69236~8d13ea4",
+      "type": "library",
+      "version": "24.350.69236~8d13ea4"
+    },
+    {
+      "name": "luci-proto-ppp",
+      "purl": "pkg:generic/luci-proto-ppp@25.009.71487~a88d4af",
+      "type": "library",
+      "version": "25.009.71487~a88d4af"
+    },
+    {
+      "name": "luci-ssl",
+      "purl": "pkg:generic/luci-ssl@24.328.43591~9e70c9a",
+      "type": "library",
+      "version": "24.328.43591~9e70c9a"
+    },
+    {
+      "name": "luci-theme-bootstrap",
+      "purl": "pkg:generic/luci-theme-bootstrap@24.357.59015~779ca14",
+      "type": "library",
+      "version": "24.357.59015~779ca14"
+    },
+    {
+      "name": "mtd",
+      "purl": "pkg:generic/mtd@26",
+      "type": "library",
+      "version": "26"
+    },
+    {
+      "name": "netifd",
+      "purl": "pkg:generic/netifd@2024.12.17~ea01ed41-r1",
+      "type": "library",
+      "version": "2024.12.17~ea01ed41-r1"
+    },
+    {
+      "name": "nftables-json",
+      "purl": "pkg:generic/nftables-json@1.1.1-r1",
+      "type": "library",
+      "version": "1.1.1-r1"
+    },
+    {
+      "name": "odhcp6c",
+      "purl": "pkg:generic/odhcp6c@2024.09.25~b6ae9ffa-r1",
+      "type": "library",
+      "version": "2024.09.25~b6ae9ffa-r1"
+    },
+    {
+      "name": "odhcpd-ipv6only",
+      "purl": "pkg:generic/odhcpd-ipv6only@2024.05.08~a2988231-r1",
+      "type": "library",
+      "version": "2024.05.08~a2988231-r1"
+    },
+    {
+      "name": "openwrt-keyring",
+      "purl": "pkg:generic/openwrt-keyring@2024.11.01~fbae29d7-r2",
+      "type": "library",
+      "version": "2024.11.01~fbae29d7-r2"
+    },
+    {
+      "name": "opkg",
+      "purl": "pkg:generic/opkg@2024.10.16~38eccbb1-r1",
+      "type": "library",
+      "version": "2024.10.16~38eccbb1-r1"
+    },
+    {
+      "name": "ppp",
+      "purl": "pkg:generic/ppp@2.5.1-r1",
+      "type": "library",
+      "version": "2.5.1-r1"
+    },
+    {
+      "name": "ppp-mod-pppoe",
+      "purl": "pkg:generic/ppp-mod-pppoe@2.5.1-r1",
+      "type": "library",
+      "version": "2.5.1-r1"
+    },
+    {
+      "name": "procd",
+      "purl": "pkg:generic/procd@2024.12.22~42d39376-r1",
+      "type": "library",
+      "version": "2024.12.22~42d39376-r1"
+    },
+    {
+      "name": "procd-seccomp",
+      "purl": "pkg:generic/procd-seccomp@2024.12.22~42d39376-r1",
+      "type": "library",
+      "version": "2024.12.22~42d39376-r1"
+    },
+    {
+      "name": "procd-ujail",
+      "purl": "pkg:generic/procd-ujail@2024.12.22~42d39376-r1",
+      "type": "library",
+      "version": "2024.12.22~42d39376-r1"
+    },
+    {
+      "name": "px5g-mbedtls",
+      "purl": "pkg:generic/px5g-mbedtls@11",
+      "type": "library",
+      "version": "11"
+    },
+    {
+      "name": "rpcd",
+      "purl": "pkg:generic/rpcd@2024.09.17~9f4b86e7-r1",
+      "type": "library",
+      "version": "2024.09.17~9f4b86e7-r1"
+    },
+    {
+      "name": "rpcd-mod-file",
+      "purl": "pkg:generic/rpcd-mod-file@2024.09.17~9f4b86e7-r1",
+      "type": "library",
+      "version": "2024.09.17~9f4b86e7-r1"
+    },
+    {
+      "name": "rpcd-mod-iwinfo",
+      "purl": "pkg:generic/rpcd-mod-iwinfo@2024.09.17~9f4b86e7-r1",
+      "type": "library",
+      "version": "2024.09.17~9f4b86e7-r1"
+    },
+    {
+      "name": "rpcd-mod-luci",
+      "purl": "pkg:generic/rpcd-mod-luci@20240305-r1",
+      "type": "library",
+      "version": "20240305-r1"
+    },
+    {
+      "name": "rpcd-mod-rrdns",
+      "purl": "pkg:generic/rpcd-mod-rrdns@20170710",
+      "type": "library",
+      "version": "20170710"
+    },
+    {
+      "name": "rpcd-mod-ucode",
+      "purl": "pkg:generic/rpcd-mod-ucode@2024.09.17~9f4b86e7-r1",
+      "type": "library",
+      "version": "2024.09.17~9f4b86e7-r1"
+    },
+    {
+      "name": "swconfig",
+      "purl": "pkg:generic/swconfig@12",
+      "type": "library",
+      "version": "12"
+    },
+    {
+      "name": "uboot-envtools",
+      "purl": "pkg:generic/uboot-envtools@2024.07-r1",
+      "type": "library",
+      "version": "2024.07-r1"
+    },
+    {
+      "name": "ubox",
+      "purl": "pkg:generic/ubox@2024.04.26~85f10530-r1",
+      "type": "library",
+      "version": "2024.04.26~85f10530-r1"
+    },
+    {
+      "name": "ubus",
+      "purl": "pkg:generic/ubus@2025.01.02~afa57cce-r1",
+      "type": "library",
+      "version": "2025.01.02~afa57cce-r1"
+    },
+    {
+      "name": "ubusd",
+      "purl": "pkg:generic/ubusd@2025.01.02~afa57cce-r1",
+      "type": "library",
+      "version": "2025.01.02~afa57cce-r1"
+    },
+    {
+      "name": "uci",
+      "purl": "pkg:generic/uci@2025.01.20~16ff0bad-r1",
+      "type": "library",
+      "version": "2025.01.20~16ff0bad-r1"
+    },
+    {
+      "name": "uclient-fetch",
+      "purl": "pkg:generic/uclient-fetch@2024.10.22~88ae8f20-r1",
+      "type": "library",
+      "version": "2024.10.22~88ae8f20-r1"
+    },
+    {
+      "name": "ucode",
+      "purl": "pkg:generic/ucode@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "ucode-mod-fs",
+      "purl": "pkg:generic/ucode-mod-fs@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "ucode-mod-html",
+      "purl": "pkg:generic/ucode-mod-html@1",
+      "type": "library",
+      "version": "1"
+    },
+    {
+      "name": "ucode-mod-math",
+      "purl": "pkg:generic/ucode-mod-math@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "ucode-mod-nl80211",
+      "purl": "pkg:generic/ucode-mod-nl80211@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "ucode-mod-rtnl",
+      "purl": "pkg:generic/ucode-mod-rtnl@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "ucode-mod-ubus",
+      "purl": "pkg:generic/ucode-mod-ubus@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "ucode-mod-uci",
+      "purl": "pkg:generic/ucode-mod-uci@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "ucode-mod-uloop",
+      "purl": "pkg:generic/ucode-mod-uloop@2024.07.22~b610860d-r3",
+      "type": "library",
+      "version": "2024.07.22~b610860d-r3"
+    },
+    {
+      "name": "uhttpd",
+      "purl": "pkg:generic/uhttpd@2023.06.25~34a8a74d-r4",
+      "type": "library",
+      "version": "2023.06.25~34a8a74d-r4"
+    },
+    {
+      "name": "uhttpd-mod-ubus",
+      "purl": "pkg:generic/uhttpd-mod-ubus@2023.06.25~34a8a74d-r4",
+      "type": "library",
+      "version": "2023.06.25~34a8a74d-r4"
+    },
+    {
+      "name": "urandom-seed",
+      "purl": "pkg:generic/urandom-seed@3",
+      "type": "library",
+      "version": "3"
+    },
+    {
+      "name": "urngd",
+      "purl": "pkg:generic/urngd@2023.11.01~44365eb1-r1",
+      "type": "library",
+      "version": "2023.11.01~44365eb1-r1"
+    },
+    {
+      "name": "usign",
+      "purl": "pkg:generic/usign@2020.05.23~f1f65026-r1",
+      "type": "library",
+      "version": "2020.05.23~f1f65026-r1"
+    },
+    {
+      "name": "wifi-scripts",
+      "purl": "pkg:generic/wifi-scripts@1.0-r1",
+      "type": "library",
+      "version": "1.0-r1"
+    },
+    {
+      "name": "wireless-regdb",
+      "purl": "pkg:generic/wireless-regdb@2024.10.07-r1",
+      "type": "library",
+      "version": "2024.10.07-r1"
+    },
+    {
+      "name": "wpad-basic-mbedtls",
+      "purl": "pkg:generic/wpad-basic-mbedtls@2024.09.15~5ace39b0-r2",
+      "type": "library",
+      "version": "2024.09.15~5ace39b0-r2"
     }
   ],
   "metadata": {
@@ -50,9 +848,19 @@
       "type": "firmware",
       "version": "2.0.0"
     },
+    "properties": [
+      {
+        "name": "verigate:openwrt_release",
+        "value": "24.10.0"
+      },
+      {
+        "name": "verigate:source",
+        "value": "openwrt-24.10.0-ath79-generic.manifest"
+      }
+    ],
     "tools": [
       {
-        "name": "verigate-fixture-generator",
+        "name": "verigate-data-sbom",
         "version": "1"
       }
     ]

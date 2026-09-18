@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from verigate.common.chain import publisher_id
-from verigate.common.crypto import KeyPair
+from verigate.common.crypto import KeyPair, sha256_hex
 from verigate.common.errors import VerificationError
 from verigate.common.ipfs import LocalCidBackend
 from verigate.common.manifest import SignedManifest
@@ -59,9 +59,7 @@ def test_build_manifest_uses_ipfs_and_hashes(tmp_path: Path) -> None:
     m = build_manifest(ipfs, fw, sbom, "1.0.0", "demo-device", EXPIRY, DID)
     assert ipfs.get(m.cids.firmware) == fw
     assert ipfs.get(m.cids.sbom) == sbom
-    assert (
-        m.firmwareHash == "sha256:883e2128b0cbd64e603ddd08ce8c49742ad6c8952ee9dc73fcf91b2be06fead6"
-    )
+    assert m.firmwareHash == sha256_hex(fw)
     assert str(m.version) == "1.0.0"
 
 

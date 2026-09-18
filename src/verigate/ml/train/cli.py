@@ -67,6 +67,33 @@ def data_sbom(
     )
 
 
+@data_app.command("images")
+def data_images(
+    sources: Annotated[Path, typer.Option("--sources")] = DATA_DIR / "sources.yaml",
+    data_dir: Annotated[Path, typer.Option("--data-dir")] = DATA_DIR,
+) -> None:
+    """Download the benign ELF corpus (OpenWrt package binaries) and refresh MANIFEST.sha256."""
+    from verigate.ml.data.images import (  # noqa: PLC0415
+        fetch_elf_corpus,
+        load_image_sources,
+        write_images_index,
+    )
+    from verigate.ml.data.sbom import write_manifest_sha256  # noqa: PLC0415
+
+    configure_logging(get_settings())
+    src = load_image_sources(sources)
+    samples = fetch_elf_corpus(src, data_dir / "raw")
+    rows = write_images_index(samples, data_dir / "processed", src)
+    n = write_manifest_sha256(data_dir, data_dir / "MANIFEST.sha256")
+    _emit(
+        {
+            "binaries": len(rows),
+            "with_previous": sum(1 for r in rows if r["previous"]),
+            "manifest_entries": n,
+        }
+    )
+
+
 MODELS_DIR = Path("models")
 
 
@@ -76,7 +103,7 @@ def train_sbom(
     t0: Annotated[
         str, typer.Option("--t0", help="feature snapshot date (EPSS/KEV as of)")
     ] = "2025-09-18",
-    t1: Annotated[str, typer.Option("--t1", help="label date (KEV as of)")] = "2026-09-18",
+    t1: Annotated[str, typer.Option("--t1", help="label date (EPSS snapshot)")] = "2026-09-17",
     data_dir: Annotated[Path, typer.Option("--data-dir")] = DATA_DIR,
     models_dir: Annotated[Path, typer.Option("--models-dir")] = MODELS_DIR,
     test_fraction: Annotated[float, typer.Option("--test-fraction", min=0.05, max=0.5)] = 0.2,
@@ -101,9 +128,12 @@ def train_sbom(
     cache = DiskCache(settings.vuln_cache_dir, offline=settings.vuln_cache_only)
     osv = OsvClient(settings.osv_api, cache)
     epss = EpssSnapshot.load(settings.epss_url, d0, cache)
+    epss_t1 = EpssSnapshot.load(settings.epss_url, d1, cache)
     kev = KevCatalogue.load(settings.kev_url, cache)
     rows = trainer.load_corpus(data_dir)
-    dataset = trainer.build_dataset(rows, trainer.VulnLookup(osv, epss, kev, d0), kev, d1)
+    dataset = trainer.build_dataset(
+        rows, trainer.VulnLookup(osv, epss, kev, d0), trainer.VulnLookup(osv, epss_t1, kev, d1)
+    )
     train, test = trainer.temporal_split(dataset, test_fraction)
     x_train, y_train = trainer.matrix(train)
     x_test, y_test = trainer.matrix(test)
@@ -116,8 +146,10 @@ def train_sbom(
         raise typer.Exit(
             code=_fail(f"ONNX != sklearn on the test set (max abs diff {max_diff:.3e})")
         )
-    model_metrics = trainer.metrics(y_test, np.clip(onnx_pred, 0.0, 1.0))
-    baseline_metrics = trainer.metrics(y_test, np.array([d["baseline_bp"] / 10_000 for d in test]))
+    model_metrics = trainer.metrics(y_test, trainer.expected_from_ratio(x_test, onnx_pred))
+    baseline_metrics = trainer.metrics(
+        y_test, -np.log1p(-np.array([d["baseline_bp"] / 10_000 for d in test]).clip(0, 0.9999))
+    )  # the baseline's composition mapped back to an expected-count scale (−ln(1 − p))
 
     models_dir.mkdir(parents=True, exist_ok=True)
     (models_dir / f"{trainer.MODEL_NAME}.onnx").write_bytes(onnx_bytes)
@@ -131,6 +163,7 @@ def train_sbom(
                 },
                 "background": [float(m) for m in np.median(x_train, axis=0)],
                 "feature_names": list(FEATURE_NAMES),
+                "r_scale": trainer.R_SCALE,
             },
             indent=1,
             sort_keys=True,
@@ -188,10 +221,103 @@ def _fail(message: str) -> int:
     return 1
 
 
+@app.command("image")
+def train_image(
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+    data_dir: Annotated[Path, typer.Option("--data-dir")] = DATA_DIR,
+    models_dir: Annotated[Path, typer.Option("--models-dir")] = MODELS_DIR,
+) -> None:
+    """Train models/image_anomaly.onnx on benign binaries; evaluate per mutation class."""
+    import csv  # noqa: PLC0415
+    import hashlib  # noqa: PLC0415
+
+    import numpy as np  # noqa: PLC0415
+
+    from verigate.ml.features.image_features import FEATURE_NAMES  # noqa: PLC0415
+    from verigate.ml.train import image as trainer  # noqa: PLC0415
+
+    settings = get_settings()
+    configure_logging(settings)
+    samples = trainer.load_corpus(data_dir)
+    if not samples:
+        raise typer.Exit(
+            code=_fail("no benign samples with a predecessor; run verigate-train data images")
+        )
+    benign = trainer.benign_rows(samples)
+    tampered = trainer.tampered_rows(samples, seed)
+    x_benign = trainer.matrix(benign)
+    x_tampered = trainer.matrix(tampered)
+    model = trainer.train_model(x_benign, seed)
+    onnx_bytes = trainer.export_onnx(model, x_benign.shape[1])
+    offset = float(model.offset_)
+    everything = np.vstack([x_benign, x_tampered])
+    sk = trainer.anomaly_scores(model, everything)
+    ox = trainer.onnx_anomaly_scores(onnx_bytes, everything, offset)
+    max_diff = float(np.max(np.abs(sk - ox)))
+    if max_diff > 1e-5:
+        raise typer.Exit(code=_fail(f"ONNX != sklearn (max abs diff {max_diff:.3e})"))
+    calibration = trainer.calibrate(ox[: len(benign)])
+    r_benign = calibration.r_img(ox[: len(benign)])
+    r_tampered = calibration.r_img(ox[len(benign) :])
+    metrics = trainer.per_class_metrics(r_benign, tampered, r_tampered, 0.5)
+
+    models_dir.mkdir(parents=True, exist_ok=True)
+    (models_dir / f"{trainer.MODEL_NAME}.onnx").write_bytes(onnx_bytes)
+    (models_dir / f"{trainer.MODEL_NAME}.context.json").write_text(
+        json.dumps(
+            {
+                "offset": offset,
+                "s_median": calibration.s_median,
+                "s_p99": calibration.s_p99,
+                "feature_names": list(FEATURE_NAMES),
+                "background": [float(v) for v in np.median(x_benign, axis=0)],
+            },
+            indent=1,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    datasets_dir = data_dir / "processed" / "datasets"
+    datasets_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = datasets_dir / f"{trainer.MODEL_NAME}_seed{seed}.csv"
+    rows = [
+        {**r, "r_img": float(v)}
+        for r, v in zip(benign + tampered, np.concatenate([r_benign, r_tampered]), strict=True)
+    ]
+    with csv_path.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+    manifest_path = data_dir / "MANIFEST.sha256"
+    data_sha = (
+        hashlib.sha256(manifest_path.read_bytes()).hexdigest() if manifest_path.is_file() else "n/a"
+    )
+    fields = trainer.card_fields(
+        onnx_bytes, samples, benign, tampered, seed, calibration, metrics, max_diff, data_sha
+    )
+    trainer.write_card(models_dir / f"{trainer.MODEL_NAME}.card.md", fields)
+    summary = {
+        "model": str(models_dir / f"{trainer.MODEL_NAME}.onnx"),
+        "model_hash": fields["model_hash"],
+        "benign": len(benign),
+        "tampered": len(tampered),
+        "onnx_max_abs_diff": max_diff,
+        "calibration": {"s_median": calibration.s_median, "s_p99": calibration.s_p99},
+        "metrics": metrics,
+        "dataset_csv": str(csv_path),
+        "seed": seed,
+    }
+    (models_dir / f"{trainer.MODEL_NAME}.metrics.json").write_text(
+        json.dumps(summary, indent=2) + "\n"
+    )
+    _emit(summary)
+
+
 @app.command("all")
 def train_all(seed: Annotated[int, typer.Option("--seed")] = 42) -> None:
-    """Train every model (P5: sbom_risk; P6 adds image_anomaly)."""
+    """Train every model: sbom_risk (P5) and image_anomaly (P6)."""
     train_sbom(seed=seed)
+    train_image(seed=seed)
 
 
 if __name__ == "__main__":

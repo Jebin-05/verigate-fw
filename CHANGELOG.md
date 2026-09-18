@@ -3,6 +3,11 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 ### Added
+- `models/sbom_risk.onnx` (+ card, context, metrics): HistGradientBoostingRegressor trained on the OpenWrt corpus with a temporal split; target = expected exploited-CVE count at T1 (Σ EPSS_T1) learned as a growth ratio over the T0 exposure; ONNX == sklearn (atol 1e-6), byte-identical across runs; `sbom_ranking` experiment (model MAE 0.17 vs baseline 1.01, Spearman 0.965 vs 0.977 on held-out newest releases) (P5-04, P5-07).
+- Stage-2 SBOM scorer at the gateway (ONNX-only, cached per SBOM hash, SHAP top-3 via KernelExplainer over the ONNX model), model hashes registered on-chain with `verigate-admin register-model`, verdicts carry `modelHashes` (P5-06, P5-08).
+- Mutation catalogue (byte-patch, append, section-swap, pack, downgrade-relabel; seeded, documented), pure ELF/entropy image features (program-header aware: works on stripped binaries), `models/image_anomaly.onnx` (IsolationForest on 165 real OpenWrt ELF binaries, calibrated r_img) with per-class metrics in its card and the `detection_f1` experiment (append AUROC 1.0; small patches near chance), Stage-2 image scorer with previous-version deltas (P6-01..P6-04).
+- Real-binary release fixtures: `tests/fixtures/releases/` now ships OpenWrt busybox builds (22.03.7 / 23.05.3 / 24.10.0, hash-pinned, GPL attribution) with SBOMs from the real manifests, so Stage-2 inputs are in-distribution.
+- ADR-0008: default policy τ_approve 0.45 / τ_reject 0.70 measured on the fixtures with both models.
 - Vulnerability data clients (OSV with client-side range evaluation and OpenWrt→upstream mapping, EPSS dated snapshots, CISA KEV as-of-date) with a disk cache and `VULN_CACHE_ONLY` offline mode; OpenWrt corpus pipeline (`verigate-train data fetch|sbom`, 624 CycloneDX SBOMs across 49 releases, `data/MANIFEST.sha256`); pure SBOM features with golden vectors; CVSS/EPSS/KEV baseline scorer; `verigate-admin` (register/revoke model, set policy, revoke publisher, grant gateway) (P5-01, P5-02, P5-03, P5-05).
 
 ## [0.1.0] - 2026-09-18 — crypto-path baseline

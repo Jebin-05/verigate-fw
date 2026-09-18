@@ -54,6 +54,19 @@ Dashboard: Releases · Verdicts (Merkle proof, on-chain `verifyLeaf` via direct 
 Publishers · Models · Policy · Attacks (buttons run `verigate-attack` through the gateway) with a
 live websocket log. Attack scripts: `verigate-attack run <tamper|forge|stolen-key|rollback|freeze|sbom-swap|all>`.
 
+## Models and evaluation
+
+```bash
+verigate-train data fetch && verigate-train data sbom && verigate-train data images   # corpus (network)
+make train                      # sbom_risk + image_anomaly (seed 42) → models/*.onnx + cards
+make models-hash                # models/MANIFEST.sha256
+verigate-admin register-model --file models/sbom_risk.onnx --name sbom_risk_v1   # on-chain
+make eval EXP=evaluation/configs/sbom_ranking.yaml   # results/<exp>/<timestamp>_<sha>/
+```
+Enable Stage 2 at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL_HASHES` in `.env`
+(the model cards under `models/` state every number). Everything in the cards and under
+`evaluation/results/` is measured on this machine — nothing is typed by hand.
+
 ## Layout
 
 | Path | What lives here |

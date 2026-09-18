@@ -74,17 +74,17 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P5-01 `ml/vulndb`: OSV, EPSS, KEV clients with disk cache; offline mode
 - [x] P5-02 `ml/data`: fetch pinned firmware releases; syft SBOMs; `data/MANIFEST.sha256`
 - [x] P5-03 `ml/features/sbom_features.py` + golden vectors
-- [ ] P5-04 Training script (seed 42) → `models/sbom_risk.onnx` + card; ONNX == sklearn on test set
+- [x] P5-04 Training script (seed 42) → `models/sbom_risk.onnx` + card; ONNX == sklearn on test set
 - [x] P5-05 Baseline: deterministic CVSS/EPSS/KEV scorer (arXiv 2601.01308-style) for comparison
-- [ ] P5-06 `stage2/sbom.py` inference; SHAP top-3; cached per release
-- [ ] P5-07 Evaluation config `sbom_ranking.yaml`; AUROC / Spearman vs baseline recorded
-- [ ] P5-08 Register model hash on-chain via admin CLI; verdict carries modelHash
+- [x] P5-06 `stage2/sbom.py` inference; SHAP top-3; cached per release
+- [x] P5-07 Evaluation config `sbom_ranking.yaml`; AUROC / Spearman vs baseline recorded
+- [x] P5-08 Register model hash on-chain via admin CLI; verdict carries modelHash
 
 ## P6 — Image anomaly, LLM explainer, model revocation (weeks 9–10)
-- [ ] P6-01 `ml/data/mutate.py`: byte-patch, append, section-swap, pack, downgrade-relabel (documented, seeded)
-- [ ] P6-02 `ml/features/image_features.py` + golden vectors
-- [ ] P6-03 Isolation Forest training → `models/image_anomaly.onnx` + card
-- [ ] P6-04 `stage2/image.py` inference; per-mutation-class precision/recall in evaluation
+- [x] P6-01 `ml/data/mutate.py`: byte-patch, append, section-swap, pack, downgrade-relabel (documented, seeded)
+- [x] P6-02 `ml/features/image_features.py` + golden vectors
+- [x] P6-03 Isolation Forest training → `models/image_anomaly.onnx` + card
+- [x] P6-04 `stage2/image.py` inference; per-mutation-class precision/recall in evaluation
 - [ ] P6-05 `stage2/explain.py`: Ollama client, strict JSON schema, retry, `LLM_ENABLED` switch; rationale → IPFS
 - [ ] P6-06 Model revocation flow: revoke → stale query → re-verify job → dashboard shows delta
 - [ ] P6-07 Attack scripts: vulnerable-but-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper

@@ -1,0 +1,26 @@
+{
+  "model": "models/sbom_risk.onnx",
+  "model_hash": "67516bbe7ca4c051e0d4b147f4c0748f7c5d39a222f88f932b70b41ceeb7e5b2",
+  "rows": 624,
+  "train_rows": 428,
+  "test_rows": 196,
+  "onnx_max_abs_diff": 1.2669324478409294e-07,
+  "metrics": {
+    "model": {
+      "mae": 0.16670756077013466,
+      "median_ae": 0.0827821308207517,
+      "spearman": 0.9649965623271117,
+      "auroc_high_exposure": 0.9999999999999999
+    },
+    "baseline": {
+      "mae": 1.0115568991375259,
+      "median_ae": 0.9662621928475037,
+      "spearman": 0.9764555736700926,
+      "auroc_high_exposure": 0.9999999999999999
+    }
+  },
+  "dataset_csv": "data/processed/datasets/sbom_risk_2025-09-18_2026-09-17.csv",
+  "seed": 42,
+  "t0": "2025-09-18",
+  "t1": "2026-09-17"
+}

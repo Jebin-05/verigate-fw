@@ -1,0 +1,55 @@
+# Model card — `{model_name}.onnx`
+
+- **Model hash (SHA-256 of the ONNX bytes, registered on-chain):** `{model_hash}`
+- **Trained:** {trained_on} · git `{git_sha}` · seed {seed} · Python {python_version}
+
+## Purpose
+Stage-2 image anomaly score `r_img ∈ [0, 1]`: how *structurally unusual* a firmware binary looks
+compared with genuine releases — entropy profile, ELF header / segment sanity, bytes appended
+after the declared end, and how much changed versus the previous version. It catches structural
+tampering (appended payloads, packing, patched or shuffled regions, relabelled old images).
+**It does not detect a competently built malicious firmware with normal structure** (Guide §6.2
+scope statement); Stage 1, the SBOM score and reputation are the other layers.
+
+## Training data (benign only)
+- {n_benign} real OpenWrt package binaries (ELF, mips_24kc; {n_packages} packages across
+  {n_releases} releases {first_release} … {last_release}) that have a predecessor in the corpus,
+  so version deltas are defined (`data/sources.yaml`, `images` section).
+- `data/MANIFEST.sha256` (SHA-256 of the corpus manifest): `{data_manifest_sha}`.
+- The tampered set below is **synthetic**: {n_tampered} mutated copies produced by
+  `verigate.ml.data.mutate` with the seeds derived from `seed`. It is not real-world malware and
+  the paper says so.
+
+## Mutation catalogue (evaluation set)
+| mutation | description | parameters |
+|---|---|---|
+{mutations}
+
+## Features (units) — order is the ONNX input order
+| # | name | unit |
+|---|---|---|
+{feature_rows}
+
+## Model
+`sklearn.ensemble.IsolationForest`, `{hyperparams}`, `random_state={seed}`; exported with skl2onnx
+(opset 17 / ai.onnx.ml 3). The ONNX `scores` output reproduces sklearn's `decision_function`
+(max abs diff {onnx_max_abs_diff:.2e}).
+
+**Calibration** (stored in `{model_name}.context.json`): anomaly score `s = −score_samples`;
+`r_img = clip((s − {s_median:.4f}) / ({s_p99:.4f} − {s_median:.4f}) · 0.5, 0, 1)` — benign training
+median → 0.0, benign 99th percentile → 0.5.
+
+## Metrics (detection = `r_img ≥ 0.5`, benign rows are the training set)
+| class | precision | recall | AUROC vs benign | n |
+|---|---|---|---|---|
+{metric_rows}
+
+## Known failure modes / limitations
+- Benign rows are also the training rows (no held-out benign set beyond the 99th-percentile
+  calibration); the false-positive rate above is therefore optimistic.
+- One architecture (MIPS 24Kc) and one distribution family; other binaries are extrapolations.
+- Small byte patches (`byte-patch`) change little structurally and are the weakest class — this
+  is exactly why the hash and signature checks of Stage 1 exist.
+
+Regenerate with `make train` (`verigate-train image --seed 42`); `make models-hash` updates
+`models/MANIFEST.sha256`. Old model files are never overwritten once registered — bump the name.

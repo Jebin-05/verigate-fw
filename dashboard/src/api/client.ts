@@ -9,6 +9,7 @@ import type {
   Policy,
   Proof,
   Publisher,
+  Rationale,
   Release,
   VerdictLogEntry,
   VerificationResult,
@@ -47,6 +48,7 @@ export const api = {
     ),
   verdicts: (limit = 200) => request<VerdictLogEntry[]>(`/verdicts?limit=${limit}`),
   proof: (verdictId: string) => request<Proof>(`/verdicts/${verdictId}/proof`),
+  rationale: (cid: string) => request<Rationale>(`/rationales/${cid}`),
   batches: () => request<Batch[]>('/batches'),
   flush: () =>
     request<{ committed: Batch | null; pending: number }>('/batches/flush', { method: 'POST' }),

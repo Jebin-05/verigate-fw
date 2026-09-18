@@ -26,6 +26,14 @@ class Stage2Scores:
     features: dict[str, Any] = field(default_factory=dict)
     model_hashes: tuple[str, ...] = ()
     rationale_cid: str | None = None
+    expected_exploited: float | None = None
+    cves: int | None = None
+
+    def top(self, model: str) -> list[list[Any]]:
+        """The ``[feature, shap_bp]`` attributions recorded for ``model`` (``sbom`` / ``img``)."""
+        block = self.features.get(model, {})
+        top3: list[list[Any]] = block.get("top3", []) if isinstance(block, dict) else []
+        return top3
 
     @property
     def feature_hash(self) -> str:
@@ -65,9 +73,12 @@ class Stage2Scorer:
         features: dict[str, Any] = {}
         hashes: list[str] = []
         r_sbom = r_img = 0
+        expected: float | None = None
+        cves: int | None = None
         if self.sbom is not None:
             result = self.sbom.score(sbom)
             r_sbom = result.r_sbom_bp
+            expected, cves = result.expected_exploited, result.cves
             features["sbom"] = {
                 **result.features,
                 "model": result.model_hash,
@@ -85,7 +96,12 @@ class Stage2Scorer:
             }
             hashes.append(img.model_hash)
         return Stage2Scores(
-            r_sbom_bp=r_sbom, r_img_bp=r_img, features=features, model_hashes=tuple(hashes)
+            r_sbom_bp=r_sbom,
+            r_img_bp=r_img,
+            features=features,
+            model_hashes=tuple(hashes),
+            expected_exploited=expected,
+            cves=cves,
         )
 
 

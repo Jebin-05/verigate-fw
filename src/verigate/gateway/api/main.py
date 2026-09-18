@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket,
 from fastapi.middleware.cors import CORSMiddleware
 
 from verigate.common.chain import ChainClient
-from verigate.common.errors import ChainError, VerificationError, VerigateError
+from verigate.common.errors import ChainError, IpfsError, VerificationError, VerigateError
 from verigate.common.ipfs import make_backend
 from verigate.common.logging import configure_logging, get_logger
 from verigate.common.manifest import SemVer
@@ -32,6 +32,7 @@ from verigate.gateway.api.logs import hub
 from verigate.gateway.listener import NewReleaseListener
 from verigate.gateway.service import GatewayService
 from verigate.gateway.stage1.inputs import DeviceView
+from verigate.gateway.stage2.explain import build_explainer
 from verigate.gateway.stage2.scores import build_scorer
 
 log = get_logger(__name__)
@@ -193,6 +194,18 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
             raise HTTPException(404, "unknown verdict id")
         return proof
 
+    @app.get("/rationales/{cid}")
+    async def rationale(cid: str) -> dict[str, Any]:
+        """The LLM rationale pinned under ``cid`` (ADR-0002: explanatory only, never part of R)."""
+        try:
+            raw = await asyncio.to_thread(service.ipfs.get, cid)
+            doc = json.loads(raw)
+        except (IpfsError, ValueError) as exc:
+            raise HTTPException(404, f"no rationale at {cid}: {exc}") from exc
+        if not isinstance(doc, dict):
+            raise HTTPException(404, "rationale is not a JSON object")
+        return {"cid": cid, **doc}
+
     @app.get("/batches")
     async def batches() -> list[dict[str, Any]]:
         """Committed verdict batches (oldest first) without the per-record payloads."""
@@ -302,6 +315,7 @@ def build_service(settings: Settings) -> GatewayService:
         state_dir=settings.state_dir,
     )
     service.scorer = build_scorer(settings)
+    service.explainer = build_explainer(settings, service.ipfs)
     return service
 
 

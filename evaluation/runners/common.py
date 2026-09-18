@@ -112,7 +112,7 @@ def write_raw(out_dir: Path, rows: list[dict[str, Any]]) -> None:
         (out_dir / "raw.csv").write_text("")
         return
     with (out_dir / "raw.csv").open("w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

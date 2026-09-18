@@ -164,6 +164,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/rationales/{cid}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Rationale
+     * @description The LLM rationale pinned under ``cid`` (ADR-0002: explanatory only, never part of R).
+     */
+    get: operations['rationale_rationales__cid__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/batches': {
     parameters: {
       query?: never;
@@ -659,6 +679,39 @@ export interface operations {
       header?: never;
       path: {
         verdict_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  rationale_rationales__cid__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cid: string;
       };
       cookie?: never;
     };

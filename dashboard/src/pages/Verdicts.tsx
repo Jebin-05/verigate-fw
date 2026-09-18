@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Health, Proof, VerificationResult } from '../api/types';
+import type { Health, Proof, Rationale, VerificationResult } from '../api/types';
 import { verifyLeafOnChain } from '../chain/useChain';
 import { ErrorLine, Hex, Panel, Table, VerdictBadge } from '../components/ui';
 import { usePoll } from '../components/usePoll';
@@ -12,6 +12,15 @@ export function Verdicts() {
   const batches = usePoll(api.batches, 5000);
   const [proof, setProof] = useState<Proof | null>(null);
   const [onChain, setOnChain] = useState<string>('');
+  const [rationale, setRationale] = useState<Rationale | null>(null);
+
+  const showRationale = async (cid: string) => {
+    try {
+      setRationale(await api.rationale(cid));
+    } catch (err) {
+      alert(String(err));
+    }
+  };
 
   const showProof = async (verdictId: string) => {
     setOnChain('');
@@ -77,7 +86,10 @@ export function Verdicts() {
                 <Hex value={v.verdictId} />
               </td>
               <td>
-                {v.verdictId && <button onClick={() => void showProof(v.verdictId!)}>proof</button>}
+                {v.verdictId && <button onClick={() => void showProof(v.verdictId!)}>proof</button>}{' '}
+                {v.rationaleCid && (
+                  <button onClick={() => void showRationale(v.rationaleCid!)}>why</button>
+                )}
               </td>
             </tr>
           ))}
@@ -98,6 +110,22 @@ export function Verdicts() {
               <pre>{JSON.stringify(proof.record, null, 2)}</pre>
             </>
           )}
+        </Panel>
+      )}
+      {rationale && (
+        <Panel title="LLM rationale (explanatory only — never part of R, ADR-0002)">
+          <p>{rationale.summary}</p>
+          {rationale.top_risks.length > 0 && (
+            <ul>
+              {rationale.top_risks.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+          <p>
+            suggested action: <b>{rationale.recommended_action}</b> · cid{' '}
+            <Hex value={rationale.cid} />
+          </p>
         </Panel>
       )}
       <Panel title="Committed batches">

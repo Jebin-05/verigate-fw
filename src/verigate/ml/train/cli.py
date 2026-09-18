@@ -174,7 +174,7 @@ def train_sbom(
     datasets_dir.mkdir(parents=True, exist_ok=True)
     csv_path = datasets_dir / f"{trainer.MODEL_NAME}_{t0}_{t1}.csv"
     with csv_path.open("w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(dataset[0].keys()))
+        writer = csv.DictWriter(fh, fieldnames=list(dataset[0].keys()), lineterminator="\n")
         writer.writeheader()
         writer.writerows(dataset)
     manifest_path = data_dir / "MANIFEST.sha256"
@@ -285,7 +285,7 @@ def train_image(
         for r, v in zip(benign + tampered, np.concatenate([r_benign, r_tampered]), strict=True)
     ]
     with csv_path.open("w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     manifest_path = data_dir / "MANIFEST.sha256"

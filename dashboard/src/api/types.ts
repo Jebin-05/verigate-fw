@@ -63,6 +63,14 @@ export interface VerificationResult {
   rImg: number | null;
   reputation: number | null;
   modelHashes: string[];
+  rationaleCid: string | null;
+}
+
+export interface Rationale {
+  cid: string;
+  summary: string;
+  top_risks: string[];
+  recommended_action: 'install' | 'review' | 'block';
 }
 
 export interface ReceiptEvent {

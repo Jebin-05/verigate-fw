@@ -28,6 +28,7 @@ from verigate.gateway.policy.engine import BASIS, Decision, PolicyEngine
 from verigate.gateway.reputation import ReputationUpdater
 from verigate.gateway.stage1.inputs import DeviceView, Stage1Input
 from verigate.gateway.stage1.runner import Stage1Result, run_stage1
+from verigate.gateway.stage2.explain import Explainer, ExplainInput, Explanation, sbom_diff
 from verigate.gateway.stage2.scores import NullScorer, Scorer, Stage2Scores
 from verigate.gateway.store import Cursor, DeviceRecord, DeviceStore, VerdictLog
 from verigate.gateway.verdicts.batch import VerdictBatcher
@@ -92,6 +93,7 @@ class VerificationResult:
             "rImg": self.scores.r_img_bp if self.scores else None,
             "reputation": self.reputation_bp,
             "modelHashes": list(self.scores.model_hashes) if self.scores else [],
+            "rationaleCid": self.scores.rationale_cid if self.scores else None,
         }
 
 
@@ -112,6 +114,10 @@ class GatewayService:
     started_at: float = field(default_factory=time.time, init=False)
     policy: PolicyEngine = field(init=False)
     scorer: Scorer = field(default_factory=NullScorer)
+    explainer: Explainer | None = None
+    _rationales: dict[str, asyncio.Task[Explanation | None]] = field(
+        default_factory=dict, init=False
+    )
     batcher: VerdictBatcher | None = field(default=None, init=False)
     reputation: ReputationUpdater | None = field(default=None, init=False)
     gateway_account: LocalAccount | None = field(default=None, init=False)
@@ -233,6 +239,56 @@ class GatewayService:
             return None
         prev_bundle = await self.bundle(previous.release_id)
         return prev_bundle.firmware
+
+    async def previous_sbom(self, bundle: ReleaseBundle) -> bytes | None:
+        """SBOM bytes of the previous release (for the explainer's diff), if any."""
+        if bundle.release is None or not bundle.release.exists:
+            return None
+        previous = self.previous_release(bundle.release)
+        if previous is None:
+            return None
+        return (await self.bundle(previous.release_id)).sbom
+
+    async def rationale_for(
+        self,
+        rid: str,
+        bundle: ReleaseBundle,
+        scores: Stage2Scores,
+        decision: Decision,
+        device_model: str,
+        wait: bool,
+    ) -> Explanation | None:
+        """The LLM rationale for a release (ADR-0002): one background task per release.
+
+        The release-level verification (listener) waits for it, so the verdict shown for the
+        release carries the CID; device-level verifications never wait — a device poll must not
+        stall on a CPU-bound language model — and pick the CID up once the task has finished.
+        The rationale content is never read back by the gate.
+        """
+        if self.explainer is None or not self.explainer.enabled or not scores.model_hashes:
+            return None
+        task = self._rationales.get(rid)
+        if task is None:
+            assert bundle.sbom is not None  # noqa: S101 — Stage 2 ran
+            diff = sbom_diff(bundle.sbom, await self.previous_sbom(bundle))
+            inp = ExplainInput(
+                release_id=rid,
+                version=str(bundle.manifest.version) if bundle.manifest else "",
+                device_model=device_model,
+                diff=diff,
+                r_sbom_bp=scores.r_sbom_bp,
+                r_img_bp=scores.r_img_bp,
+                verdict=decision.verdict.value,
+                top_sbom=scores.top("sbom"),
+                top_img=scores.top("img"),
+                expected_exploited=scores.expected_exploited,
+                cves=scores.cves,
+            )
+            task = asyncio.create_task(asyncio.to_thread(self.explainer.explain, inp))
+            self._rationales[rid] = task
+        if wait or task.done():
+            return await task
+        return None
 
     def _fetch_bundle(self, release_id: bytes) -> ReleaseBundle:
         errors: list[str] = []
@@ -360,6 +416,11 @@ class GatewayService:
             verdict, r_bp, policy_version = decision.verdict, decision.r_bp, decision.policy_version
             record_features = scores.feature_hash
             model_hashes = list(scores.model_hashes)
+            explanation = await self.rationale_for(
+                rid, bundle, scores, decision, view.device_model, wait=device is None
+            )
+            if explanation is not None:
+                scores = replace(scores, rationale_cid=explanation.cid)
         record = VerdictRecord(
             releaseId=rid,
             deviceId=view.device_id,

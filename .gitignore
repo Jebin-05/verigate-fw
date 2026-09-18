@@ -42,3 +42,11 @@ infra/.ollama/
 .idea/
 .vscode/
 *.swp
+# LaTeX build files (docs/paper); main.pdf is committed for the hand-in
+docs/paper/*.aux
+docs/paper/*.fdb_latexmk
+docs/paper/*.fls
+docs/paper/*.log
+docs/paper/*.out
+docs/paper/*.bbl
+docs/paper/*.blg

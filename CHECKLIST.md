@@ -91,12 +91,12 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P6-08 Tag `v0.2.0` — full AI gate release
 
 ## P7 — Evaluation (weeks 11–12)
-- [ ] P7-01 Experiment configs: latency_stage1, latency_stage2, gas_per_verdict_vs_batched, detection_f1, sbom_ranking, revocation_propagation, attack_matrix
+- [x] P7-01 Experiment configs: latency_stage1, latency_stage2, gas_per_verdict_vs_batched, detection_f1, sbom_ranking, revocation_propagation, attack_matrix
 - [ ] P7-02 Deploy to Arbitrum Sepolia via workflow; addresses committed; tx hashes recorded
-- [ ] P7-03 All runners produce `raw.csv + summary.json + env.json`; ≥ 5 repetitions
-- [ ] P7-04 `evaluation/figures.py` regenerates every figure from results
-- [ ] P7-05 Comparison table vs Uptane / LedgerGuard / DIDAuth-IoTFW / SBOM-triage (feature presence, cited)
-- [ ] P7-06 Limitations section drafted from measured failures (what the anomaly detector missed, etc.)
+- [x] P7-03 All runners produce `raw.csv + summary.json + env.json`; ≥ 5 repetitions
+- [x] P7-04 `evaluation/figures.py` regenerates every figure from results
+- [x] P7-05 Comparison table vs Uptane / LedgerGuard / DIDAuth-IoTFW / SBOM-triage (feature presence, cited)
+- [x] P7-06 Limitations section drafted from measured failures (what the anomaly detector missed, etc.)
 
 ## P8 — Paper, demo, hand-in (weeks 13–14)
 - [ ] P8-01 SRS finalised in `docs/srs/`

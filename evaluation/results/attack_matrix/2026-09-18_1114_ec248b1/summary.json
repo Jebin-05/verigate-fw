@@ -1,0 +1,182 @@
+{
+  "experiment": "attack_matrix",
+  "repetitions": 5,
+  "gateway": "http://127.0.0.1:8000",
+  "gateway_health": {
+    "chainId": 31337,
+    "block": 92,
+    "ipfsBackend": "kubo"
+  },
+  "matrix": {
+    "tamper": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.31,
+        "q1": 0.29,
+        "q3": 0.35,
+        "n": 5
+      }
+    },
+    "forge": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.32,
+        "q1": 0.31,
+        "q3": 0.4,
+        "n": 5
+      }
+    },
+    "stolen-key": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.55,
+        "q1": 0.55,
+        "q3": 0.61,
+        "n": 5
+      }
+    },
+    "rollback": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.75,
+        "q1": 0.66,
+        "q3": 0.79,
+        "n": 5
+      }
+    },
+    "freeze": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 112.0,
+        "q1": 111.0,
+        "q3": 112.99,
+        "n": 5
+      }
+    },
+    "sbom-swap": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.31,
+        "q1": 0.31,
+        "q3": 0.32,
+        "n": 5
+      }
+    },
+    "vulnerable-genuine": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.56,
+        "q1": 0.34,
+        "q3": 0.63,
+        "n": 5
+      }
+    },
+    "hidden-payload": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.78,
+        "q1": 0.6,
+        "q3": 0.93,
+        "n": 5
+      }
+    },
+    "bad-history": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 2.19,
+        "q1": 2.15,
+        "q3": 2.23,
+        "n": 5
+      }
+    },
+    "policy-tamper": {
+      "expected": "BLOCKED",
+      "observed": [
+        "BLOCKED"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.14,
+        "q1": 0.14,
+        "q3": 0.2,
+        "n": 5
+      }
+    },
+    "poisoned-model": {
+      "expected": "REPLAYED",
+      "observed": [
+        "REPLAYED"
+      ],
+      "runs": 2,
+      "passes": 2,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 15.219999999999999,
+        "q1": 12.459999999999999,
+        "q3": 17.979999999999997,
+        "n": 2
+      }
+    }
+  },
+  "all_pass": true,
+  "notes": [
+    "poisoned-model capped at 2 runs per chain lifetime (one revocable image model plus its successor)",
+    "the gateway's explainer setting is whatever the running gateway has; attack durations include Stage-2 inference but no LLM wait (device-level verifications)"
+  ]
+}

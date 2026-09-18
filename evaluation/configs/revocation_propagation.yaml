@@ -1,0 +1,5 @@
+# P7-01: time from a model revocation to every affected device verdict being replayed.
+experiment: revocation_propagation
+repetitions: 5
+fleet_sizes: [5, 20, 50]
+poll_s: 2.0                 # the revocation job's poll interval (LISTENER_POLL_S in production)

@@ -1,0 +1,1 @@
+Runner crashed while summarising: the HTTP device path returned no rows (unknown device id on a fresh gateway), and median over an empty list failed. raw.csv / raw_llm.csv are complete and valid; fixed in the runner; see the next directory.

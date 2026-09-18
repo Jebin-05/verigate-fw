@@ -1,0 +1,92 @@
+{
+  "experiment": "gas_per_verdict_vs_batched",
+  "network": "chainId 31337 (local Hardhat; receipts are real, no gas price)",
+  "repetitions": 5,
+  "batch_sizes": [
+    1,
+    10,
+    50,
+    100,
+    200
+  ],
+  "per_size": {
+    "1": {
+      "gas_used": {
+        "median": 209642.0,
+        "q1": 209642.0,
+        "q3": 209642.0,
+        "n": 5
+      },
+      "gas_per_verdict": {
+        "median": 209642.0,
+        "q1": 209642.0,
+        "q3": 209642.0,
+        "n": 5
+      }
+    },
+    "10": {
+      "gas_used": {
+        "median": 209642.0,
+        "q1": 209642.0,
+        "q3": 209642.0,
+        "n": 5
+      },
+      "gas_per_verdict": {
+        "median": 20964.2,
+        "q1": 20964.2,
+        "q3": 20964.2,
+        "n": 5
+      }
+    },
+    "50": {
+      "gas_used": {
+        "median": 209642.0,
+        "q1": 209642.0,
+        "q3": 209642.0,
+        "n": 5
+      },
+      "gas_per_verdict": {
+        "median": 4192.84,
+        "q1": 4192.84,
+        "q3": 4192.84,
+        "n": 5
+      }
+    },
+    "100": {
+      "gas_used": {
+        "median": 209642.0,
+        "q1": 209642.0,
+        "q3": 209642.0,
+        "n": 5
+      },
+      "gas_per_verdict": {
+        "median": 2096.42,
+        "q1": 2096.42,
+        "q3": 2096.42,
+        "n": 5
+      }
+    },
+    "200": {
+      "gas_used": {
+        "median": 209642.0,
+        "q1": 209642.0,
+        "q3": 209642.0,
+        "n": 5
+      },
+      "gas_per_verdict": {
+        "median": 1048.21,
+        "q1": 1048.21,
+        "q3": 1048.21,
+        "n": 5
+      }
+    }
+  },
+  "saving_vs_single": {
+    "1": 0.0,
+    "10": 0.9,
+    "50": 0.98,
+    "100": 0.99,
+    "200": 0.995
+  },
+  "hardhat_gas_reporter": "contracts/gas-report.txt"
+}

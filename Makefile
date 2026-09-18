@@ -6,7 +6,7 @@ N ?= 20
 
 .PHONY: up down logs smoke doctor llm-pull help bootstrap lint format typecheck test test-unit test-integration test-contracts test-all \
         infra-up infra-down contracts-build contracts-deploy-local gateway fleet dashboard \
-        train models-hash models-register eval clean
+        train models-hash models-register eval eval-all figures clean
 
 up:              ## run EVERYTHING in docker (any machine, no host toolchain needed)
 	[ -f .env ] || cp .env.example .env
@@ -94,8 +94,15 @@ train:           ## train both ML models, export ONNX, write model cards
 models-hash:     ## regenerate models/MANIFEST.sha256
 	cd models && find . -name '*.onnx' | sort | sed 's|^\./||' | xargs sha256sum > MANIFEST.sha256 && cat MANIFEST.sha256
 
-eval:            ## run an experiment: make eval EXP=evaluation/configs/gas_batching.yaml
+eval:            ## run an experiment: make eval EXP=evaluation/configs/latency_stage1.yaml
 	.venv/bin/python evaluation/runners/run.py $(EXP)
+
+eval-all:        ## every experiment against the live stack (infra-up + deploy + gateway with LLM_ENABLED=false first)
+	for c in gas_per_verdict_vs_batched latency_stage1 latency_stage2 revocation_propagation attack_matrix detection_f1 sbom_ranking; do \
+	  .venv/bin/python evaluation/runners/run.py evaluation/configs/$$c.yaml || exit 1; done
+
+figures:         ## regenerate evaluation/figures/* from the newest results (the only producer of figures)
+	.venv/bin/python evaluation/figures.py
 
 clean:
 	rm -rf .venv .pytest_cache .mypy_cache .ruff_cache htmlcov contracts/artifacts contracts/cache dashboard/dist

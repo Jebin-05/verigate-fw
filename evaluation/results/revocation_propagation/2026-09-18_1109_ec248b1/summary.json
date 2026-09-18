@@ -1,0 +1,111 @@
+{
+  "experiment": "revocation_propagation",
+  "repetitions": 5,
+  "fleet_sizes": [
+    5,
+    20,
+    50
+  ],
+  "poll_s": 2.0,
+  "release": "0xc301dd46ba899e3d4210029cf4f7bae16fa2575503e26b0591a6c4bf251fc34e",
+  "publisher": "did:verigate:eval-revoke-e35a43",
+  "per_fleet_size": {
+    "5": {
+      "handle_ms": {
+        "median": 7510.3,
+        "q1": 7501.1,
+        "q3": 7532.0,
+        "n": 5
+      },
+      "per_pair_ms": {
+        "median": 1502.1,
+        "q1": 1500.2,
+        "q3": 1506.4,
+        "n": 5
+      },
+      "propagation_ms": {
+        "median": 9510.3,
+        "q1": 9501.1,
+        "q3": 9532.0,
+        "n": 5
+      },
+      "pairs": {
+        "median": 5.0,
+        "q1": 5.0,
+        "q3": 5.0,
+        "n": 5
+      },
+      "changed": {
+        "median": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "n": 5
+      }
+    },
+    "20": {
+      "handle_ms": {
+        "median": 8792.2,
+        "q1": 8713.1,
+        "q3": 8826.8,
+        "n": 5
+      },
+      "per_pair_ms": {
+        "median": 439.6,
+        "q1": 435.7,
+        "q3": 441.3,
+        "n": 5
+      },
+      "propagation_ms": {
+        "median": 10792.2,
+        "q1": 10713.1,
+        "q3": 10826.8,
+        "n": 5
+      },
+      "pairs": {
+        "median": 20.0,
+        "q1": 20.0,
+        "q3": 20.0,
+        "n": 5
+      },
+      "changed": {
+        "median": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "n": 5
+      }
+    },
+    "50": {
+      "handle_ms": {
+        "median": 11703.8,
+        "q1": 11683.2,
+        "q3": 11718.6,
+        "n": 5
+      },
+      "per_pair_ms": {
+        "median": 234.1,
+        "q1": 233.7,
+        "q3": 234.4,
+        "n": 5
+      },
+      "propagation_ms": {
+        "median": 13703.8,
+        "q1": 13683.2,
+        "q3": 13718.6,
+        "n": 5
+      },
+      "pairs": {
+        "median": 50.0,
+        "q1": 50.0,
+        "q3": 50.0,
+        "n": 5
+      },
+      "changed": {
+        "median": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "n": 5
+      }
+    }
+  },
+  "note": "in-process gateway, explainer off; pairs = D device verdicts (release-level verdicts are not part of this fleet)"
+}

@@ -1,0 +1,184 @@
+{
+  "experiment": "latency_stage2",
+  "repetitions": 20,
+  "warmup_discarded": 2,
+  "publisher": "did:verigate:eval-lat2-0b35a8",
+  "releases": {
+    "1.0.0": "0x444ce4575e35428a1333457c6381b934fbc8b178a25eab40e8f63bee2baf9e3f",
+    "1.1.0": "0x76acb6ace3efdb1b173812ffc2319286a1e15d60a2514d93c88d208f4c9b76e4",
+    "2.0.0": "0xb2e50853e9e4c5a7cdc247a9c735791006491d7763a3fc8bfd3a0dfe9734f87d"
+  },
+  "http_gateway": "http://127.0.0.1:8000",
+  "overall": {
+    "sbom_cold_ms": {
+      "median": 115.057,
+      "q1": 94.92925,
+      "q3": 133.23475,
+      "n": 60
+    },
+    "sbom_warm_ms": {
+      "median": 0.061,
+      "q1": 0.059,
+      "q3": 0.06525,
+      "n": 60
+    },
+    "img_cold_ms": {
+      "median": 104.0535,
+      "q1": 98.61975000000001,
+      "q3": 110.97500000000001,
+      "n": 60
+    },
+    "img_warm_ms": {
+      "median": 1.2635,
+      "q1": 0.641,
+      "q3": 1.28125,
+      "n": 60
+    },
+    "verify_warm_ms": {
+      "median": 110.7995,
+      "q1": 100.783,
+      "q3": 128.10375,
+      "n": 60
+    },
+    "http_device_verify_ms": {
+      "median": 216.294,
+      "q1": 199.55925000000002,
+      "q3": 230.40325,
+      "n": 60
+    }
+  },
+  "per_release": {
+    "1.0.0": {
+      "sbom_cold_ms": {
+        "median": 132.9125,
+        "q1": 126.1545,
+        "q3": 141.98025,
+        "n": 20
+      },
+      "sbom_warm_ms": {
+        "median": 0.0595,
+        "q1": 0.059,
+        "q3": 0.061,
+        "n": 20
+      },
+      "img_cold_ms": {
+        "median": 95.346,
+        "q1": 89.75425,
+        "q3": 104.37049999999999,
+        "n": 20
+      },
+      "img_warm_ms": {
+        "median": 0.627,
+        "q1": 0.621,
+        "q3": 0.639,
+        "n": 20
+      },
+      "verify_warm_ms": {
+        "median": 87.57,
+        "q1": 84.09649999999999,
+        "q3": 100.37275,
+        "n": 20
+      },
+      "http_device_verify_ms": {
+        "median": 184.656,
+        "q1": 173.50425,
+        "q3": 198.19575,
+        "n": 20
+      }
+    },
+    "1.1.0": {
+      "sbom_cold_ms": {
+        "median": 112.53399999999999,
+        "q1": 102.1275,
+        "q3": 121.7185,
+        "n": 20
+      },
+      "sbom_warm_ms": {
+        "median": 0.061,
+        "q1": 0.059,
+        "q3": 0.07025,
+        "n": 20
+      },
+      "img_cold_ms": {
+        "median": 106.686,
+        "q1": 101.64375,
+        "q3": 111.29775000000001,
+        "n": 20
+      },
+      "img_warm_ms": {
+        "median": 1.271,
+        "q1": 1.26375,
+        "q3": 1.2922500000000001,
+        "n": 20
+      },
+      "verify_warm_ms": {
+        "median": 117.238,
+        "q1": 110.714,
+        "q3": 128.6185,
+        "n": 20
+      },
+      "http_device_verify_ms": {
+        "median": 218.68200000000002,
+        "q1": 210.94925,
+        "q3": 231.8275,
+        "n": 20
+      }
+    },
+    "2.0.0": {
+      "sbom_cold_ms": {
+        "median": 91.922,
+        "q1": 85.01950000000001,
+        "q3": 102.29275,
+        "n": 20
+      },
+      "sbom_warm_ms": {
+        "median": 0.062,
+        "q1": 0.06,
+        "q3": 0.066,
+        "n": 20
+      },
+      "img_cold_ms": {
+        "median": 105.3875,
+        "q1": 100.2465,
+        "q3": 112.8875,
+        "n": 20
+      },
+      "img_warm_ms": {
+        "median": 1.2759999999999998,
+        "q1": 1.2642499999999999,
+        "q3": 1.3315,
+        "n": 20
+      },
+      "verify_warm_ms": {
+        "median": 117.7635,
+        "q1": 108.858,
+        "q3": 130.8745,
+        "n": 20
+      },
+      "http_device_verify_ms": {
+        "median": 226.6755,
+        "q1": 215.81650000000002,
+        "q3": 233.975,
+        "n": 20
+      }
+    }
+  },
+  "scores": {
+    "1.0.0": 4303,
+    "1.1.0": 4540,
+    "2.0.0": 3909
+  },
+  "llm": {
+    "model": "qwen2.5:3b-instruct",
+    "calls": 6,
+    "succeeded": 6,
+    "llm_ms": {
+      "median": 88393.95,
+      "q1": 55469.375,
+      "q3": 91253.875,
+      "n": 6
+    },
+    "first_call_ms": 42535.2,
+    "note": "sequential calls on the CPU; Ollama's prompt cache makes later calls on a release cheaper than the first"
+  }
+}

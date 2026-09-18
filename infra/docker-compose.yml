@@ -33,8 +33,8 @@ services:
   ipfs:
     image: ipfs/kubo:v0.30.0
     ports: ["${IPFS_API_PORT:-5001}:5001", "${IPFS_GATEWAY_PORT:-8080}:8080"]
-    volumes: ["ipfs-data:/data/ipfs"]
-    environment: { IPFS_PROFILE: server }
+    volumes: ["ipfs-data:/data/ipfs", "./ipfs-init.sh:/container-init.d/ipfs-init.sh:ro"]
+    environment: { IPFS_PROFILE: server }   # + ipfs-init.sh: local node, no DHT (adds never block on providing)
     healthcheck:
       test: ["CMD", "ipfs", "id"]
       interval: 5s

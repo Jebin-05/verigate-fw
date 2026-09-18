@@ -1,0 +1,7 @@
+# P7-01: Stage-2 (SBOM + image models) latency and the explainer's cost.
+experiment: latency_stage2
+repetitions: 20
+warmup: 2
+llm:
+  repetitions: 6            # sequential Ollama calls (≈ 1–2 min each on a CPU); 0 disables
+  timeout_s: 300

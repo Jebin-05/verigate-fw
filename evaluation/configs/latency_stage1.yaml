@@ -1,0 +1,4 @@
+# P7-01: Stage-1 (deterministic gate) latency, in-process against the live hardhat + IPFS stack.
+experiment: latency_stage1
+repetitions: 30             # per fixture release; warm-up runs are recorded but excluded
+warmup: 3

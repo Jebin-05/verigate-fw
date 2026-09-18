@@ -1,0 +1,96 @@
+{
+  "experiment": "latency_stage1",
+  "repetitions": 30,
+  "warmup_discarded": 3,
+  "publisher": "did:verigate:eval-lat1-d3011e",
+  "releases": {
+    "1.0.0": "0xca17f9fdbb2685be139cb3d06fe296a8c46a2a9fc449c3400a60ec174b788ee8",
+    "1.1.0": "0x7b6686b029bf3b340cb29bd1060f40d3a24e9ff96b8515a910a5b2dae14007f8",
+    "2.0.0": "0x88e4df68decad66fbb3e4c90ae506fd72694a9d2687c2e54e82bc1b822af6c2f"
+  },
+  "overall": {
+    "checks_ms": {
+      "median": 3.26,
+      "q1": 2.81175,
+      "q3": 3.66125,
+      "n": 90
+    },
+    "verify_warm_ms": {
+      "median": 88.678,
+      "q1": 68.65725,
+      "q3": 94.738,
+      "n": 90
+    },
+    "verify_cold_ms": {
+      "median": 98.306,
+      "q1": 80.60925,
+      "q3": 105.2615,
+      "n": 90
+    }
+  },
+  "per_release": {
+    "1.0.0": {
+      "checks_ms": {
+        "median": 3.5244999999999997,
+        "q1": 2.87125,
+        "q3": 3.7327500000000002,
+        "n": 30
+      },
+      "verify_warm_ms": {
+        "median": 67.036,
+        "q1": 62.98625,
+        "q3": 68.44125,
+        "n": 30
+      },
+      "verify_cold_ms": {
+        "median": 75.509,
+        "q1": 72.29875,
+        "q3": 80.46,
+        "n": 30
+      }
+    },
+    "1.1.0": {
+      "checks_ms": {
+        "median": 3.1845,
+        "q1": 2.82375,
+        "q3": 3.4372499999999997,
+        "n": 30
+      },
+      "verify_warm_ms": {
+        "median": 93.732,
+        "q1": 89.89750000000001,
+        "q3": 99.274,
+        "n": 30
+      },
+      "verify_cold_ms": {
+        "median": 102.36349999999999,
+        "q1": 97.168,
+        "q3": 107.082,
+        "n": 30
+      }
+    },
+    "2.0.0": {
+      "checks_ms": {
+        "median": 3.2295,
+        "q1": 2.8257499999999998,
+        "q3": 3.5759999999999996,
+        "n": 30
+      },
+      "verify_warm_ms": {
+        "median": 91.82050000000001,
+        "q1": 87.20475,
+        "q3": 95.765,
+        "n": 30
+      },
+      "verify_cold_ms": {
+        "median": 104.00550000000001,
+        "q1": 99.53475,
+        "q3": 106.812,
+        "n": 30
+      }
+    }
+  },
+  "verdicts": [
+    "APPROVE"
+  ]
+}

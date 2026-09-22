@@ -53,7 +53,10 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: cd contracts && npm ci && (npx hardhat node > /tmp/hh.log 2>&1 &) && sleep 5
       - run: cd contracts && npx hardhat run scripts/deploy.ts --network localhost
-      - run: cp .env.example .env && IPFS_BACKEND=local LLM_ENABLED=false pytest -m integration
+      # what the compose `registrar` service does: the shipped .env enables both Stage-2 models,
+      # so their hashes must be ACTIVE in ModelRegistry or Stage 1 rejects on `model_active`.
+      - run: cp .env.example .env && verigate-admin register-models --manifest models/MANIFEST.sha256
+      - run: IPFS_BACKEND=local LLM_ENABLED=false pytest -m integration
 
   portability:
     name: Portability · compose config · image builds · fresh-clone smoke

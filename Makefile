@@ -59,7 +59,7 @@ typecheck:       ## mypy strict + tsc
 test-unit:       ## fast python tests (no infra)
 	.venv/bin/pytest -m "not integration and not e2e"
 
-test-integration:## python tests against hardhat + ipfs (make infra-up first)
+test-integration:## python tests against hardhat + ipfs (make infra-up && make contracts-deploy-local && make models-register first)
 	.venv/bin/pytest -m integration
 
 test-contracts:  ## hardhat tests + coverage

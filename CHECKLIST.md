@@ -14,9 +14,9 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P0-06 `make bootstrap` runs clean on a fresh clone (venv, `npm ci` in contracts + dashboard, hooks)
 - [x] P0-07 Commit lockfiles (`contracts/package-lock.json`, `dashboard/package-lock.json`)
 - [x] P0-08 `dashboard/` bootstrapped with Vite react-ts; `npm run lint`/`build` pass
-- [ ] P0-09 First push to GitHub; branch protection on `main` (PR required, CI required, linear history)
+- [x] P0-09 First push to GitHub; branch protection on `main` (PR required, CI required, linear history)
 - [ ] P0-10 `arbitrum-sepolia` environment created with required reviewer; secrets added (RPC URL, deployer key)
-- [ ] P0-11 CI green on `main` for all four workflows (security may run on schedule)
+- [x] P0-11 CI green on `main` for all four workflows (security may run on schedule) — CI, Security (dispatch) and Release green on `Jebin-05/verigate-fw`; "Deploy contracts" stays untested until P0-10's Sepolia secrets exist
 - [x] P0-12 Choose licence (MIT recommended for a research artefact) — add `LICENSE`
 - [x] P0-13 Portability scaffold: pinned images, `Dockerfile.app/.hardhat/.dashboard`, compose profiles, `make up/down/smoke/doctor`, `.gitattributes`, `.nvmrc`, `.python-version`
 - [x] P0-14 `docker compose --profile app build` succeeds on a clean clone (needs lockfiles + dashboard bootstrap)
@@ -103,7 +103,7 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P8-02 Paper draft in `docs/paper/` (LaTeX), figures from P7-04 only
 - [x] P8-03 Demo rehearsal ×3 with `scripts/demo.sh`; recorded video fallback
 - [x] P8-04 README updated with results summary and reproduction steps
-- [x] P8-05 Tag `v1.0.0`; GitHub Release with models, wheel, gas report; Zenodo DOI (optional)
+- [x] P8-05 Tag `v1.0.0`; GitHub Release with models, wheel, gas report; Zenodo DOI (optional — not done)
 - [x] P8-06 Final `pip-audit`, `npm audit`, slither clean; secrets scan clean
 - [ ] P8-07 Fresh-machine rehearsal: clone on a DIFFERENT computer (or clean VM), `make doctor && make up && make smoke`, run the demo — record time-to-running
 - [x] P8-08 Offline demo mode verified: `VULN_CACHE_ONLY=true`, `LLM_ENABLED=false`, no internet, demo script completes

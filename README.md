@@ -128,6 +128,11 @@ make train                                # retrain both models (byte-identical 
 Datasets are never committed; they regenerate from `data/sources.yaml` (hashes in `data/MANIFEST.sha256`).
 
 ## Status
-All phases P0–P8 of the Developer Manual are done except the items that need the project's GitHub
-and funded testnet keys: P0-09/10/11 (push, branch protection, environment secrets) and P7-02
-(Arbitrum Sepolia deployment). See `CHECKLIST.md`.
+All phases P0–P8 of the Developer Manual are done. Repository: `Jebin-05/verigate-fw` (private),
+CI · Security · Release workflows green on `main`, `v1.0.0` released with the wheel, both ONNX
+models, their cards, the hash manifest and the gas report.
+
+Open, and blocked on credentials or a second machine: P0-10 / P7-02 (an `arbitrum-sepolia`
+environment with `ARB_SEPOLIA_RPC_URL` and a funded deployer key, then the deploy workflow and a
+gas run against the testnet) and P8-07 (fresh-machine rehearsal on a different computer).
+See `CHECKLIST.md`.

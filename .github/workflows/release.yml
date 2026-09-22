@@ -41,4 +41,6 @@ jobs:
           files: |
             dist/*
             models/*.onnx
+            models/*.card.md
             models/MANIFEST.sha256
+            contracts/gas-report.txt

@@ -1,0 +1,32 @@
+Script started on 2026-09-22 20:08:40+05:30 [<not executed on terminal>]
+Tuesday 22 September 2026 08:08:40 PM IST
+  tamper              expected REJECT   observed REJECT   check=firmware_hash  PASS
+  forge               expected REJECT   observed REJECT   check=signature  PASS
+  stolen-key          expected REJECT   observed REJECT   check=publisher_active  PASS
+  rollback            expected REJECT   observed REJECT   check=version_monotonic  PASS
+  freeze              expected DEFER    observed DEFER    check=expiry  PASS
+  sbom-swap           expected REJECT   observed REJECT   check=sbom_hash  PASS
+  vulnerable-genuine  expected DEFER    observed DEFER    check=None  PASS
+  hidden-payload      expected DEFER    observed DEFER    check=None  PASS
+  bad-history         expected DEFER    observed DEFER    check=None  PASS
+  poisoned-model      expected REPLAYED observed REPLAYED check=None  PASS
+  policy-tamper       expected BLOCKED  observed BLOCKED  check=None  PASS
+
+[36m▶ verdict log tail + committed batches[0m
+  release-level  DEFER    
+  hidden-payload-target DEFER    
+  release-level  DEFER    
+  release-level  REJECT   firmware_hash
+  release-level  DEFER    expiry
+  attack-target  DEFER    
+  release-level  DEFER    
+  poisoned-model-target DEFER    
+  3 batches on-chain, 71 verdicts
+
+[32m✔ demo complete in 45 s[0m
+
+real	0m44.149s
+user	0m6.915s
+sys	0m0.251s
+
+Script done on 2026-09-22 20:09:25+05:30 [COMMAND_EXIT_CODE="0"]

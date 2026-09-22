@@ -35,3 +35,19 @@ verdict with a rationale) → Fleet → Models (revocation delta after `poisoned
 | 3 | `make down && make up` (warm volume, fresh chain) | 1 m 19 s | 58 s | 11/11 PASS |
 
 All three recorded runs are in this directory (`rehearsal-N.log` + `.timing`).
+
+## Offline demo (P8-08, verified 2026-09-22 — `offline-demo.log` + `.timing`)
+Export the snapshot once while online, then run with no internet at all:
+```bash
+verigate-train data snapshot tests/fixtures/releases/*/sbom.json --out data/vulndb-demo   # online, once
+export VULN_CACHE_DIR=data/vulndb-demo VULN_CACHE_ONLY=true LLM_ENABLED=false
+make infra-up && make contracts-deploy-local && make models-register
+.venv/bin/verigate-gateway &        # same environment
+DEMO_MODE=host ./scripts/demo.sh
+```
+Verified run: the internet was cut off for every process (`HTTP(S)_PROXY=http://127.0.0.1:9`,
+`NO_PROXY=127.0.0.1,localhost`, so only the local chain, IPFS and gateway were reachable). The
+demo completed in **45 s with 11/11 attacks caught**; the gateway scored 6 SBOMs and 22 images
+from the 21 MB snapshot, wrote nothing to it, and raised no `OfflineMissError`. `make up`
+(docker) is not offline-capable in this form: the compose gateway reads `VULN_CACHE_DIR` from
+`.env`, so set those three variables there and seed the volume with `make vulndb-seed SNAP=data/vulndb-demo`.

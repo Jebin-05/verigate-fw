@@ -2,6 +2,8 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Added
+- Offline demo verified end to end (P8-08): with `VULN_CACHE_ONLY=true`, `LLM_ENABLED=false` and every outbound connection blocked, `scripts/demo.sh` completes in 45 s with 11/11 attacks caught from the 21 MB `data/vulndb-demo` snapshot; procedure and recording in `docs/demo/`.
 
 ## [1.0.0] - 2026-09-18 — evaluated, paper-ready
 ### Added

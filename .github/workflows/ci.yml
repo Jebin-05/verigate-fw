@@ -56,7 +56,9 @@ jobs:
       # what the compose `registrar` service does: the shipped .env enables both Stage-2 models,
       # so their hashes must be ACTIVE in ModelRegistry or Stage 1 rejects on `model_active`.
       - run: cp .env.example .env && verigate-admin register-models --manifest models/MANIFEST.sha256
-      - run: IPFS_BACKEND=local LLM_ENABLED=false pytest -m integration
+      # --no-cov: the 80 % gate in pyproject applies to the unit job, which runs the whole suite;
+      # an integration-only selection covers ~51 % by construction.
+      - run: IPFS_BACKEND=local LLM_ENABLED=false pytest -m integration --no-cov
 
   portability:
     name: Portability · compose config · image builds · fresh-clone smoke

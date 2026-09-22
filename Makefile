@@ -60,7 +60,7 @@ test-unit:       ## fast python tests (no infra)
 	.venv/bin/pytest -m "not integration and not e2e"
 
 test-integration:## python tests against hardhat + ipfs (make infra-up && make contracts-deploy-local && make models-register first)
-	.venv/bin/pytest -m integration
+	.venv/bin/pytest -m integration --no-cov   # the coverage gate belongs to test-unit (whole suite)
 
 test-contracts:  ## hardhat tests + coverage
 	cd contracts && npx hardhat test && npx hardhat coverage

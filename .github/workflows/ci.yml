@@ -2,6 +2,7 @@ name: CI
 on:
   push: { branches: [main] }
   pull_request:
+  workflow_call:        # release.yml runs this whole suite before publishing a tag
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

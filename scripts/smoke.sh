@@ -20,7 +20,25 @@ $COMPOSE run --rm -T gateway verigate-publish release \
   --fw /app/fixtures/releases/v1.0.0/firmware.bin --sbom /app/fixtures/releases/v1.0.0/sbom.json \
   --version 1.0.0 --model demo-device --expiry 2030-01-01T00:00:00Z --json > /tmp/release.json
 RELEASE_ID=$(python3 -c 'import json,sys; print(json.load(open("/tmp/release.json"))["releaseId"])')
-VERDICT=$(curl -sf -X POST "http://localhost:${GATEWAY_PORT:-8000}/verify/${RELEASE_ID}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["verdict"])')
-echo "verdict: $VERDICT"
-[ "$VERDICT" = "APPROVE" ] || { echo "expected APPROVE for a clean fixture"; exit 1; }
+# The first Stage-2 verification fills the vulnerability cache from OSV/EPSS/KEV: minutes on a
+# cold machine, and the public APIs throttle. A dependency failure is a DEFER or a 503, not a
+# reason to call the stack broken — retry, then show the gateway's own reason.
+VERDICT=""
+for attempt in 1 2 3; do
+  BODY=$(curl -s --max-time 900 -X POST "http://localhost:${GATEWAY_PORT:-8000}/verify/${RELEASE_ID}" || true)
+  VERDICT=$(printf '%s' "$BODY" | python3 -c 'import json,sys
+try:
+    print(json.load(sys.stdin).get("verdict", ""))
+except Exception:
+    print("")' )
+  [ "$VERDICT" = "APPROVE" ] && break
+  echo "  attempt $attempt: ${BODY:-<empty response>}"
+  sleep 20
+done
+echo "verdict: ${VERDICT:-none}"
+if [ "$VERDICT" != "APPROVE" ]; then
+  echo "expected APPROVE for a clean fixture — last 40 gateway log lines:"
+  $COMPOSE logs --tail=40 gateway || true
+  exit 1
+fi
 echo "✔ smoke test passed"

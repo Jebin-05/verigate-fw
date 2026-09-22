@@ -22,12 +22,17 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # GHCR requires a lowercase repository path; github.repository keeps the owner's casing.
+      - id: image
+        run: echo "repo=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: infra/Dockerfile.app
           push: true
-          tags: ghcr.io/${{ github.repository }}/gateway:${{ github.ref_name }}
+          tags: |
+            ghcr.io/${{ steps.image.outputs.repo }}/gateway:${{ github.ref_name }}
+            ghcr.io/${{ steps.image.outputs.repo }}/gateway:latest
       - name: Verify model manifest
         run: cd models && sha256sum -c MANIFEST.sha256
       - uses: softprops/action-gh-release@v2

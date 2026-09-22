@@ -14,7 +14,7 @@
     "@openzeppelin/contracts": "^5.0.2",
     "dotenv": "^16.4.5",
     "hardhat": "^2.22.0",
-    "hardhat-gas-reporter": "^1.0.10",
+    "hardhat-gas-reporter": "^2.3.0",
     "solhint": "^5.0.3",
     "solidity-coverage": "^0.8.12",
     "typescript": "^5.5.0",

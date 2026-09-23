@@ -6,7 +6,7 @@ on:
       confirm:
         description: 'Type "arbitrum-sepolia" to confirm'
         required: true
-permissions: { contents: write }
+permissions: { contents: write, pull-requests: write }
 
 jobs:
   deploy:
@@ -19,11 +19,38 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm, cache-dependency-path: contracts/package-lock.json }
       - run: npm ci && npx hardhat compile
-      - run: npx hardhat run scripts/deploy.ts --network arbitrumSepolia
+      - run: npx hardhat run scripts/deploy.ts --network arbitrumSepolia | tee /tmp/deploy.json
         env:
           ARB_SEPOLIA_RPC_URL: ${{ secrets.ARB_SEPOLIA_RPC_URL }}
           ARB_SEPOLIA_DEPLOYER_KEY: ${{ secrets.ARB_SEPOLIA_DEPLOYER_KEY }}
-      - name: Commit deployment addresses
+          # GATEWAY_ADDRESS is unset on purpose: the deployer also holds GATEWAY_ROLE, so one
+          # funded testnet account is enough for the evaluation run (P7-02).
+
+      - name: Job summary (addresses + tx hashes)
         run: |
-          git config user.name "github-actions" && git config user.email "actions@github.com"
-          git add deployments/arbitrumSepolia && git commit -m "chore(contracts): record arbitrum-sepolia deployment" && git push
+          {
+            echo '### Arbitrum Sepolia deployment'
+            echo '```json'
+            cat /tmp/deploy.json
+            echo '```'
+            echo 'Explorer: https://sepolia.arbiscan.io/'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # `main` is protected (PR + CI required), so the record arrives as a pull request.
+      - name: Open a pull request with the deployment record
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A contracts/deployments/arbitrumSepolia
+          if git diff --cached --quiet; then
+            echo "no change to record (deployment already live)"; exit 0
+          fi
+          BRANCH="chore/arbitrum-sepolia-$(date -u +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git commit -m "chore(contracts): record arbitrum-sepolia deployment"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "chore(contracts): record arbitrum-sepolia deployment" \
+            --body "Addresses and tx hashes from run [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). Verify on https://sepolia.arbiscan.io/ (P7-02)."

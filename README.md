@@ -1,6 +1,8 @@
 # VeriGate-FW
 
-Verifiable AI-gated firmware updates for IoT devices using blockchain (Arbitrum L2) and IPFS.
+Verifiable AI-gated firmware updates for IoT devices using blockchain and IPFS. The contracts
+target an EVM L2 (Arbitrum); every number in this repository was measured on a local Hardhat node —
+a public-testnet deployment is deliberately out of scope (see `docs/limitations.md`).
 Software-only research prototype: emulated device fleet, two-stage verification gate
 (cryptographic + AI risk), on-chain attested verdicts, model revocation.
 
@@ -132,7 +134,7 @@ All phases P0–P8 of the Developer Manual are done. Repository: `Jebin-05/verig
 CI · Security · Release workflows green on `main`, `v1.0.0` released with the wheel, both ONNX
 models, their cards, the hash manifest and the gas report.
 
-Open, and blocked on credentials or a second machine: P0-10 / P7-02 (an `arbitrum-sepolia`
-environment with `ARB_SEPOLIA_RPC_URL` and a funded deployer key, then the deploy workflow and a
-gas run against the testnet) and P8-07 (fresh-machine rehearsal on a different computer).
-See `CHECKLIST.md`.
+Out of scope by decision: the public-testnet deployment (P0-10 / P7-02). The gated
+`deploy-contracts.yml` workflow and the `arbitrumSepolia` network config are in place, so the run
+is one dispatch away if it is ever wanted, but no testnet numbers are claimed anywhere.
+Still open: P8-07 (fresh-machine rehearsal on a different computer). See `CHECKLIST.md`.

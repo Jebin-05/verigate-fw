@@ -7,7 +7,8 @@ evaluation/
   figures/    generated ONLY by `python evaluation/figures.py` from results/; never hand-made
 ```
 Rules: fixed seeds · record git sha + machine info in env.json · ≥ 5 repetitions for timing · report median + IQR ·
-Arbitrum Sepolia runs record tx hashes so anyone can verify on the explorer.
+every figure names its source directory. All runs here are against a local Hardhat node; a public
+testnet run is out of scope, so no result claims an explorer-verifiable tx hash.
 
 ## Experiments (P7-01)
 

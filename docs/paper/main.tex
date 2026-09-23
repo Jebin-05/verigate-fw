@@ -208,8 +208,10 @@ verdicts it covers (the root, the count and two model hashes are stored; leaves 
 cost per verdict falls from 209\,642 with one verdict per transaction to 20\,964 at 10, 4\,193 at
 50, 2\,096 at 100 and 1\,048 at 200---a 99.5\,\% reduction
 (\res{gas\_per\_verdict\_vs\_batched/2026-09-18\_1044}, five receipts per size). These are
-\texttt{gasUsed} values from local receipts; no gas price or L2 data-availability cost is
-included, and Arbitrum Sepolia receipts remain future work.
+\texttt{gasUsed} values from local receipts; no gas price and no L2 data-availability cost are
+included. On a real rollup each transaction also pays for its calldata, which batching reduces in
+the same direction but not by the same factor, so the figure above is a statement about execution
+gas alone; a public-testnet measurement is left for future work.
 
 \begin{figure}[t]
 \centering

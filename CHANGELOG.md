@@ -2,6 +2,8 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Removed
+- All repository automation, at the project owner's request (2026-09-24): the four GitHub Actions workflows (`ci`, `security`, `release`, `deploy-contracts`), `.github/dependabot.yml` (its 20 open PRs were closed), `.pre-commit-config.yaml` and the installed git hooks; branch protection on `main` was lifted. The same checks remain as commands — `make lint typecheck test-all`, `make test-integration`, `make smoke`, `gitleaks detect`, `pip-audit` — and must now be run by hand; README, CONTRIBUTING, CHECKLIST, SECURITY, SRS, ADR-0004 and `docs/security-audit.md` say so. Nothing about the product changed.
 ### Changed
 - Public-testnet deployment (P0-10 / P7-02) is out of scope by decision: the gated workflow and the `arbitrumSepolia` network config stay, but README, CHECKLIST, `evaluation/README.md`, `docs/limitations.md` and the paper now state plainly that every number is a local Hardhat measurement and that the batching saving is about execution gas only (a rollup also charges for calldata).
 ### Fixed

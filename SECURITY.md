@@ -7,4 +7,4 @@ This is a research prototype. It is **not** production software.
   transactions **against the local emulated fleet only**. They must never be pointed at real devices
   or public networks other than the designated test network.
 - Keys in `.env.example` are Hardhat's public well-known test keys. Real keys live only in `.env`
-  (git-ignored) or GitHub Actions secrets.
+  (git-ignored); no CI secrets exist (the workflows were removed on 2026-09-24).

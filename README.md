@@ -23,7 +23,7 @@ Works on Linux, macOS (Docker Desktop) and Windows (WSL2 + Docker Desktop). No P
 ## Develop (host mode — hot reload)
 
 ```bash
-make bootstrap      # venv, python deps, node deps, pre-commit hooks
+make bootstrap      # venv, python deps, node deps
 make infra-up       # hardhat node + IPFS only, in docker
 make contracts-deploy-local
 make gateway        # FastAPI on :8000 with reload
@@ -97,7 +97,7 @@ Enable Stage 2 at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL
 | `data/` | Datasets (git-ignored; `data/README.md` says how to fetch/regenerate) |
 | `infra/` | docker-compose and Dockerfiles |
 | `docs/` | Guide, manual, SRS, ADRs, paper |
-| `.github/` | CI/CD workflows, templates, CODEOWNERS |
+| `.github/` | Issue/PR templates, CODEOWNERS (no workflows — see Status) |
 
 ## Results (v1.0.0, measured — every number has a directory under `evaluation/results/`)
 
@@ -131,8 +131,19 @@ Datasets are never committed; they regenerate from `data/sources.yaml` (hashes i
 
 ## Status
 All phases P0–P8 of the Developer Manual are done. Repository: `Jebin-05/verigate-fw` (private),
-CI · Security · Release workflows green on `main`, `v1.0.0` released with the wheel, both ONNX
-models, their cards, the hash manifest and the gas report.
+`v1.0.0` released with the wheel, both ONNX models, their cards, the hash manifest and the gas
+report.
+
+**No automation runs on this repository.** GitHub Actions, Dependabot and the pre-commit hooks
+were removed on 2026-09-24 at the owner's request, and `main` is no longer protected. The gates
+still exist as commands and must be run by hand before a commit or a release:
+
+```bash
+make lint typecheck test-all   # ruff · mypy strict · solhint · eslint · 331 unit + 72 contract tests
+make test-integration          # after: make infra-up && make contracts-deploy-local && make models-register
+make smoke                     # full compose stack from a clean state → APPROVE verdict
+gitleaks detect --config .gitleaks.toml && .venv/bin/pip-audit   # secrets + dependency audit
+```
 
 Out of scope by decision: the public-testnet deployment (P0-10 / P7-02). The gated
 `deploy-contracts.yml` workflow and the `arbitrumSepolia` network config are in place, so the run

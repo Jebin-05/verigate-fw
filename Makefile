@@ -36,11 +36,10 @@ llm-pull:        ## start ollama and pull the explainer model once (~2 GB)
 help:            ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}'
 
-bootstrap:       ## create venv, install python+node deps, install git hooks
+bootstrap:       ## create venv, install python+node deps
 	python3.11 -m venv .venv && $(PIP) install -U pip && $(PIP) install -e ".[dev,eval]"
 	cd contracts && npm ci
 	cd dashboard && npm ci
-	.venv/bin/pre-commit install --hook-type pre-commit --hook-type commit-msg
 	[ -f .env ] || cp .env.example .env
 
 lint:            ## ruff lint + solhint + eslint
@@ -65,7 +64,7 @@ test-integration:## python tests against hardhat + ipfs (make infra-up && make c
 test-contracts:  ## hardhat tests + coverage
 	cd contracts && npx hardhat test && npx hardhat coverage
 
-test-all: lint typecheck test-unit test-contracts  ## what CI runs
+test-all: lint typecheck test-unit test-contracts  ## the full gate — run this before every commit (there is no CI)
 
 infra-up:        ## start hardhat node, kubo, ollama
 	docker compose -f infra/docker-compose.yml up -d

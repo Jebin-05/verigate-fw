@@ -12,7 +12,8 @@ reproduced by others for the paper. "Works on the author's laptop" is the most c
 - `make up`, `make smoke`, `make doctor` are the only commands a new machine needs; host Python/Node are for development only.
 - No absolute paths in code or config; everything resolves relative to the repository root or a container path.
   Ports are overridable via `.env`. Line endings normalised via `.gitattributes`.
-- CI has a `portability` job that builds all images and runs `scripts/smoke.sh` from a clean checkout on every PR.
+- ~~CI has a `portability` job that builds all images and runs `scripts/smoke.sh` from a clean checkout on every~~
+  *(superseded 2026-09-24: automation removed; run `make smoke` by hand before a demo or release)* on every PR.
 - Datasets are regenerable (`data/sources.yaml` + scripts); models are committed; results carry `env.json`.
 
 ## Alternatives considered

@@ -170,10 +170,10 @@ Verification column: **U** unit test, **I** integration test (hardhat + IPFS), *
 | NFR-6 Anchoring cost | Gas per verdict shall fall with batch size. | `gas_per_verdict_vs_batched`: 209 642 per batch, 1 048 per verdict at 200 |
 | NFR-7 Revocation propagation | All stale device verdicts replayed within 30 s for a 50-device fleet. | 11.7 s + 2 s poll (`revocation_propagation`) |
 | NFR-8 Test coverage | Python unit coverage ≥ 80 %, contracts 100 % statements. | 92 % / 100 % (`make test-all`) |
-| NFR-9 Portability | `make up` from a clean clone reaches a verdict; `make smoke` in CI. | smoke 12 min cold (vulnerability fetch), demo 53 s warm |
+| NFR-9 Portability | `make up` from a clean clone reaches a verdict; `make smoke` run manually. | smoke 12 min cold (vulnerability fetch), demo 53 s warm |
 | NFR-10 Security hygiene | No secrets in git; audits recorded. | `.gitleaks.toml`, `docs/security-audit.md` |
 | NFR-11 Reproducibility | Seeds fixed; datasets regenerable from `data/sources.yaml`; results append-only with env.json. | `data/MANIFEST.sha256`, `evaluation/results/*/env.json` |
-| NFR-12 Code quality | ruff (strict rule set) + mypy strict + solhint + eslint/prettier clean; Conventional Commits; PRs ≤ 400 lines. | pre-commit + CI |
+| NFR-12 Code quality | ruff (strict rule set) + mypy strict + solhint + eslint/prettier clean; Conventional Commits; PRs ≤ 400 lines. | `make lint typecheck test-all`, run by hand (automation removed 2026-09-24) |
 
 ## 5. External interfaces
 - **CLI**: `verigate-publish`, `verigate-gateway`, `verigate-fleet`, `verigate-attack`,

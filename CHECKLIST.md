@@ -1,22 +1,28 @@
 # VeriGate-FW — Master Build Checklist
 
 Single source of truth for progress. Update in the same PR that completes an item. IDs are referenced in PRs and issues.
-Legend: `[ ]` todo · `[~]` in progress · `[x]` done (PR merged, CI green) · `[-]` dropped (say why in ADR).
+Legend: `[ ]` todo · `[~]` in progress · `[x]` done (PR merged, gates green) · `[-]` dropped (say why in ADR).
+
+**2026-09-24 — all repository automation was removed** at the owner's request: the four GitHub
+Actions workflows, Dependabot and the pre-commit hooks are deleted and `main` is unprotected.
+Items below that say "CI" were true when they were ticked (the workflows ran green on
+`Jebin-05/verigate-fw` on 2026-09-22/23); the same checks now run only when you type them —
+see the Status section of `README.md`.
 
 Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG line + CI green + reviewed + squash-merged.
 
 ## P0 — Repository & tooling (week 1)
 - [x] P0-01 Scaffold layout, `pyproject.toml`, `Makefile`, `.editorconfig`, `.gitignore`
 - [x] P0-02 Pre-commit: ruff, mypy, gitleaks, conventional commits, solhint, prettier
-- [x] P0-03 GitHub Actions: `ci.yml`, `security.yml`, `release.yml`, `deploy-contracts.yml`
+- [-] P0-03 GitHub Actions: `ci.yml`, `security.yml`, `release.yml`, `deploy-contracts.yml` — written, proven green, then **removed 2026-09-24 by decision**
 - [x] P0-04 Templates: PR, issues, CODEOWNERS, dependabot; `CONTRIBUTING.md`, `SECURITY.md`
 - [x] P0-05 ADRs 0001–0003; docs index; Project Guide and diagrams in `docs/`
 - [x] P0-06 `make bootstrap` runs clean on a fresh clone (venv, `npm ci` in contracts + dashboard, hooks)
 - [x] P0-07 Commit lockfiles (`contracts/package-lock.json`, `dashboard/package-lock.json`)
 - [x] P0-08 `dashboard/` bootstrapped with Vite react-ts; `npm run lint`/`build` pass
-- [x] P0-09 First push to GitHub; branch protection on `main` (PR required, CI required, linear history)
+- [~] P0-09 First push to GitHub; branch protection on `main` (PR required, CI required, linear history) — pushed; protection **removed 2026-09-24** together with the workflows
 - [~] P0-10 `arbitrum-sepolia` environment created with required reviewer; secrets added (RPC URL, deployer key) — **out of scope by decision (2026-09-24)**: no public-testnet run, so no environment or secrets exist
-- [x] P0-11 CI green on `main` for all four workflows (security may run on schedule) — CI, Security (dispatch) and Release green on `Jebin-05/verigate-fw`; "Deploy contracts" stays untested until P0-10's Sepolia secrets exist
+- [-] P0-11 CI green on `main` for all four workflows (security may run on schedule) — was achieved 2026-09-23, then the workflows were removed — CI, Security (dispatch) and Release green on `Jebin-05/verigate-fw`; "Deploy contracts" stays untested until P0-10's Sepolia secrets exist
 - [x] P0-12 Choose licence (MIT recommended for a research artefact) — add `LICENSE`
 - [x] P0-13 Portability scaffold: pinned images, `Dockerfile.app/.hardhat/.dashboard`, compose profiles, `make up/down/smoke/doctor`, `.gitattributes`, `.nvmrc`, `.python-version`
 - [x] P0-14 `docker compose --profile app build` succeeds on a clean clone (needs lockfiles + dashboard bootstrap)

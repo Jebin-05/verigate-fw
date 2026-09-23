@@ -89,9 +89,13 @@ can be exported, but a fresh deployment is not fast until it is warm.
 
 ## 12. Local-chain numbers only (so far)
 Gas figures (`evaluation/results/gas_per_verdict_vs_batched`) are `gasUsed` from a local Hardhat
-node; no gas price and no L2 data-availability cost is included. Arbitrum Sepolia receipts
-(P7-02) require funded keys and are not yet recorded. Latency figures are in-process on one
-laptop; the fleet is emulated (asyncio), not hardware.
+node; no gas price and no L2 data-availability cost is included. A public-testnet deployment was
+**deliberately left out of scope**, so the batching saving (99.5 % at 200 verdicts per batch) is a
+statement about `gasUsed` only: on a real L2 each transaction also pays for its calldata, which
+batching reduces in the same direction but not by the same factor. The gated deploy workflow and
+the `arbitrumSepolia` network config are in the repository, so the measurement can be added later
+without code changes. Latency figures are in-process on one laptop; the fleet is emulated
+(asyncio), not hardware.
 
 ## 13. Operating point chosen on the fixtures
 τ_approve = 0.45 / τ_reject = 0.70 (ADR-0008) were set so that the three genuine fixture

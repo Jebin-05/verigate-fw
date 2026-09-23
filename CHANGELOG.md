@@ -2,6 +2,8 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Changed
+- Public-testnet deployment (P0-10 / P7-02) is out of scope by decision: the gated workflow and the `arbitrumSepolia` network config stay, but README, CHECKLIST, `evaluation/README.md`, `docs/limitations.md` and the paper now state plainly that every number is a local Hardhat measurement and that the batching saving is about execution gas only (a rollup also charges for calldata).
 ### Fixed
 - Four CI defects that only appear on GitHub (the repository had never been pushed): `release.yml` called `ci.yml` as a reusable workflow that had no `workflow_call` trigger; the integration job deployed contracts without registering the Stage-2 model hashes, so Stage 1 correctly rejected on `model_active`; the same job applied the whole-suite 80 % coverage gate to an integration-only selection; and the release image tag used the owner's mixed-case name, which GHCR rejects. `Security` now has `workflow_dispatch`, audits the project rather than the runner's bundled pip/setuptools, skips gitleaks on Dependabot PRs (read-only token) and treats the SARIF upload as best-effort (code scanning needs Advanced Security on a private repo).
 ### Added

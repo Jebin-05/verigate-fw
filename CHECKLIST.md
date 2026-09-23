@@ -15,7 +15,7 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 - [x] P0-07 Commit lockfiles (`contracts/package-lock.json`, `dashboard/package-lock.json`)
 - [x] P0-08 `dashboard/` bootstrapped with Vite react-ts; `npm run lint`/`build` pass
 - [x] P0-09 First push to GitHub; branch protection on `main` (PR required, CI required, linear history)
-- [ ] P0-10 `arbitrum-sepolia` environment created with required reviewer; secrets added (RPC URL, deployer key)
+- [~] P0-10 `arbitrum-sepolia` environment created with required reviewer; secrets added (RPC URL, deployer key) — **out of scope by decision (2026-09-24)**: no public-testnet run, so no environment or secrets exist
 - [x] P0-11 CI green on `main` for all four workflows (security may run on schedule) — CI, Security (dispatch) and Release green on `Jebin-05/verigate-fw`; "Deploy contracts" stays untested until P0-10's Sepolia secrets exist
 - [x] P0-12 Choose licence (MIT recommended for a research artefact) — add `LICENSE`
 - [x] P0-13 Portability scaffold: pinned images, `Dockerfile.app/.hardhat/.dashboard`, compose profiles, `make up/down/smoke/doctor`, `.gitattributes`, `.nvmrc`, `.python-version`
@@ -92,7 +92,7 @@ Definition of Done for every item: code + tests + docstrings/NatSpec + CHANGELOG
 
 ## P7 — Evaluation (weeks 11–12)
 - [x] P7-01 Experiment configs: latency_stage1, latency_stage2, gas_per_verdict_vs_batched, detection_f1, sbom_ranking, revocation_propagation, attack_matrix
-- [ ] P7-02 Deploy to Arbitrum Sepolia via workflow; addresses committed; tx hashes recorded
+- [~] P7-02 Deploy to Arbitrum Sepolia via workflow; addresses committed; tx hashes recorded — **out of scope by decision (2026-09-24)**: all gas figures are local Hardhat receipts and are labelled as such (`docs/limitations.md` §12)
 - [x] P7-03 All runners produce `raw.csv + summary.json + env.json`; ≥ 5 repetitions
 - [x] P7-04 `evaluation/figures.py` regenerates every figure from results
 - [x] P7-05 Comparison table vs Uptane / LedgerGuard / DIDAuth-IoTFW / SBOM-triage (feature presence, cited)

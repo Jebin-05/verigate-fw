@@ -21,7 +21,7 @@ jobs:
       - run: ruff format --check src tests evaluation
       - run: mypy
       - run: pytest -m "not integration and not e2e" --cov-report=xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: coverage-python, path: coverage.xml }
 
   contracts:
@@ -37,7 +37,7 @@ jobs:
       - run: npx hardhat compile
       - run: REPORT_GAS=true npx hardhat test
       - run: npx hardhat coverage
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: contracts-coverage, path: contracts/coverage }
 
   integration:

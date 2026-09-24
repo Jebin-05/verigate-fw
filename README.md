@@ -84,7 +84,7 @@ online, then `VULN_CACHE_DIR=data/vulndb-demo VULN_CACHE_ONLY=true` (host mode).
 Enable Stage 2 at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL_HASHES` in `.env`;
 `LLM_ENABLED` / `OLLAMA_URL` / `LLM_MODEL` control the explain-only rationale (ADR-0002): a small
 open-weights model (`qwen2.5:3b-instruct`, Apache-2.0, ~1.9 GB, runs on any x86-64/ARM laptop CPU
-through Ollama; `qwen2.5:1.5b-instruct` fits 8 GB machines) writes a plain-language rationale from
+through Ollama; `qwen2.5:1.5b-instruct`, ~1.0 GB, fits 8 GB machines and answers in ~13 s, at the cost of vaguer prose — see the results table) writes a plain-language rationale from
 the recorded scores and the ingredient-list diff. With `LLM_AUTO_EXPLAIN=false` it writes only
 when the approver presses **Explain this verdict** (`POST /releases/{id}/explain`). The model cards under
 `models/` state every number. Everything in the cards and under
@@ -116,6 +116,7 @@ Machine: Intel i7-1255U, 15 GB RAM, no GPU; local Hardhat + Kubo; explainer off 
 | Stage 2: SBOM score cold / warm · image score cold / warm | 115 / 0.1 ms · 104 / 1.3 ms | `latency_stage2/2026-09-18_1100_ec248b1` |
 | full gate per device: in-process · over HTTP | 111 ms · 216 ms | same |
 | LLM rationale (qwen2.5:3b-instruct, CPU) | 43–91 s, median 88 s | same, `raw_llm.csv` |
+| Explanation on request, model warm (i7-1255U, CPU only, 2026-09-24) | `qwen2.5:3b-instruct` 30–33 s, specific and correct · `qwen2.5:1.5b-instruct` 12–15 s, valid but generic | two live releases, both models, `POST /releases/{id}/explain` |
 | gas per `commitBatch` · per verdict at 200/batch | 209 642 · 1 048 (−99.5 % vs 1 tx per verdict) | `gas_per_verdict_vs_batched/2026-09-18_1044_ec248b1_1` |
 | model revocation → 5 / 20 / 50 device verdicts replayed | 7.5 / 8.8 / 11.7 s (+2 s poll) | `revocation_propagation/2026-09-18_1109_ec248b1` |
 | attack matrix, 11 scenarios × 5 runs (poisoned-model × 2) | 52 / 52 expected outcomes | `attack_matrix/2026-09-18_1114_ec248b1` |

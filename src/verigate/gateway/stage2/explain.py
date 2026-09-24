@@ -174,8 +174,13 @@ class Explanation:
     attempts: int
 
 
+# The action is the verdict's, not the writer's: the prompt states it and ``explain`` enforces it.
+ACTION_FOR_VERDICT: dict[str, str] = {"APPROVE": "install", "DEFER": "review", "REJECT": "block"}
+
+
 def build_prompt(inp: ExplainInput) -> str:
     """The user message: structured facts, nothing the model has to guess."""
+    action = ACTION_FOR_VERDICT.get(inp.verdict, "review")
     facts = {
         "release": {"version": inp.version, "device model": inp.device_model},
         "verdict from the deterministic gate": inp.verdict,
@@ -196,8 +201,8 @@ def build_prompt(inp: ExplainInput) -> str:
         + json.dumps(facts, separators=(",", ":"))
         + "\n\nRespond with a JSON object with keys summary (2-4 sentences), top_risks (up to 5 "
         "plain-English phrases such as 'many outdated packages', never field names; empty if "
-        "none), recommended_action (install | review | block). The decision was already made by "
-        "the deterministic gate; explain it for a human."
+        f"none), recommended_action (must be '{action}': it follows the gate's verdict). The "
+        "decision was already made by the deterministic gate; explain it for a human."
     )
 
 
@@ -268,6 +273,16 @@ class Explainer:
             attempts = attempt
             try:
                 rationale = self._ask(prompt)
+                expected = ACTION_FOR_VERDICT.get(inp.verdict)
+                if expected and rationale.recommended_action != expected:
+                    # The writer has no authority over the action; keep it equal to the verdict.
+                    log.warning(
+                        "explain.action_aligned",
+                        release_id=inp.release_id,
+                        written=rationale.recommended_action,
+                        verdict=inp.verdict,
+                    )
+                    rationale = rationale.model_copy(update={"recommended_action": expected})
             except (httpx.HTTPError, ValidationError, ValueError, KeyError) as exc:
                 log.warning(
                     "explain.failed",

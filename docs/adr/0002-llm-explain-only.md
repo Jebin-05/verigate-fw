@@ -26,4 +26,9 @@ rationale from the console (button *Explain this verdict*; `?again=true` discard
 finished attempt). The gateway re-runs Stage 1 and re-scores the release with the same models,
 so the writer describes exactly what the gate saw; a release stopped by Stage 1 is never
 explained. `LLM_AUTO_EXPLAIN=false` makes this the only trigger, which is what a live
-demonstration wants: the verdict is on screen first, the explanation is asked for second.
+demonstration wants: the verdict is on screen first, the explanation is asked for second. The `recommended_action` field is the verdict's, not
+the writer's: the prompt states the required value (APPROVE → install, DEFER → review, REJECT →
+block) and the explainer overwrites any deviation before pinning, logging `explain.action_aligned`.
+Measured 2026-09-24 on the CPU-only laptop with the model warm: `qwen2.5:3b-instruct` 30–33 s and
+specific; `qwen2.5:1.5b-instruct` 12–15 s, valid JSON, but generic prose — the 3B stays the default,
+the 1.5B is the documented low-RAM option (`LLM_MODEL`).

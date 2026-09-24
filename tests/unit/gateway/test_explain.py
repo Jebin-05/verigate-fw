@@ -204,9 +204,11 @@ async def test_rationale_never_blocks_a_verdict_and_is_picked_up_later(
     assert release.scores is not None
     await asyncio.gather(*service._rationales.values())  # noqa: SLF001
     status = await service.rationale_status(rid_hex)
-    assert status["status"] == "ready" and status["rationale"]["recommended_action"] == "review"
+    # The writer answered "review"; the pinned action follows the gate's verdict (APPROVE → install).
+    assert status["status"] == "ready" and status["rationale"]["recommended_action"] == "install"
     pinned = json.loads(world["ipfs"].get(status["cid"]))
-    assert pinned["summary"].startswith("Facts")
+    assert pinned["summary"].startswith("Facts") and pinned["recommended_action"] == "install"
+    assert "must be 'install'" in seen_prompt[0]
     assert seen_prompt and '"changed":["' in seen_prompt[0]  # diff against the previous SBOM
     again = await service.verify(world["rid2"], view)
     assert again.scores is not None and again.scores.rationale_cid == status["cid"]

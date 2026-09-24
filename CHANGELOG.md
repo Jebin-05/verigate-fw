@@ -2,6 +2,8 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Changed
+- The rationale's `recommended_action` now follows the verdict (APPROVE → install, DEFER → review, REJECT → block): the prompt states it and the explainer enforces it before pinning, so the console never shows "Approved" next to "suggested action: review". Measured on request with the model warm: 3B 30–33 s (specific), 1.5B 12–15 s (generic); README and ADR-0002 record both.
 ### Added
 - Explanation on request: `POST /releases/{id}/explain` (and the **Explain this verdict** / **Write again** / **Try again** buttons in the release's Explanation tab) asks the local language model for the rationale; the gateway re-runs Stage 1 and re-scores with the same models first, so a release stopped by the checks is never explained. `LLM_AUTO_EXPLAIN=false` makes the button the only trigger (ADR-0002 amendment).
 ### Changed

@@ -115,8 +115,8 @@ export function ExplanationBox({
           </ul>
         )}
         <p className="small muted" style={{ marginTop: 8 }}>
-          Suggested action: {status.rationale.recommended_action}. Written by a local language model
-          ({status.model}); it reads the verdict, it never writes it.
+          Action: {status.rationale.recommended_action} (follows the verdict). Written by a local
+          language model ({status.model}); it reads the verdict, it never writes it.
         </p>
       </div>
     );

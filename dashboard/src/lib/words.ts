@@ -121,7 +121,14 @@ export function fmtTime(iso: string | undefined): string {
 export function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString([], { hour12: false });
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString([], {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 }
 
 export interface Line {

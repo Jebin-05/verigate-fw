@@ -61,42 +61,42 @@ export function Approver() {
         </p>
       </div>
       <div className="console">
-        <div>
-          <section className="queue">
-            <h2>Incoming releases</h2>
-            {releases.error && (
-              <p className="notice bad">Could not reach the gateway: {releases.error}</p>
-            )}
-            {list.length === 0 ? (
-              <Empty>No releases have been registered yet.</Empty>
-            ) : (
-              <ul className="rows selectable">
-                {list.map((r) => (
-                  <li
-                    key={r.releaseId}
-                    className={r.releaseId === selected ? 'selected' : ''}
-                    onClick={() => {
-                      setSelected(r.releaseId);
-                      document
-                        .getElementById('report')
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                  >
-                    <div>
-                      <div className="title">
-                        {r.version} <span className="muted">for {r.deviceModel}</span>
-                      </div>
-                      <div className="sub">
-                        from {publisherName(r.publisherId)}
-                        {r.lastVerdictAt ? ` · inspected ${fmtDate(r.lastVerdictAt)}` : ''}
-                      </div>
+        <nav className="queue" aria-label="Incoming releases">
+          <h2>Incoming releases</h2>
+          {releases.error && (
+            <p className="notice bad">Could not reach the gateway: {releases.error}</p>
+          )}
+          {list.length === 0 ? (
+            <Empty>No releases have been registered yet.</Empty>
+          ) : (
+            <ul className="rows selectable">
+              {list.map((r) => (
+                <li
+                  key={r.releaseId}
+                  className={r.releaseId === selected ? 'selected' : ''}
+                  onClick={() => {
+                    setSelected(r.releaseId);
+                    document
+                      .getElementById('report')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                >
+                  <div>
+                    <div className="title">
+                      {r.version} <span className="muted">for {r.deviceModel}</span>
                     </div>
-                    <Stamp verdict={r.lastVerdict} revoked={r.revoked} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                    <div className="sub">
+                      from {publisherName(r.publisherId)}
+                      {r.lastVerdictAt ? ` · inspected ${fmtDate(r.lastVerdictAt)}` : ''}
+                    </div>
+                  </div>
+                  <Stamp verdict={r.lastVerdict} revoked={r.revoked} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </nav>
+        <div>
           {release && (
             <Report
               release={release}
@@ -275,20 +275,23 @@ function Report({
     <article className="report" id="report" aria-live="polite">
       <div className="report-head">
         <div>
-          <h2>
-            Inspection report — {release.version} for {release.deviceModel}
-          </h2>
-          <p className="muted small">
-            From {publisher?.did.replace('did:verigate:', '') ?? 'unknown publisher'} · publisher
-            standing <b className={stand.tone}>{stand.label}</b>
-            {fleetLevel ? ` · inspected ${fmtDate(fleetLevel.checkedAt)}` : ''}
+          <p className="meta">
+            Inspection report
+            {fleetLevel ? ` · ${fmtDate(fleetLevel.checkedAt)}` : ''} · from{' '}
+            {publisher?.did.replace('did:verigate:', '') ?? 'unknown publisher'}, standing{' '}
+            <b className={stand.tone}>{stand.label}</b>
           </p>
+          <h2>
+            {release.version} for {release.deviceModel}
+          </h2>
           {release.revoked ? (
-            <p className="lede">The publisher has withdrawn this release. Devices refuse it.</p>
+            <p className="lede reading">
+              The publisher has withdrawn this release. Devices refuse it.
+            </p>
           ) : fleetLevel ? (
-            <p className="lede">{reasonWords(fleetLevel)}</p>
+            <p className="lede reading">{reasonWords(fleetLevel)}</p>
           ) : (
-            <p className="lede">
+            <p className="lede reading">
               Not inspected yet — the gateway picks up new releases within a few seconds.
             </p>
           )}

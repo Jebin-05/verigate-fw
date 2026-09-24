@@ -255,9 +255,9 @@ function ReleaseRow({
           </span>
         </div>
         {latest && latest.verdict !== 'APPROVE' && !r.revoked && (
-          <div className="sub" style={{ marginTop: 6 }}>
+          <p className="serif" style={{ marginTop: 8, maxWidth: '58ch' }}>
             {reasonWords(latest)}
-          </div>
+          </p>
         )}
       </div>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

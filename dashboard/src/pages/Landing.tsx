@@ -7,13 +7,14 @@ export function Landing() {
       <div className="landing-head">
         <span className="brand">VeriGate</span>
         <h1>Firmware updates, checked before they reach a device.</h1>
-        <p>
+        <p className="reading">
           Every release is signed, registered on a blockchain and inspected by an automated gate
           before any device installs it. Choose the portal for what you do.
         </p>
       </div>
       <div className="doors">
         <Link className="door" to="/publish">
+          <span className="for">For the people who make the firmware</span>
           <h2>I publish firmware</h2>
           <p>Upload a build and its ingredient list. It is signed, registered and inspected.</p>
           <ul>
@@ -24,6 +25,7 @@ export function Landing() {
           <span className="go">Open the publisher portal</span>
         </Link>
         <Link className="door" to="/approve">
+          <span className="for">For the people who run the devices</span>
           <h2>I approve updates</h2>
           <p>Watch releases arrive and see exactly why each one passed or failed.</p>
           <ul>

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import re
 import shutil
@@ -34,7 +35,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 
-from verigate.common.chain import ChainClient, publisher_id
+from verigate.common.chain import ChainClient, device_model_id, publisher_id
 from verigate.common.errors import ChainError, IpfsError, VerificationError, VerigateError
 from verigate.common.ipfs import make_backend
 from verigate.common.logging import configure_logging, get_logger
@@ -50,6 +51,9 @@ from verigate.gateway.stage2.explain import build_explainer
 from verigate.gateway.stage2.scores import build_scorer
 
 log = get_logger(__name__)
+
+FIXTURE_DIRS = (Path("tests/fixtures/releases"), Path("/app/fixtures/releases"))
+STORY_FIXTURES = frozenset({"v1.0.0", "v1.1.0", "v2.0.0", "legacy-19.07.10"})
 
 
 def _release_id(text: str) -> bytes:
@@ -223,6 +227,38 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
         """Poll model status now instead of waiting for the job (the demo/attack path)."""
         return [r.to_dict() for r in await revocations.check_once()]
 
+    @app.get("/releases/{release_id}/rationale")
+    async def release_rationale(release_id: str) -> dict[str, Any]:
+        """The written explanation for a release, or where it stands (writing / off / none)."""
+        rid = _release_id(release_id)
+        return await service.rationale_status("0x" + rid.hex())
+
+    @app.get("/models/cards")
+    async def model_cards() -> list[dict[str, Any]]:
+        """The configured models' cards and measured metrics, for the console's model panel."""
+        models_dir = service.settings.models_dir
+        out: list[dict[str, Any]] = []
+        for rel in (service.settings.sbom_model, service.settings.image_model):
+            if not rel:
+                continue
+            path = models_dir / rel
+            if not path.is_file():
+                continue
+            metrics_path = path.with_suffix(".metrics.json")
+            card_path = path.with_suffix(".card.md")
+            out.append(
+                {
+                    "name": path.stem,
+                    "file": rel,
+                    "modelHash": "0x" + hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "metrics": json.loads(metrics_path.read_text())
+                    if metrics_path.is_file()
+                    else None,
+                    "card": card_path.read_text() if card_path.is_file() else None,
+                }
+            )
+        return out
+
     @app.get("/rationales/{cid}")
     async def rationale(cid: str) -> dict[str, Any]:
         """The LLM rationale pinned under ``cid`` (ADR-0002: explanatory only, never part of R)."""
@@ -362,13 +398,15 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
             )
         if "error" in result:
             raise HTTPException(400, str(result["error"]))
-        rid = _release_id(str(result["releaseId"]))
+        await _after_publish(_release_id(str(result["releaseId"])))
+        return result
+
+    async def _after_publish(rid: bytes) -> None:
         with contextlib.suppress(VerigateError):
             await service.note_release(rid)
         task = asyncio.create_task(_verify_quietly(rid))
         background.add(task)
         task.add_done_callback(background.discard)
-        return result
 
     async def _verify_quietly(rid: bytes) -> None:
         with contextlib.suppress(Exception):  # the listener re-verifies on its own schedule
@@ -389,6 +427,75 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
         with contextlib.suppress(VerigateError):
             await service.refresh_releases()
         return result
+
+    # ------------------------------------------------------------ guided demonstration
+
+    @app.post("/story/publish")
+    async def story_publish(fixture: str = Query(default="v2.0.0")) -> dict[str, Any]:
+        """Publish one of the bundled real-firmware fixtures as the portal publisher (demo page).
+
+        Same path as the publisher portal — signing CLI as a subprocess, verification in the
+        background — with the files taken from the repository's fixtures and the version chosen
+        as the next patch after the publisher's last release for ``demo-device``.
+        """
+        if fixture not in STORY_FIXTURES:
+            raise HTTPException(400, f"unknown fixture; choose one of {sorted(STORY_FIXTURES)}")
+        root = next((d for d in FIXTURE_DIRS if (d / fixture).is_dir()), None)
+        if root is None:
+            raise HTTPException(500, "release fixtures are not available on this gateway")
+        pid = publisher_id(service.settings.publisher_did)
+        packed = int(
+            await asyncio.to_thread(
+                service.chain.call,
+                service.chain.firmware.functions.lastVersion(pid, device_model_id("demo-device")),
+            )
+        )
+        major, minor, patch = packed >> 64, (packed >> 32) & 0xFFFFFFFF, packed & 0xFFFFFFFF
+        version = f"{major}.{minor}.{patch + 1}" if packed else "1.0.0"
+        result = await _run_cli(
+            "verigate-publish",
+            [
+                "release",
+                "--fw",
+                str(root / fixture / "firmware.bin"),
+                "--sbom",
+                str(root / fixture / "sbom.json"),
+                "--version",
+                version,
+                "--model",
+                "demo-device",
+                "--expiry",
+                "2030-01-01T00:00:00Z",
+            ],
+        )
+        if "error" in result:
+            raise HTTPException(400, str(result["error"]))
+        await _after_publish(_release_id(str(result["releaseId"])))
+        return {**result, "fixture": fixture}
+
+    @app.post("/simulate/device")
+    async def simulate_device() -> dict[str, Any]:
+        """One emulated device polls once: verify, install, receipt (demo page, step 7)."""
+        own_url = f"http://127.0.0.1:{service.settings.gateway_port}"
+        state = service.state_dir / "story-device"
+        return await _run_cli(
+            "verigate-fleet",
+            [
+                "run",
+                "--count",
+                "1",
+                "--rounds",
+                "1",
+                "--interval",
+                "0.1",
+                "--prefix",
+                "panel",
+                "--state-dir",
+                str(state),
+                "--gateway",
+                own_url,
+            ],
+        )
 
     @app.get("/attacks")
     async def attacks() -> dict[str, Any]:

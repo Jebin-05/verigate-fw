@@ -5,6 +5,7 @@ import { Approver } from './pages/Approver';
 import { Drills } from './pages/Drills';
 import { Landing } from './pages/Landing';
 import { Publisher } from './pages/Publisher';
+import { Story } from './pages/Story';
 
 function App() {
   return (
@@ -19,6 +20,9 @@ function App() {
         </Route>
         <Route element={<Shell role="Security drills" />}>
           <Route path="/demo" element={<Drills />} />
+        </Route>
+        <Route element={<Shell role="Present to a panel" />}>
+          <Route path="/story" element={<Story />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -3,14 +3,17 @@ import type { paths } from './schema';
 import type {
   AttackReport,
   Device,
+  DeviceRound,
   Health,
   Model,
+  ModelCard,
   Policy,
   Proof,
   Publisher,
   PublisherMe,
   PublishResult,
   Rationale,
+  RationaleStatus,
   Release,
   RevocationReport,
   VerdictLogEntry,
@@ -50,6 +53,9 @@ export const api = {
   verdicts: (limit = 500) => request<VerdictLogEntry[]>(`/verdicts?limit=${limit}`),
   proof: (verdictId: string) => request<Proof>(`/verdicts/${verdictId}/proof`),
   rationale: (cid: string) => request<Rationale>(`/rationales/${cid}`),
+  rationaleStatus: (releaseId: string) =>
+    request<RationaleStatus>(`/releases/${releaseId}/rationale`),
+  modelCards: () => request<ModelCard[]>('/models/cards'),
   devices: () => request<Device[]>('/devices'),
   publishers: () => request<Publisher[]>('/publishers'),
   models: () => request<Model[]>('/models'),
@@ -63,6 +69,11 @@ export const api = {
   withdraw: (id: string) =>
     request<{ status: string }>(`/publisher/releases/${id}/withdraw`, { method: 'POST' }),
   // demonstrations
+  storyPublish: (fixture: string) =>
+    request<PublishResult>(`/story/publish?fixture=${encodeURIComponent(fixture)}`, {
+      method: 'POST',
+    }),
+  simulateDevice: () => request<DeviceRound>('/simulate/device', { method: 'POST' }),
   attacks: () => request<Record<string, { expected: string }>>('/attacks'),
   runAttack: (name: string) => request<AttackReport>(`/attacks/${name}`, { method: 'POST' }),
 };

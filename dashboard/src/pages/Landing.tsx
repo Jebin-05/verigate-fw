@@ -37,8 +37,9 @@ export function Landing() {
         </Link>
       </div>
       <div className="landing-foot">
-        <span>Presenting the system? </span>
-        <Link to="/demo">Run a security drill and watch the gate catch it</Link>
+        <span>Presenting the system?</span>
+        <Link to="/story">Present to a panel — seven scenarios you run live</Link>
+        <Link to="/demo">All eleven security drills</Link>
       </div>
     </div>
   );

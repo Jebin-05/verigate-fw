@@ -28,9 +28,47 @@ SYSTEM_PROMPT = (
     "You are a firmware supply-chain security analyst. You are given the software bill of "
     "materials changes of a firmware release compared with the previous release, the risk scores "
     "produced by two deterministic models, and the features that drove those scores. Write a "
-    "short, factual rationale for a human reviewer. Do not invent CVE identifiers. Answer with "
-    "JSON only."
+    "short, factual rationale for a human reviewer who is not an engineer: plain sentences, no "
+    "variable names, no hashes or identifiers (refer to the release by its version), no invented "
+    "CVE identifiers. Answer with JSON only."
 )
+
+# Feature names as the models know them → the words the reviewer reads (kept in step with the UI).
+FEATURE_WORDS: dict[str, str] = {
+    "n_components": "number of packages",
+    "n_vulnerable_components": "packages with known vulnerabilities",
+    "n_cves": "number of known vulnerabilities",
+    "max_cvss_x10": "highest severity rating",
+    "mean_cvss_x10": "average severity rating",
+    "sum_epss_x1e4": "combined chance of exploitation",
+    "max_epss_x1e4": "single most exploitable vulnerability",
+    "kev_count": "entries on the known-exploited list",
+    "n_outdated": "packages behind their newest version",
+    "mean_dep_age_days": "age of the packages",
+    "size_kb": "file size",
+    "entropy_mean_x1000": "randomness of the bytes",
+    "entropy_std_x1000": "unevenness of the randomness",
+    "entropy_max_x1000": "most random region",
+    "high_entropy_chunks_pct": "share that looks packed or encrypted",
+    "printable_ratio_x1000": "share of readable text",
+    "header_valid": "header well-formed",
+    "n_sections": "section count",
+    "n_segments": "number of program segments",
+    "declared_size_kb": "size declared by the header",
+    "appended_kb": "bytes after the declared end",
+    "size_delta_kb": "size change since the previous release",
+    "entropy_delta_x1000": "randomness change since the previous release",
+    "changed_chunks_pct": "share of the file changed since the previous release",
+}
+
+
+def _readable(top: list[list[Any]]) -> list[str]:
+    """``[[feature, shap_bp], …]`` → "age of the packages (lowered the score)"."""
+    return [
+        f"{FEATURE_WORDS.get(str(name), str(name).replace('_', ' '))} "
+        f"({'raised' if float(value) >= 0 else 'lowered'} the score)"
+        for name, value in top
+    ]
 
 
 class Rationale(BaseModel):
@@ -139,16 +177,19 @@ class Explanation:
 def build_prompt(inp: ExplainInput) -> str:
     """The user message: structured facts, nothing the model has to guess."""
     facts = {
-        "release": {"id": inp.release_id, "version": inp.version, "deviceModel": inp.device_model},
+        "release": {"version": inp.version, "device_model": inp.device_model},
         "verdict_from_deterministic_gate": inp.verdict,
-        "scores": {
-            "r_sbom": inp.r_sbom_bp / 10_000,
-            "r_img": inp.r_img_bp / 10_000,
-            "expected_exploited_cves": inp.expected_exploited,
-            "known_cves_in_sbom": inp.cves,
+        "scores_0_to_1": {
+            "ingredient_list_risk": inp.r_sbom_bp / 10_000,
+            "binary_structure_risk": inp.r_img_bp / 10_000,
+            "expected_exploited_vulnerabilities": inp.expected_exploited,
+            "known_vulnerabilities_in_ingredient_list": inp.cves,
         },
-        "top_feature_attributions": {"sbom_model": inp.top_sbom, "image_model": inp.top_img},
-        "sbom_changes_vs_previous_release": inp.diff.to_json(),
+        "what_drove_the_scores": {
+            "ingredient_list_model": _readable(inp.top_sbom),
+            "binary_structure_model": _readable(inp.top_img),
+        },
+        "ingredient_list_changes_vs_previous_release": inp.diff.to_json(),
     }
     return (
         "Facts (JSON):\n"

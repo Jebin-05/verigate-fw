@@ -838,3 +838,150 @@ table.drills td {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- what the AI saw ---------- */
+.saw {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 28px;
+}
+.saw h4 {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.saw ul {
+  margin: 0;
+  padding-left: 18px;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.saw li + li {
+  margin-top: 4px;
+}
+.saw .drivers {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.writing .pulse {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--warn);
+  margin-right: 6px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ---------- model cards ---------- */
+details.card {
+  border-top: 1px solid var(--rule);
+  padding: 8px 0;
+}
+details.card summary {
+  cursor: pointer;
+}
+details.card p {
+  margin-top: 8px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+details.card pre {
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.45;
+  background: var(--canvas);
+  padding: 10px;
+  border-radius: var(--radius);
+  max-height: 320px;
+  overflow: auto;
+}
+
+/* ---------- rules simulator ---------- */
+.sim label {
+  margin-top: 10px;
+  font-weight: 400;
+}
+.sim input[type='range'] {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  accent-color: var(--accent);
+  margin-top: 4px;
+}
+.queue .simulated {
+  display: block;
+  font-size: 11px;
+  color: var(--warn);
+  margin-top: 2px;
+}
+
+/* ---------- story ---------- */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.step {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 14px;
+  padding: 24px 0;
+  border-top: 1px solid var(--rule);
+}
+.step-n {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 15px;
+}
+.step.done .step-n {
+  background: var(--ink);
+  color: #fff;
+}
+.step h2 {
+  margin-bottom: 6px;
+}
+.step .say {
+  margin: 6px 0 8px;
+}
+.step-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+.step .result {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-top: 18px;
+  padding: 18px 20px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+.step .result p + p {
+  margin-top: 6px;
+}
+@media (max-width: 720px) {
+  .saw {
+    grid-template-columns: 1fr;
+  }
+  .step .result {
+    grid-template-columns: 1fr;
+  }
+}

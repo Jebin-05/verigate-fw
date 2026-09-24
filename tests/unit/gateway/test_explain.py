@@ -164,7 +164,9 @@ def world(tmp_path: Path, settings: Settings) -> dict[str, Any]:
     return {"service": service, "ipfs": ipfs, "rid1": rid1, "rid2": rid2}
 
 
-async def test_release_verify_waits_for_rationale_devices_do_not(world: dict[str, Any]) -> None:
+async def test_rationale_never_blocks_a_verdict_and_is_picked_up_later(
+    world: dict[str, Any],
+) -> None:
     service: GatewayService = world["service"]
     gate = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -191,14 +193,23 @@ async def test_release_verify_waits_for_rationale_devices_do_not(world: dict[str
     assert quick.scores is not None and quick.scores.rationale_cid is None
     assert quick.to_dict()["rationaleCid"] is None
     # The release-level verification waits for the same task; the next device call reuses it.
+    rid_hex = "0x" + world["rid2"].hex()
+    assert (await service.rationale_status(rid_hex))["status"] == "writing"
+    # The release-level verification does not wait either (ADR-0002 amendment): the first verdict
+    # goes out without a CID and the explanation is picked up once the background task is done.
     gate.set()
     release = await service.verify(world["rid2"])
-    assert release.scores is not None and release.scores.rationale_cid is not None
-    pinned = json.loads(world["ipfs"].get(release.scores.rationale_cid))
-    assert pinned["recommended_action"] == "review" and pinned["summary"].startswith("Facts")
+    assert release.scores is not None
+    await asyncio.gather(*service._rationales.values())  # noqa: SLF001
+    status = await service.rationale_status(rid_hex)
+    assert status["status"] == "ready" and status["rationale"]["recommended_action"] == "review"
+    pinned = json.loads(world["ipfs"].get(status["cid"]))
+    assert pinned["summary"].startswith("Facts")
     assert seen_prompt and '"changed":["' in seen_prompt[0]  # diff against the previous SBOM
     again = await service.verify(world["rid2"], view)
-    assert again.scores is not None and again.scores.rationale_cid == release.scores.rationale_cid
+    assert again.scores is not None and again.scores.rationale_cid == status["cid"]
+    later = await service.verify(world["rid2"])
+    assert later.scores is not None and later.scores.rationale_cid == status["cid"]
     assert len(service._rationales) == 1  # noqa: SLF001 — one task per release
     # The diff the prompt was built from used the previous release's SBOM.
     assert (await service.previous_sbom(await service.bundle(world["rid2"]))) == SBOM_V1
@@ -208,9 +219,11 @@ async def test_release_verify_waits_for_rationale_devices_do_not(world: dict[str
 async def test_no_explainer_or_no_models_means_no_rationale(world: dict[str, Any]) -> None:
     service: GatewayService = world["service"]
     assert (await service.verify(world["rid2"])).scores.rationale_cid is None  # type: ignore[union-attr]
+    assert (await service.rationale_status("0x" + world["rid2"].hex()))["status"] == "off"
     service.explainer = Explainer("http://llm", "m", world["ipfs"], enabled=False)
     assert (await service.verify(world["rid2"])).scores.rationale_cid is None  # type: ignore[union-attr]
     assert service._rationales == {}  # noqa: SLF001
+    assert (await service.rationale_status("0x" + world["rid2"].hex()))["status"] == "off"
 
 
 def test_rationale_endpoint(world: dict[str, Any]) -> None:

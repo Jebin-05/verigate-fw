@@ -204,6 +204,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/releases/{release_id}/rationale': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Release Rationale
+     * @description The written explanation for a release, or where it stands (writing / off / none).
+     */
+    get: operations['release_rationale_releases__release_id__rationale_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/models/cards': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Model Cards
+     * @description The configured models' cards and measured metrics, for the console's model panel.
+     */
+    get: operations['model_cards_models_cards_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/rationales/{cid}': {
     parameters: {
       query?: never;
@@ -458,6 +498,50 @@ export interface paths {
      * @description Withdraw (revoke) one of the portal publisher's own releases.
      */
     post: operations['publisher_withdraw_publisher_releases__release_id__withdraw_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/story/publish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Story Publish
+     * @description Publish one of the bundled real-firmware fixtures as the portal publisher (demo page).
+     *
+     *     Same path as the publisher portal — signing CLI as a subprocess, verification in the
+     *     background — with the files taken from the repository's fixtures and the version chosen
+     *     as the next patch after the publisher's last release for ``demo-device``.
+     */
+    post: operations['story_publish_story_publish_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/simulate/device': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Simulate Device
+     * @description One emulated device polls once: verify, install, receipt (demo page, step 7).
+     */
+    post: operations['simulate_device_simulate_device_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -863,6 +947,61 @@ export interface operations {
       };
     };
   };
+  release_rationale_releases__release_id__rationale_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        release_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  model_cards_models_cards_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          }[];
+        };
+      };
+    };
+  };
   rationale_rationales__cid__get: {
     parameters: {
       query?: never;
@@ -1219,6 +1358,61 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  story_publish_story_publish_post: {
+    parameters: {
+      query?: {
+        fixture?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  simulate_device_simulate_device_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
         };
       };
     };

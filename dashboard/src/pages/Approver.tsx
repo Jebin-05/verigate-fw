@@ -2,18 +2,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import type {
-  Device,
-  Health,
-  Proof,
-  Publisher,
-  Rationale,
-  Release,
-  VerificationResult,
-} from '../api/types';
+import type { Device, Health, Proof, Publisher, Release, VerificationResult } from '../api/types';
 import { verifyLeafOnChain } from '../chain/useChain';
 import { Activity } from '../components/Activity';
 import { Empty, Id, Meter, Stamp } from '../components/Bits';
+import { AiSaw, ExplanationBox, ModelCards, RulesSimulator } from '../components/Insight';
 import { usePoll } from '../components/usePoll';
 import {
   CHECKS,
@@ -23,6 +16,7 @@ import {
   failureWords,
   fmtDate,
   reasonWords,
+  simulate,
   standing,
 } from '../lib/words';
 
@@ -46,6 +40,19 @@ export function Approver() {
     if (!selected && list.length > 0) setSelected(list[0].releaseId);
   }, [list, selected]);
   const release = list.find((r) => r.releaseId === selected) ?? null;
+  const fleetByRelease = useMemo(() => {
+    const m = new Map<string, VerificationResult>();
+    for (const e of (verdicts.data ?? []).filter(isVerdict))
+      if (e.deviceId === 'release-level') m.set(e.releaseId, e);
+    return m;
+  }, [verdicts.data]);
+  const [sim, setSim] = useState<{ approve: number; reject: number } | null>(null);
+  const changed = sim
+    ? list.filter((r) => {
+        const f = fleetByRelease.get(r.releaseId);
+        return f && simulate(f.verdict, f.stage1?.ok ?? null, f.R, sim) !== f.verdict;
+      }).length
+    : 0;
 
   const publisherName = (id: string) =>
     (publishers.data ?? []).find((p) => p.publisherId === id)?.did.replace('did:verigate:', '') ??
@@ -90,7 +97,7 @@ export function Approver() {
                       {r.lastVerdictAt ? ` · inspected ${fmtDate(r.lastVerdictAt)}` : ''}
                     </div>
                   </div>
-                  <Stamp verdict={r.lastVerdict} revoked={r.revoked} />
+                  <QueueStamp release={r} fleet={fleetByRelease.get(r.releaseId)} sim={sim} />
                 </li>
               ))}
             </ul>
@@ -112,6 +119,12 @@ export function Approver() {
         </div>
         <aside className="rail">
           <Activity />
+          <RulesSimulator
+            policy={policy.data?.policy ?? null}
+            sim={sim}
+            setSim={setSim}
+            changed={changed}
+          />
           <FleetSummary devices={devices.data ?? []} releases={releases.data ?? []} />
           <section>
             <h2>Rules in force</h2>
@@ -161,9 +174,32 @@ export function Approver() {
               </p>
             ))}
           </section>
+          <ModelCards />
         </aside>
       </div>
     </main>
+  );
+}
+
+function QueueStamp({
+  release: r,
+  fleet,
+  sim,
+}: {
+  release: Release;
+  fleet: VerificationResult | undefined;
+  sim: { approve: number; reject: number } | null;
+}) {
+  const simulated =
+    sim && fleet ? simulate(fleet.verdict, fleet.stage1?.ok ?? null, fleet.R, sim) : null;
+  const shown = simulated ?? r.lastVerdict;
+  return (
+    <span>
+      <Stamp verdict={shown} revoked={r.revoked} />
+      {simulated && fleet && simulated !== fleet.verdict && (
+        <span className="simulated">simulated — really {VERDICT_WORD[fleet.verdict]}</span>
+      )}
+    </span>
   );
 }
 
@@ -225,19 +261,11 @@ function Report({
   for (const v of perDevice.values()) deviceCounts[v.verdict] += 1;
   const installed = devices.filter((d) => d.installed_release_id === release.releaseId).length;
 
-  const [rationale, setRationale] = useState<Rationale | null>(null);
   const [proof, setProof] = useState<{ p: Proof; onChain: boolean | null } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    setRationale(null);
     setProof(null);
-    if (fleetLevel?.rationaleCid) {
-      api
-        .rationale(fleetLevel.rationaleCid)
-        .then(setRationale)
-        .catch(() => setRationale(null));
-    }
-  }, [fleetLevel?.rationaleCid, release.releaseId]);
+  }, [release.releaseId]);
 
   const checkOnChain = async () => {
     if (!fleetLevel?.verdictId) return;
@@ -355,30 +383,8 @@ function Report({
         </section>
       )}
 
-      <section>
-        <h3>Explanation</h3>
-        {rationale ? (
-          <div className="rationale">
-            <p>{rationale.summary}</p>
-            {rationale.top_risks.length > 0 && (
-              <ul>
-                {rationale.top_risks.map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ul>
-            )}
-            <p className="small muted" style={{ marginTop: 8 }}>
-              Suggested action: {rationale.recommended_action}. Written by the explanation model; it
-              never influences the decision above.
-            </p>
-          </div>
-        ) : (
-          <p className="muted small">
-            No written explanation for this verdict
-            {fleetLevel?.rationaleCid ? ' (loading)' : ' — the explanation model is switched off'}.
-          </p>
-        )}
-      </section>
+      {fleetLevel && stage1?.ok && <AiSaw stage2={fleetLevel.stage2} />}
+      <ExplanationBox releaseId={release.releaseId} hasStage2={Boolean(fleetLevel && stage1?.ok)} />
 
       <section>
         <h3>Devices</h3>

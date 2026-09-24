@@ -94,6 +94,7 @@ class VerificationResult:
             "reputation": self.reputation_bp,
             "modelHashes": list(self.scores.model_hashes) if self.scores else [],
             "rationaleCid": self.scores.rationale_cid if self.scores else None,
+            "stage2": self.scores.features if self.scores else None,
         }
 
 
@@ -285,10 +286,11 @@ class GatewayService:
     ) -> Explanation | None:
         """The LLM rationale for a release (ADR-0002): one background task per release.
 
-        The release-level verification (listener) waits for it, so the verdict shown for the
-        release carries the CID; device-level verifications never wait — a device poll must not
-        stall on a CPU-bound language model — and pick the CID up once the task has finished.
-        The rationale content is never read back by the gate.
+        No verification waits for it (a CPU-bound language model takes a minute or more): the
+        first verdict for a release is issued without a CID, later verdicts pick the CID up once
+        the task has finished, and ``rationale_status`` exposes the text to the console as soon
+        as it exists. ``wait=True`` is kept for callers that explicitly want the result (tests,
+        evaluation). The rationale content is never read back by the gate.
         """
         if self.explainer is None or not self.explainer.enabled or not scores.model_hashes:
             return None
@@ -314,6 +316,25 @@ class GatewayService:
         if wait or task.done():
             return await task
         return None
+
+    async def rationale_status(self, rid: str) -> dict[str, Any]:
+        """Where the explanation for ``rid`` stands: off / none / writing / ready / failed."""
+        if self.explainer is None or not self.explainer.enabled:
+            return {"status": "off"}
+        task = self._rationales.get(rid)
+        if task is None:
+            return {"status": "none"}
+        if not task.done():
+            return {"status": "writing"}
+        result = None if task.cancelled() or task.exception() else task.result()
+        if result is None:
+            return {"status": "failed"}
+        return {
+            "status": "ready",
+            "cid": result.cid,
+            "model": result.model,
+            "rationale": result.rationale.model_dump(),
+        }
 
     def _fetch_bundle(self, release_id: bytes) -> ReleaseBundle:
         errors: list[str] = []
@@ -442,7 +463,7 @@ class GatewayService:
             record_features = scores.feature_hash
             model_hashes = list(scores.model_hashes)
             explanation = await self.rationale_for(
-                rid, bundle, scores, decision, view.device_model, wait=device is None
+                rid, bundle, scores, decision, view.device_model, wait=False
             )
             if explanation is not None:
                 scores = replace(scores, rationale_cid=explanation.cid)

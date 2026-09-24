@@ -2,6 +2,11 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Added
+- Panel demonstration: `/story` runs seven scenarios in order (genuine release, tampered file, honest-but-old software, hidden payload, stricter rules + rogue operator, revoked model, one device's install cycle) with narration and live results; new gateway endpoints `POST /story/publish` (bundled fixture as the portal publisher) and `POST /simulate/device` (one emulated device round, prefix `panel`).
+- The AI made visible in every report: *What the AI saw* renders the recorded Stage-2 feature vectors and top SHAP drivers in plain words (`stage2` now travels with each verification result); model cards with measured accuracy and blind spots (`GET /models/cards`); the written explanation with a *writing…* state (`GET /releases/{id}/rationale`); a rules simulator whose approve/reject sliders re-compute verdicts client-side, labelled as a simulation.
+### Changed
+- No verification waits for the language-model rationale any more (ADR-0002 amendment): verdicts appear in seconds, the explanation attaches to the release when ready and later verdicts carry its CID. The explainer prompt now names features in plain words and omits identifiers, so explanations read as prose.
 ### Changed
 - Dashboard rebuilt as two portals for two jobs (owner's request: the console was too technical). `/publish` — the publisher's identity and standing, a publish form (firmware + SBOM + version + expiry), only their own releases with a registered → inspected → installed journey and the plain-words reason when not approved, withdraw. `/approve` — incoming releases with a verdict stamp, an inspection report that names the eight checks and the risk meters in plain words against the rules in force, the written explanation, device counts, and an on-chain proof check; live activity rendered as sentences; fleet, rules and model summaries. `/demo` holds the security drills. New gateway endpoints `GET /publisher/me`, `POST /publisher/releases`, `POST /publisher/releases/{id}/withdraw` (the signing CLI runs as a subprocess, like the drills). Bundled IBM Plex fonts so the UI is identical offline.
 ### Removed

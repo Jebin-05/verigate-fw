@@ -8,7 +8,8 @@ Two portals, one for each job, plus a front door and a demonstration page:
 |---|---|---|
 | `/` | everyone | choose your portal |
 | `/publish` | the publisher | identity and standing; publish a release (firmware + SBOM + version + expiry); *your* releases with their journey (registered → inspected → installed on N devices), the plain-words reason when one is not approved, withdraw |
-| `/approve` | the approver / fleet operator | incoming releases with their stamp; the inspection report for one (the eight checks in words, risk meters against the rules in force, written explanation, device counts, on-chain proof); live activity as sentences; fleet, rules and model summaries |
+| `/approve` | the approver / fleet operator | incoming releases with their stamp; the inspection report for one (the eight checks in words, risk meters against the rules in force, **what the AI saw** — the real feature values and top drivers in words —, the written explanation with a *writing…* state, device counts, on-chain proof); live activity as sentences; **rules simulator** (approve/reject sliders re-compute every verdict from recorded scores, labelled as a simulation); fleet, rules, model summaries and **model cards** (training data, measured accuracy, blind spots) |
+| `/story` | presenters | **Present to a panel**: seven scenarios in story order, one Run button each, narration, live result and a link into the report |
 | `/demo` | presenters | the eleven security drills with what happens and what the gate does |
 
 The publisher portal never shows fleet, rules, logs or drills; the approval console never shows a
@@ -21,8 +22,8 @@ src/
   api/        client.ts (typed fetch, multipart publish), schema.d.ts (generated: npm run api:types), types.ts
   chain/      abi/*.json (synced by scripts/sync_abi.py), useChain.ts (direct RPC reads, verifyLeaf)
   lib/        words.ts — every sentence the interface says (verdicts, checks, reasons, activity)
-  pages/      Landing · Publisher · Approver · Drills
-  components/ Shell (top bar), Bits (stamp, meter, id), Activity (websocket /logs as sentences), usePoll
+  pages/      Landing · Publisher · Approver · Story · Drills
+  components/ Shell (top bar), Bits (stamp, meter, id), Insight (what the AI saw, explanation, model cards, rules simulator), Activity (websocket /logs as sentences), usePoll
   state/      zustand store (log buffer, websocket status, running drill)
 ```
 

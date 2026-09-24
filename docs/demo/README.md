@@ -15,12 +15,19 @@ make down                         # fresh chain next time; the cache volume stay
 ```bash
 make up && ./scripts/demo.sh      # ~1 min up + ~1 min demo with a warm cache
 ```
-Open the dashboard (`http://localhost:5173`). Suggested walk-through: the front door → **publisher
-portal** (publish a release with the v2.0.0 fixture files; watch its journey reach "Inspected") →
-**approval console** (click the new release: the stamp, the eight checks, the risk meters, *Verify
-on the blockchain*) → **security drills** in a second tab (run *Tampered image*, switch back and
-watch "Rejected" arrive in the incoming list and the live activity). `make logs` shows every
-container.
+Open the dashboard (`http://localhost:5173`) and take the **Present to a panel** door
+(`/story`): seven scenarios in story order, each with a line to read aloud, a Run button and the
+live result — genuine release → tampered file → honest-but-old software → hidden payload → the
+rules simulator and a rogue operator → a revoked model replayed → one device's install cycle.
+Keep the **approval console** open in a second window: every result links to its inspection
+report, where the panel sees the eight checks, the risk meters, *What the AI saw*, the written
+explanation (arrives about a minute later if Ollama is running) and *Verify on the blockchain*.
+The publisher portal and the eleven raw drills remain available from the front door. `make logs`
+shows every container.
+
+Explanations need Ollama on the host (`ollama serve`, model `qwen2.5:3b-instruct`) and
+`LLM_ENABLED=true`; without it the report says the explanation model is switched off and
+everything else works.
 
 ## If something goes wrong
 - Terminal recordings of the rehearsals below replay with

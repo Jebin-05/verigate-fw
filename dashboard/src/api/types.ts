@@ -64,6 +64,37 @@ export interface VerificationResult {
   reputation: number | null;
   modelHashes: string[];
   rationaleCid: string | null;
+  stage2?: Stage2Block | null;
+}
+
+/** The quantised feature vectors the Stage-2 models scored (what `featureHash` seals). */
+export interface Stage2Block {
+  sbom?: Record<string, unknown> & { top3?: [string, number][] };
+  img?: Record<string, unknown> & { top3?: [string, number][]; previous?: boolean };
+}
+
+export interface RationaleStatus {
+  status: 'off' | 'none' | 'writing' | 'ready' | 'failed';
+  cid?: string;
+  model?: string;
+  rationale?: Omit<Rationale, 'cid'>;
+}
+
+export interface ModelCard {
+  name: string;
+  file: string;
+  modelHash: string;
+  metrics: Record<string, unknown> | null;
+  card: string | null;
+}
+
+export interface DeviceRound {
+  polls: number;
+  installs: number;
+  receipts: number;
+  rejected: number;
+  errors: number;
+  lastVerdicts?: Record<string, string>;
 }
 
 export interface Rationale {
@@ -182,4 +213,5 @@ export interface PublishResult {
   status?: string;
   txHash?: string | null;
   cids: Record<string, string>;
+  fixture?: string;
 }

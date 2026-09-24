@@ -1,28 +1,26 @@
-/** Operator console routes (pages listed in dashboard/README.md). */
+/** Routes: the front door, the two portals, and the demonstration drills. */
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { Layout } from './components/Layout';
-import { Attacks } from './pages/Attacks';
-import { Fleet } from './pages/Fleet';
-import { Models } from './pages/Models';
-import { Policy } from './pages/Policy';
-import { Publishers } from './pages/Publishers';
-import { Releases } from './pages/Releases';
-import { Verdicts } from './pages/Verdicts';
+import { Shell } from './components/Shell';
+import { Approver } from './pages/Approver';
+import { Drills } from './pages/Drills';
+import { Landing } from './pages/Landing';
+import { Publisher } from './pages/Publisher';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<Navigate to="/releases" replace />} />
-          <Route path="/releases" element={<Releases />} />
-          <Route path="/verdicts" element={<Verdicts />} />
-          <Route path="/fleet" element={<Fleet />} />
-          <Route path="/publishers" element={<Publishers />} />
-          <Route path="/models" element={<Models />} />
-          <Route path="/policy" element={<Policy />} />
-          <Route path="/attacks" element={<Attacks />} />
+        <Route path="/" element={<Landing />} />
+        <Route element={<Shell role="Publisher portal" />}>
+          <Route path="/publish" element={<Publisher />} />
         </Route>
+        <Route element={<Shell role="Approval console" />}>
+          <Route path="/approve" element={<Approver />} />
+        </Route>
+        <Route element={<Shell role="Security drills" />}>
+          <Route path="/demo" element={<Drills />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

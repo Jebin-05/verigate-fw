@@ -2,13 +2,14 @@
 import type { paths } from './schema';
 import type {
   AttackReport,
-  Batch,
   Device,
   Health,
   Model,
   Policy,
   Proof,
   Publisher,
+  PublisherMe,
+  PublishResult,
   Rationale,
   Release,
   RevocationReport,
@@ -22,43 +23,46 @@ export const GATEWAY_URL: string =
 type Path = keyof paths;
 
 async function request<T>(path: Path | string, init?: RequestInit): Promise<T> {
+  const isForm = init?.body instanceof FormData;
   const resp = await fetch(GATEWAY_URL + path, {
     ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      ...(isForm ? {} : { 'content-type': 'application/json' }),
+      ...(init?.headers ?? {}),
+    },
   });
   if (!resp.ok) {
     let detail = resp.statusText;
     try {
-      detail = ((await resp.json()) as { detail?: string }).detail ?? detail;
+      const body = (await resp.json()) as { detail?: unknown };
+      detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
     } catch {
       /* not JSON */
     }
-    throw new Error(`${resp.status}: ${detail}`);
+    throw new Error(detail || `HTTP ${resp.status}`);
   }
   return (await resp.json()) as T;
 }
 
 export const api = {
   health: () => request<Health>('/health'),
-  releases: (refresh = false) => request<Release[]>(`/releases${refresh ? '?refresh=true' : ''}`),
-  release: (id: string) => request<Release & { manifest: unknown }>(`/releases/${id}`),
-  verify: (id: string, deviceId?: string) =>
-    request<VerificationResult>(
-      `/verify/${id}${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ''}`,
-      { method: 'POST' },
-    ),
-  verdicts: (limit = 200) => request<VerdictLogEntry[]>(`/verdicts?limit=${limit}`),
+  releases: () => request<Release[]>('/releases'),
+  verdicts: (limit = 500) => request<VerdictLogEntry[]>(`/verdicts?limit=${limit}`),
   proof: (verdictId: string) => request<Proof>(`/verdicts/${verdictId}/proof`),
   rationale: (cid: string) => request<Rationale>(`/rationales/${cid}`),
-  batches: () => request<Batch[]>('/batches'),
-  flush: () =>
-    request<{ committed: Batch | null; pending: number }>('/batches/flush', { method: 'POST' }),
   devices: () => request<Device[]>('/devices'),
   publishers: () => request<Publisher[]>('/publishers'),
   models: () => request<Model[]>('/models'),
   revocations: () => request<RevocationReport[]>('/revocations'),
-  checkRevocations: () => request<RevocationReport[]>('/revocations/check', { method: 'POST' }),
   policy: () => request<{ policy: Policy | null }>('/policy'),
+  verify: (id: string) => request<VerificationResult>(`/verify/${id}`, { method: 'POST' }),
+  // publisher portal
+  me: () => request<PublisherMe>('/publisher/me'),
+  publish: (form: FormData) =>
+    request<PublishResult>('/publisher/releases', { method: 'POST', body: form }),
+  withdraw: (id: string) =>
+    request<{ status: string }>(`/publisher/releases/${id}/withdraw`, { method: 'POST' }),
+  // demonstrations
   attacks: () => request<Record<string, { expected: string }>>('/attacks'),
   runAttack: (name: string) => request<AttackReport>(`/attacks/${name}`, { method: 'POST' }),
 };

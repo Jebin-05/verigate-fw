@@ -2,6 +2,8 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Changed
+- Dashboard rebuilt as two portals for two jobs (owner's request: the console was too technical). `/publish` — the publisher's identity and standing, a publish form (firmware + SBOM + version + expiry), only their own releases with a registered → inspected → installed journey and the plain-words reason when not approved, withdraw. `/approve` — incoming releases with a verdict stamp, an inspection report that names the eight checks and the risk meters in plain words against the rules in force, the written explanation, device counts, and an on-chain proof check; live activity rendered as sentences; fleet, rules and model summaries. `/demo` holds the security drills. New gateway endpoints `GET /publisher/me`, `POST /publisher/releases`, `POST /publisher/releases/{id}/withdraw` (the signing CLI runs as a subprocess, like the drills). Bundled IBM Plex fonts so the UI is identical offline.
 ### Removed
 - All repository automation, at the project owner's request (2026-09-24): the four GitHub Actions workflows (`ci`, `security`, `release`, `deploy-contracts`), `.github/dependabot.yml` (its 20 open PRs were closed), `.pre-commit-config.yaml` and the installed git hooks; branch protection on `main` was lifted. The same checks remain as commands — `make lint typecheck test-all`, `make test-integration`, `make smoke`, `gitleaks detect`, `pip-audit` — and must now be run by hand; README, CONTRIBUTING, CHECKLIST, SECURITY, SRS, ADR-0004 and `docs/security-audit.md` say so. Nothing about the product changed.
 ### Changed

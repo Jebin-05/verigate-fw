@@ -13,15 +13,28 @@ import json
 import re
 import shutil
 import sys
+import tempfile
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 
-from verigate.common.chain import ChainClient
+from verigate.common.chain import ChainClient, publisher_id
 from verigate.common.errors import ChainError, IpfsError, VerificationError, VerigateError
 from verigate.common.ipfs import make_backend
 from verigate.common.logging import configure_logging, get_logger
@@ -276,6 +289,107 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
         """Submit a signed install receipt."""
         return (await service.device_receipt(msg)).__dict__
 
+    # ------------------------------------------------------------ publisher portal
+    # The portal acts for the publisher configured in ``.env`` (``PUBLISHER_DID`` + the key under
+    # ``KEYS_DIR``). Signing and the chain transaction happen in the ``verigate-publish`` CLI,
+    # spawned as a subprocess like the attack scripts, so the gateway keeps its dependency rule.
+    background: set[asyncio.Task[Any]] = set()
+
+    @app.get("/publisher/me")
+    async def publisher_me() -> dict[str, Any]:
+        """The portal's publisher identity and on-chain standing."""
+        did = service.settings.publisher_did
+        pid = publisher_id(did)
+        record = await asyncio.to_thread(service.chain.get_publisher, pid)
+        return {
+            "did": did,
+            "publisherId": "0x" + pid.hex(),
+            "registered": record.exists,
+            "status": record.status,
+            "reputation": record.reputation_bp if record.exists else None,
+            "publicKey": "ed25519:" + record.pub_key.hex() if record.exists else None,
+            "keyVersion": record.key_version,
+        }
+
+    @app.post("/publisher/releases")
+    async def publisher_release(
+        firmware: Annotated[UploadFile, File()],
+        sbom: Annotated[UploadFile, File()],
+        version: Annotated[str, Form()],
+        device_model: Annotated[str, Form()],
+        expiry: Annotated[str, Form()],
+    ) -> dict[str, Any]:
+        """Publish: hash → IPFS → signed manifest → on-chain record; verification runs after."""
+        try:
+            SemVer.parse(version)
+        except ValueError as exc:
+            raise HTTPException(400, f"version must be MAJOR.MINOR.PATCH: {exc}") from exc
+        try:
+            when = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise HTTPException(400, "expiry must be an ISO-8601 date") from exc
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        if when <= datetime.now(UTC):
+            raise HTTPException(400, "expiry must be in the future")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", device_model):
+            raise HTTPException(400, "device model: letters, digits, . _ - only")
+        with tempfile.TemporaryDirectory(prefix="verigate-publish-") as tmp:
+            fw_path, sbom_path = Path(tmp) / "firmware.bin", Path(tmp) / "sbom.json"
+            fw_path.write_bytes(await firmware.read())
+            sbom_path.write_bytes(await sbom.read())
+            if fw_path.stat().st_size == 0:
+                raise HTTPException(400, "firmware file is empty")
+            try:
+                json.loads(sbom_path.read_bytes())
+            except ValueError as exc:
+                raise HTTPException(400, "SBOM must be a CycloneDX JSON document") from exc
+            result = await _run_cli(
+                "verigate-publish",
+                [
+                    "release",
+                    "--fw",
+                    str(fw_path),
+                    "--sbom",
+                    str(sbom_path),
+                    "--version",
+                    version,
+                    "--model",
+                    device_model,
+                    "--expiry",
+                    when.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ],
+            )
+        if "error" in result:
+            raise HTTPException(400, str(result["error"]))
+        rid = _release_id(str(result["releaseId"]))
+        with contextlib.suppress(VerigateError):
+            await service.note_release(rid)
+        task = asyncio.create_task(_verify_quietly(rid))
+        background.add(task)
+        task.add_done_callback(background.discard)
+        return result
+
+    async def _verify_quietly(rid: bytes) -> None:
+        with contextlib.suppress(Exception):  # the listener re-verifies on its own schedule
+            await service.verify(rid)
+
+    @app.post("/publisher/releases/{release_id}/withdraw")
+    async def publisher_withdraw(release_id: str) -> dict[str, Any]:
+        """Withdraw (revoke) one of the portal publisher's own releases."""
+        rid = _release_id(release_id)
+        record = await asyncio.to_thread(service.chain.get_release, rid)
+        if not record.exists:
+            raise HTTPException(404, "unknown release")
+        if record.publisher_id != publisher_id(service.settings.publisher_did):
+            raise HTTPException(403, "this release belongs to another publisher")
+        result = await _run_cli("verigate-publish", ["revoke", "0x" + rid.hex()])
+        if "error" in result:
+            raise HTTPException(400, str(result["error"]))
+        with contextlib.suppress(VerigateError):
+            await service.refresh_releases()
+        return result
+
     @app.get("/attacks")
     async def attacks() -> dict[str, Any]:
         """Available attack scenarios (from ``verigate-attack list``)."""
@@ -307,18 +421,23 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
 
 async def _run_attack_cli(args: list[str]) -> dict[str, Any]:
     """Spawn ``verigate-attack`` (keeps the gateway free of fleet/attack imports) and parse JSON."""
-    exe = shutil.which("verigate-attack") or str(Path(sys.executable).with_name("verigate-attack"))
+    return await _run_cli("verigate-attack", args)
+
+
+async def _run_cli(name: str, args: list[str]) -> dict[str, Any]:
+    """Spawn one of the project's CLIs from the same environment and parse its JSON output."""
+    exe = shutil.which(name) or str(Path(sys.executable).with_name(name))
     proc = await asyncio.create_subprocess_exec(
         exe, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
     out, err = await asyncio.wait_for(proc.communicate(), timeout=180)
     text = out.decode()
     if not text.strip():
-        raise HTTPException(500, "attack produced no output: " + err.decode()[-500:])
+        raise HTTPException(500, f"{name} produced no output: " + err.decode()[-500:])
     decoder = json.JSONDecoder()
     obj, _ = decoder.raw_decode(text.lstrip())
     if not isinstance(obj, dict):
-        raise HTTPException(500, "unexpected attack output")
+        raise HTTPException(500, f"unexpected {name} output")
     return obj
 
 

@@ -1,4 +1,4 @@
-/** Response payloads of the gateway API (shapes mirror gateway/service.py). */
+/** Response payloads of the gateway API (shapes mirror gateway/service.py and api/main.py). */
 export type Verdict = 'APPROVE' | 'REJECT' | 'DEFER';
 
 export interface Health {
@@ -95,17 +95,6 @@ export interface Proof {
   record?: Record<string, unknown>;
 }
 
-export interface Batch {
-  batchId: number;
-  root: string;
-  count: number;
-  txHash: string;
-  blockNumber: number;
-  modelHashes: string[];
-  leaves: string[];
-  committedAt: number;
-}
-
 export interface Device {
   device_id: string;
   device_model: string;
@@ -138,23 +127,12 @@ export interface Model {
   revokedAt: number;
 }
 
-export interface ReverifiedPair {
-  releaseId: string;
-  deviceId: string;
-  before: Verdict;
-  beforeId: string;
-  after: Verdict;
-  afterId: string | null;
-  rBefore: number;
-  rAfter: number | null;
-}
-
 export interface RevocationReport {
   modelHash: string;
   successor: string;
   swapped: boolean;
   staleBatches: number[];
-  pairs: ReverifiedPair[];
+  pairs: { releaseId: string; deviceId: string; before: Verdict; after: Verdict }[];
   changed: number;
   startedAt: number;
   finishedAt: number;
@@ -174,7 +152,7 @@ export interface Policy {
 
 export interface AttackReport {
   name: string;
-  expected: string; // a verdict, or an outcome label (REPLAYED, BLOCKED) for the flow scenarios
+  expected: string;
   observed: string | null;
   check: string | null;
   reason: string | null;
@@ -182,4 +160,26 @@ export interface AttackReport {
   device_id: string | null;
   details: Record<string, unknown>;
   passed: boolean;
+}
+
+/** The publisher the portal acts for (`PUBLISHER_DID` in the gateway's environment). */
+export interface PublisherMe {
+  did: string;
+  publisherId: string;
+  registered: boolean;
+  status: number;
+  reputation: number | null;
+  publicKey: string | null;
+  keyVersion: number;
+}
+
+/** `verigate-publish release` result as relayed by `POST /publisher/releases`. */
+export interface PublishResult {
+  releaseId: string;
+  version: string;
+  deviceModel: string;
+  expiry: string;
+  status?: string;
+  txHash?: string | null;
+  cids: Record<string, string>;
 }

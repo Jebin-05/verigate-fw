@@ -15,9 +15,12 @@ make down                         # fresh chain next time; the cache volume stay
 ```bash
 make up && ./scripts/demo.sh      # ~1 min up + ~1 min demo with a warm cache
 ```
-Open the dashboard (`http://localhost:5173`): Releases → Verdicts (click *proof*, then *why* on a
-verdict with a rationale) → Fleet → Models (revocation delta after `poisoned-model`) → Attacks
-(launch buttons). `make logs` shows every container.
+Open the dashboard (`http://localhost:5173`). Suggested walk-through: the front door → **publisher
+portal** (publish a release with the v2.0.0 fixture files; watch its journey reach "Inspected") →
+**approval console** (click the new release: the stamp, the eight checks, the risk meters, *Verify
+on the blockchain*) → **security drills** in a second tab (run *Tampered image*, switch back and
+watch "Rejected" arrive in the incoming list and the live activity). `make logs` shows every
+container.
 
 ## If something goes wrong
 - Terminal recordings of the rehearsals below replay with

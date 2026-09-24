@@ -26,9 +26,12 @@ same releases from the publisher's side; the eleven raw drills sit under the wal
 `make logs`
 shows every container.
 
-Explanations need Ollama on the host (`ollama serve`, model `qwen2.5:3b-instruct`) and
-`LLM_ENABLED=true`; without it the report says the explanation model is switched off and
-everything else works.
+Explanations need Ollama on the host (`ollama serve`, model `qwen2.5:3b-instruct`, ~1.9 GB,
+CPU only) and `LLM_ENABLED=true`; without it the report says the explanation model is switched
+off and everything else works. For a live panel set `LLM_AUTO_EXPLAIN=false`: the verdict
+appears in seconds, then the presenter opens the release's **Explanation** tab and presses
+**Explain this verdict** — the *writing…* state shows the local model at work and the prose
+arrives about a minute later. *Write again* / *Try again* re-ask the model.
 
 ## If something goes wrong
 - Terminal recordings of the rehearsals below replay with

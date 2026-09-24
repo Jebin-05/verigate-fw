@@ -16,7 +16,7 @@ git clone <repo> && cd verigate-fw
 make doctor         # checks docker, RAM, disk, free ports
 make up             # builds + starts chain, IPFS, contracts deploy, gateway, fleet, dashboard
 make smoke          # proves the stack reaches an APPROVE verdict end-to-end
-make llm-pull       # optional: LLM explainer (~2 GB, needs ~12 GB RAM)
+make llm-pull       # optional: LLM explainer (qwen2.5:3b-instruct, Apache-2.0, ~1.9 GB download, ~3 GB RAM, CPU only)
 ```
 Works on Linux, macOS (Docker Desktop) and Windows (WSL2 + Docker Desktop). No Python/Node on the host required.
 
@@ -82,7 +82,11 @@ seconds once warm). For a demo without network run
 online, then `VULN_CACHE_DIR=data/vulndb-demo VULN_CACHE_ONLY=true` (host mode).
 
 Enable Stage 2 at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL_HASHES` in `.env`;
-`LLM_ENABLED` / `OLLAMA_URL` control the explain-only rationale (ADR-0002). The model cards under
+`LLM_ENABLED` / `OLLAMA_URL` / `LLM_MODEL` control the explain-only rationale (ADR-0002): a small
+open-weights model (`qwen2.5:3b-instruct`, Apache-2.0, ~1.9 GB, runs on any x86-64/ARM laptop CPU
+through Ollama; `qwen2.5:1.5b-instruct` fits 8 GB machines) writes a plain-language rationale from
+the recorded scores and the ingredient-list diff. With `LLM_AUTO_EXPLAIN=false` it writes only
+when the approver presses **Explain this verdict** (`POST /releases/{id}/explain`). The model cards under
 `models/` state every number. Everything in the cards and under
 `evaluation/results/` is measured on this machine — nothing is typed by hand.
 

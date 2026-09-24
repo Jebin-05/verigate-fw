@@ -75,6 +75,7 @@ export interface Stage2Block {
 
 export interface RationaleStatus {
   status: 'off' | 'none' | 'writing' | 'ready' | 'failed';
+  reason?: string;
   cid?: string;
   model?: string;
   rationale?: Omit<Rationale, 'cid'>;

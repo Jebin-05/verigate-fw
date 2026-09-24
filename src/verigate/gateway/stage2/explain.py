@@ -229,6 +229,11 @@ class Explainer:
 
     COOLDOWN_S = 60.0  # after a connection failure, skip (not cache) for this long
 
+    def forget(self, release_id: str) -> None:
+        """Drop the cached answer for ``release_id`` so the next call asks the model again."""
+        self._cache.pop(release_id, None)
+        self._unavailable_until = 0.0
+
     def _ask(self, prompt: str) -> Rationale:
         resp = self._http.post(
             f"{self.url}/api/chat",

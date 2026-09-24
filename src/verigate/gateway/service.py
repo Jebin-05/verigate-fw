@@ -317,6 +317,59 @@ class GatewayService:
             return await task
         return None
 
+    async def explain_now(self, rid: str, again: bool = False) -> dict[str, Any]:
+        """Start the written explanation for ``rid`` on request (the console's button).
+
+        Re-scores the release deterministically (same models, same features, same decision) so
+        the writer describes exactly what the gate saw. ``again`` discards a finished or failed
+        attempt first. Returns the same shape as ``rationale_status``; a release that never
+        reached Stage 2 answers ``{"status": "none", "reason": ...}``.
+        """
+        if self.explainer is None or not self.explainer.enabled:
+            return {"status": "off"}
+        task = self._rationales.get(rid)
+        if task is not None and not task.done():
+            return await self.rationale_status(rid)
+        if task is not None and not again:
+            return await self.rationale_status(rid)
+        release_id = bytes.fromhex(rid.removeprefix("0x"))
+        bundle = await self.bundle(release_id)
+        if bundle.errors or bundle.release is None or not bundle.release.exists:
+            return {"status": "none", "reason": "release not available"}
+        if bundle.firmware is None or bundle.sbom is None:
+            return {"status": "none", "reason": "the models did not run for this release"}
+        device_model = bundle.manifest.deviceModel if bundle.manifest else ""
+        models = tuple(
+            [await asyncio.to_thread(self.chain.get_model, h) for h in self.model_hashes()]
+        )
+        stage1 = await asyncio.to_thread(
+            run_stage1,
+            Stage1Input(
+                manifest=bundle.manifest,
+                firmware=bundle.firmware,
+                sbom=bundle.sbom,
+                release=bundle.release,
+                publisher=bundle.publisher,
+                device=DeviceView(REFERENCE_DEVICE_ID, device_model, SemVer(0, 0, 0)),
+                models=models,
+                now=self.now(),
+            ),
+            rid,
+        )
+        if stage1.outcome is not None:
+            return {"status": "none", "reason": "the checks stopped this release before the models"}
+        previous = await self.previous_firmware(bundle)
+        scores = await asyncio.to_thread(self.scorer.score, bundle.firmware, bundle.sbom, previous)
+        if not scores.model_hashes:
+            return {"status": "none", "reason": "the models did not run for this release"}
+        reputation_bp = bundle.publisher.reputation_bp if bundle.publisher else None
+        decision = await self.policy.decide(scores.r_sbom_bp, scores.r_img_bp, reputation_bp)
+        if again:
+            self._rationales.pop(rid, None)
+            self.explainer.forget(rid)
+        await self.rationale_for(rid, bundle, scores, decision, device_model, wait=False)
+        return await self.rationale_status(rid)
+
     async def rationale_status(self, rid: str) -> dict[str, Any]:
         """Where the explanation for ``rid`` stands: off / none / writing / ready / failed."""
         if self.explainer is None or not self.explainer.enabled:
@@ -462,11 +515,13 @@ class GatewayService:
             verdict, r_bp, policy_version = decision.verdict, decision.r_bp, decision.policy_version
             record_features = scores.feature_hash
             model_hashes = list(scores.model_hashes)
-            explanation = await self.rationale_for(
-                rid, bundle, scores, decision, view.device_model, wait=False
-            )
-            if explanation is not None:
-                scores = replace(scores, rationale_cid=explanation.cid)
+            if self.settings.llm_auto_explain or rid in self._rationales:
+                # Auto mode starts the writer here; on-request mode only picks up a finished one.
+                explanation = await self.rationale_for(
+                    rid, bundle, scores, decision, view.device_model, wait=False
+                )
+                if explanation is not None:
+                    scores = replace(scores, rationale_cid=explanation.cid)
         record = VerdictRecord(
             releaseId=rid,
             deviceId=view.device_id,

@@ -92,3 +92,12 @@ def test_rationale_status_when_the_explainer_is_off(
     rid = "0x" + world["rid"].hex()
     assert client.get(f"/releases/{rid}/rationale").json() == {"status": "off"}
     assert client.get("/releases/nothex/rationale").status_code == 400
+
+
+def test_explain_endpoint_answers_off_when_the_explainer_is_off(
+    client: TestClient, world: dict[str, Any]
+) -> None:
+    rid = "0x" + world["rid"].hex()
+    assert client.post(f"/releases/{rid}/explain").json() == {"status": "off"}
+    assert client.post(f"/releases/{rid}/explain?again=true").json() == {"status": "off"}
+    assert client.post("/releases/nothex/explain").status_code == 400

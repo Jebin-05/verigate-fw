@@ -165,6 +165,9 @@ export function Releases() {
             devices={devices.data ?? []}
             health={health}
             policy={policy.data?.policy ?? null}
+            initialTab={
+              TABS.includes(params.get('tab') as Tab) ? (params.get('tab') as Tab) : undefined
+            }
           />
         ) : (
           <Panel>
@@ -177,6 +180,7 @@ export function Releases() {
 }
 
 type Tab = 'summary' | 'checks' | 'ai' | 'explanation' | 'devices' | 'proof';
+const TABS: Tab[] = ['summary', 'checks', 'ai', 'explanation', 'devices', 'proof'];
 
 function Detail({
   release,
@@ -185,6 +189,7 @@ function Detail({
   devices,
   health,
   policy,
+  initialTab,
 }: {
   release: Release;
   publisher: Publisher | undefined;
@@ -192,6 +197,7 @@ function Detail({
   devices: Device[];
   health: Health | null;
   policy: Policy | null;
+  initialTab?: Tab;
 }) {
   const fleetLevel =
     entries.filter((e) => e.deviceId === 'release-level').at(-1) ?? entries.at(-1) ?? null;
@@ -201,13 +207,13 @@ function Detail({
   const stage1 = fleetLevel?.stage1 ?? null;
   const ran = new Map(stage1?.checks.map((c) => [c.name, c]) ?? []);
   const stand = standing(fleetLevel?.reputation ?? publisher?.reputation);
-  const [tab, setTab] = useState<Tab>('summary');
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'summary');
   const [proof, setProof] = useState<{ p: Proof; onChain: boolean | null } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     setProof(null);
-    setTab('summary');
-  }, [release.releaseId]);
+    setTab(initialTab ?? 'summary');
+  }, [release.releaseId, initialTab]);
 
   const checkOnChain = async () => {
     if (!fleetLevel?.verdictId) return;

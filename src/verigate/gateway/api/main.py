@@ -233,6 +233,12 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
         rid = _release_id(release_id)
         return await service.rationale_status("0x" + rid.hex())
 
+    @app.post("/releases/{release_id}/explain")
+    async def release_explain(release_id: str, again: bool = False) -> dict[str, Any]:
+        """Ask the local language model to write (or rewrite) the explanation for a release."""
+        rid = _release_id(release_id)
+        return await service.explain_now("0x" + rid.hex(), again=again)
+
     @app.get("/models/cards")
     async def model_cards() -> list[dict[str, Any]]:
         """The configured models' cards and measured metrics, for the console's model panel."""

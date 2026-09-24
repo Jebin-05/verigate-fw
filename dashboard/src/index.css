@@ -996,3 +996,13 @@ details.card pre {
     grid-template-columns: 1fr;
   }
 }
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.row-between h3 {
+  margin: 0;
+}

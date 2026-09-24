@@ -6,6 +6,7 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -28,6 +29,7 @@ from verigate.gateway.stage2.explain import (
     sbom_diff,
 )
 from verigate.gateway.stage2.scores import Stage2Scores
+from verigate.gateway.verdicts.types import Verdict
 from verigate.ml.data.sbom import Component
 
 SBOM_V1 = (FIXTURES / "v1.0.0" / "sbom.json").read_bytes()
@@ -243,3 +245,52 @@ def test_connection_failure_backs_off_without_caching(tmp_path: Path) -> None:
     assert ex.explain(explain_input(release_id="0x" + "cd" * 32)) is None and len(seen) == 1
     ex._unavailable_until = 0.0  # noqa: SLF001 — cooldown elapsed
     assert ex.explain(explain_input()) is not None and len(seen) == 2  # was not cached as failed
+
+
+async def test_explanation_on_request_only(world: dict[str, Any]) -> None:
+    """``LLM_AUTO_EXPLAIN=false``: verdicts never start the writer; the console's button does."""
+    service: GatewayService = world["service"]
+    service.settings = service.settings.model_copy(update={"llm_auto_explain": False})
+    answers: list[Any] = [httpx.ConnectError("refused"), GOOD, GOOD]
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return httpx.Response(200, json={"message": {"content": json.dumps(answer)}})
+
+    service.explainer = Explainer(
+        "http://llm", "m", world["ipfs"], transport=httpx.MockTransport(handler)
+    )
+    await service.refresh_releases()
+    rid_hex = "0x" + world["rid2"].hex()
+    first = await service.verify(world["rid2"])
+    assert first.scores is not None and first.scores.rationale_cid is None
+    assert (await service.rationale_status(rid_hex))["status"] == "none"
+    assert service._rationales == {}  # noqa: SLF001 — nothing started by the verdict
+    # First request: Ollama refuses → failed, and nothing is cached for that.
+    assert (await service.explain_now(rid_hex))["status"] in {"writing", "failed"}
+    await asyncio.gather(*service._rationales.values())  # noqa: SLF001
+    assert (await service.rationale_status(rid_hex))["status"] == "failed"
+    # Asking again after a failure discards the attempt and asks the model again.
+    assert (await service.explain_now(rid_hex, again=True))["status"] in {"writing", "ready"}
+    await asyncio.gather(*service._rationales.values())  # noqa: SLF001
+    status = await service.rationale_status(rid_hex)
+    assert status["status"] == "ready" and status["rationale"]["summary"] == GOOD["summary"]
+    # A finished explanation is returned, not rewritten, unless ``again`` is asked for.
+    assert (await service.explain_now(rid_hex))["cid"] == status["cid"]
+    assert calls == 2
+    # The next verdict picks the CID up even though it never started the writer itself.
+    later = await service.verify(world["rid2"])
+    assert later.scores is not None and later.scores.rationale_cid == status["cid"]
+    # A release that Stage 1 stops is never explained.
+    from verigate.gateway.stage1.runner import Stage1Result  # noqa: PLC0415
+
+    stopped = Stage1Result(ok=False, failed="signature", outcome=Verdict.REJECT)
+    with patch("verigate.gateway.service.run_stage1", return_value=stopped):
+        answer = await service.explain_now("0x" + world["rid1"].hex())
+    assert answer["status"] == "none" and "checks stopped" in answer["reason"]
+    assert calls == 2

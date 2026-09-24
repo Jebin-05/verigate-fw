@@ -50,6 +50,7 @@ export function ExplanationBox({
   hasStage2: boolean;
 }) {
   const [status, setStatus] = useState<RationaleStatus | null>(null);
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -58,8 +59,7 @@ export function ExplanationBox({
         const s = await api.rationaleStatus(releaseId);
         if (!alive) return;
         setStatus(s);
-        if (s.status === 'writing' || s.status === 'none')
-          timer = setTimeout(() => void tick(), 4000);
+        if (s.status === 'writing') timer = setTimeout(() => void tick(), 3000);
       } catch {
         if (alive) setStatus({ status: 'failed' });
       }
@@ -72,7 +72,28 @@ export function ExplanationBox({
     };
   }, [releaseId]);
 
+  const ask = async (again: boolean) => {
+    setBusy(true);
+    try {
+      const s = await api.explain(releaseId, again);
+      setStatus(s);
+      if (s.status === 'writing') {
+        const poll = async () => {
+          const next = await api.rationaleStatus(releaseId);
+          setStatus(next);
+          if (next.status === 'writing') setTimeout(() => void poll(), 3000);
+        };
+        setTimeout(() => void poll(), 3000);
+      }
+    } catch (err) {
+      setStatus({ status: 'failed', reason: (err as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   let body: React.ReactNode;
+  let action: React.ReactNode = null;
   if (!hasStage2) {
     body = (
       <p className="muted small">
@@ -99,21 +120,57 @@ export function ExplanationBox({
         </p>
       </div>
     );
-  } else if (status.status === 'writing' || status.status === 'none') {
+    action = (
+      <button className="btn-sm" disabled={busy} onClick={() => void ask(true)}>
+        Write again
+      </button>
+    );
+  } else if (status.status === 'writing') {
     body = (
       <p className="muted small writing">
-        <span className="pulse" /> Writing an explanation — about a minute on this computer. The
+        <span className="pulse" /> Writing an explanation — about a minute on a CPU-only laptop. The
         verdict above is already final; the text only describes it.
       </p>
     );
   } else if (status.status === 'off') {
-    body = <p className="muted small">The explanation model is switched off on this gateway.</p>;
+    body = (
+      <p className="muted small">
+        The explanation model is switched off on this gateway (LLM_ENABLED=false).
+      </p>
+    );
+  } else if (status.status === 'none') {
+    body = (
+      <p className="muted small">
+        {status.reason
+          ? `Not available: ${status.reason}.`
+          : 'No explanation has been written for this release yet. The local language model reads the recorded scores and the ingredient-list changes and writes a short rationale for a reviewer.'}
+      </p>
+    );
+    if (!status.reason)
+      action = (
+        <button className="btn-primary" disabled={busy} onClick={() => void ask(false)}>
+          {busy ? 'Asking…' : 'Explain this verdict'}
+        </button>
+      );
   } else {
-    body = <p className="muted small">The explanation model did not answer this time.</p>;
+    body = (
+      <p className="muted small">
+        The explanation model did not answer{status.reason ? ` (${status.reason})` : ''}. Is Ollama
+        running on this computer?
+      </p>
+    );
+    action = (
+      <button className="btn-primary" disabled={busy} onClick={() => void ask(true)}>
+        {busy ? 'Asking…' : 'Try again'}
+      </button>
+    );
   }
   return (
     <section>
-      <h3>Explanation</h3>
+      <div className="row-between">
+        <h3>Explanation</h3>
+        {action}
+      </div>
       {body}
     </section>
   );

@@ -55,6 +55,10 @@ export const api = {
   rationale: (cid: string) => request<Rationale>(`/rationales/${cid}`),
   rationaleStatus: (releaseId: string) =>
     request<RationaleStatus>(`/releases/${releaseId}/rationale`),
+  explain: (releaseId: string, again = false) =>
+    request<RationaleStatus>(`/releases/${releaseId}/explain${again ? '?again=true' : ''}`, {
+      method: 'POST',
+    }),
   modelCards: () => request<ModelCard[]>('/models/cards'),
   devices: () => request<Device[]>('/devices'),
   publishers: () => request<Publisher[]>('/publishers'),

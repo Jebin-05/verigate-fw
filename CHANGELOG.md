@@ -2,6 +2,8 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Added
+- Explanation on request: `POST /releases/{id}/explain` (and the **Explain this verdict** / **Write again** / **Try again** buttons in the release's Explanation tab) asks the local language model for the rationale; the gateway re-runs Stage 1 and re-scores with the same models first, so a release stopped by the checks is never explained. `LLM_AUTO_EXPLAIN=false` makes the button the only trigger (ADR-0002 amendment).
 ### Changed
 - Dashboard rebuilt as an application rather than a storyboard (owner's request, 2026-09-24): a sidebar + top-bar shell per workspace, KPI tiles, data tables, a master–detail release view with tabs (Summary, Checks, AI analysis, Explanation, Devices, Proof) and a new-release dialog. Approval console under `/app` (Overview, Releases, Devices, Activity, Governance, Scenarios); publisher portal under `/publisher` (Releases, New release, Identity). `/publish`, `/approve`, `/story`, `/demo` redirect.
 ### Added

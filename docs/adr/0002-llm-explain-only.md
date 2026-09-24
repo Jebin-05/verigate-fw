@@ -20,3 +20,10 @@ checks finished reads as a broken gate. The first verdict for a release is there
 `rationaleCid = null`; the explainer's task still runs once per release, later verdicts carry the
 CID, and `GET /releases/{id}/rationale` serves the text (with a *writing* state) to the console as
 soon as it exists. The decision path is unchanged: the rationale is still never read by the gate.
+
+**Amendment 2026-09-24 (on request).** `POST /releases/{id}/explain` lets the approver ask for the
+rationale from the console (button *Explain this verdict*; `?again=true` discards a failed or
+finished attempt). The gateway re-runs Stage 1 and re-scores the release with the same models,
+so the writer describes exactly what the gate saw; a release stopped by Stage 1 is never
+explained. `LLM_AUTO_EXPLAIN=false` makes this the only trigger, which is what a live
+demonstration wants: the verdict is on screen first, the explanation is asked for second.

@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     llm_model: str = "qwen2.5:3b-instruct"
     llm_enabled: bool = True
     llm_timeout_s: float = 120.0  # per attempt (manual §P6); raise on slow CPU-only hosts
+    llm_auto_explain: bool = (
+        True  # write after every release-level verdict; false = on request only
+    )
 
     # --- vulnerability data
     osv_api: str = "https://api.osv.dev/v1"

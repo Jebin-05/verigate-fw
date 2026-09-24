@@ -57,10 +57,11 @@ compose default — `--profile llm` adds Ollama), 348 s with a CPU-only `qwen2.5
 explaining each release-level verdict (~60–120 s per rationale; device polls never wait for it).
 The first run on an empty vulnerability cache takes 9–30 min (OSV/EPSS/KEV fetch); run the demo
 once the day before, or `make vulndb-seed` from a host cache — runbook in `docs/demo/README.md`.
-Dashboard (http://localhost:5173): a front door and two portals — the **publisher portal**
-(`/publish`: publish a release from the browser, follow your own releases, withdraw) and the
-**approval console** (`/approve`: incoming releases, the inspection report in plain words with the
-on-chain proof check, live activity, fleet and rules) — plus `/demo` for the security drills. Attack scripts: `verigate-attack run <name|all>` — Stage 1: tamper, forge, stolen-key,
+Dashboard (http://localhost:5173): a front door and two workspaces — the **publisher portal**
+(`/publisher`: your releases, a new-release dialog, identity) and the **approval console**
+(`/app`: overview, releases with an inspection detail panel — checks, AI analysis, explanation,
+on-chain proof —, devices, live activity, governance with a rules simulator and model cards, and
+`/app/scenarios` for the walkthrough and the security drills). Attack scripts: `verigate-attack run <name|all>` — Stage 1: tamper, forge, stolen-key,
 rollback, freeze, sbom-swap; AI gate: vulnerable-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper.
 
 ## Models and evaluation

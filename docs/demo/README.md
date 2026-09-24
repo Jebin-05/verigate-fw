@@ -15,14 +15,15 @@ make down                         # fresh chain next time; the cache volume stay
 ```bash
 make up && ./scripts/demo.sh      # ~1 min up + ~1 min demo with a warm cache
 ```
-Open the dashboard (`http://localhost:5173`) and take the **Present to a panel** door
-(`/story`): seven scenarios in story order, each with a line to read aloud, a Run button and the
-live result — genuine release → tampered file → honest-but-old software → hidden payload → the
-rules simulator and a rogue operator → a revoked model replayed → one device's install cycle.
-Keep the **approval console** open in a second window: every result links to its inspection
-report, where the panel sees the eight checks, the risk meters, *What the AI saw*, the written
-explanation (arrives about a minute later if Ollama is running) and *Verify on the blockchain*.
-The publisher portal and the eleven raw drills remain available from the front door. `make logs`
+Open the dashboard (`http://localhost:5173`), enter the **approval console** and go to
+**Scenarios** (`/app/scenarios`): seven steps in story order, one Run button each (or *Run all*),
+with the expected and the live result — genuine release → tampered file → honest-but-old software
+→ hidden payload → rules tampering → a revoked model replayed → one device's install cycle. Every
+result links to the release in **Releases**, where the detail panel shows the eight checks, the
+risk meters, *AI analysis*, the written *Explanation* (arrives about a minute later if Ollama is
+running) and *Proof* (verify on the blockchain). The publisher portal (`/publisher`) shows the
+same releases from the publisher's side; the eleven raw drills sit under the walkthrough.
+`make logs`
 shows every container.
 
 Explanations need Ollama on the host (`ollama serve`, model `qwen2.5:3b-instruct`) and

@@ -2,8 +2,10 @@
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com), versioning: SemVer.
 
 ## [Unreleased]
+### Changed
+- Dashboard rebuilt as an application rather than a storyboard (owner's request, 2026-09-24): a sidebar + top-bar shell per workspace, KPI tiles, data tables, a master–detail release view with tabs (Summary, Checks, AI analysis, Explanation, Devices, Proof) and a new-release dialog. Approval console under `/app` (Overview, Releases, Devices, Activity, Governance, Scenarios); publisher portal under `/publisher` (Releases, New release, Identity). `/publish`, `/approve`, `/story`, `/demo` redirect.
 ### Added
-- Panel demonstration: `/story` runs seven scenarios in order (genuine release, tampered file, honest-but-old software, hidden payload, stricter rules + rogue operator, revoked model, one device's install cycle) with narration and live results; new gateway endpoints `POST /story/publish` (bundled fixture as the portal publisher) and `POST /simulate/device` (one emulated device round, prefix `panel`).
+- Panel demonstration: `/story` (now `/app/scenarios`) runs seven scenarios in order (genuine release, tampered file, honest-but-old software, hidden payload, stricter rules + rogue operator, revoked model, one device's install cycle) with narration and live results; new gateway endpoints `POST /story/publish` (bundled fixture as the portal publisher) and `POST /simulate/device` (one emulated device round, prefix `panel`).
 - The AI made visible in every report: *What the AI saw* renders the recorded Stage-2 feature vectors and top SHAP drivers in plain words (`stage2` now travels with each verification result); model cards with measured accuracy and blind spots (`GET /models/cards`); the written explanation with a *writing…* state (`GET /releases/{id}/rationale`); a rules simulator whose approve/reject sliders re-compute verdicts client-side, labelled as a simulation.
 ### Changed
 - No verification waits for the language-model rationale any more (ADR-0002 amendment): verdicts appear in seconds, the explanation attaches to the release when ready and later verdicts carry its CID. The explainer prompt now names features in plain words and omits identifiers, so explanations read as prose.

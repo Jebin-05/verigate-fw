@@ -2,29 +2,27 @@ React 18 + Vite + TypeScript + ethers v6 + zustand (ADR-0003). Read-only on-chai
 through the gateway API. `make dashboard` starts Vite on :5173 against `VITE_GATEWAY_URL`
 (default `http://localhost:8000`) and `VITE_RPC_URL` (default `http://localhost:8545`).
 
-Two portals, one for each job, plus a front door and a demonstration page:
+Two workspaces, one for each job, each an application shell (sidebar, top bar, KPI tiles, data
+tables, a master–detail view with tabs) that shows deliberately nothing from the other side:
 
-| route | who | what it shows — and deliberately nothing else |
+| route | who | screen |
 |---|---|---|
-| `/` | everyone | choose your portal |
-| `/publish` | the publisher | identity and standing; publish a release (firmware + SBOM + version + expiry); *your* releases with their journey (registered → inspected → installed on N devices), the plain-words reason when one is not approved, withdraw |
-| `/approve` | the approver / fleet operator | incoming releases with their stamp; the inspection report for one (the eight checks in words, risk meters against the rules in force, **what the AI saw** — the real feature values and top drivers in words —, the written explanation with a *writing…* state, device counts, on-chain proof); live activity as sentences; **rules simulator** (approve/reject sliders re-compute every verdict from recorded scores, labelled as a simulation); fleet, rules, model summaries and **model cards** (training data, measured accuracy, blind spots) |
-| `/story` | presenters | **Present to a panel**: seven scenarios in story order, one Run button each, narration, live result and a link into the report |
-| `/demo` | presenters | the eleven security drills with what happens and what the gate does |
+| `/` | everyone | choose a workspace |
+| `/publisher` | the publisher | **Releases** — only *your* releases (status, inspected, installed on N devices, the plain-words note when not approved, withdraw); **New release** (`/publisher/new`, a dialog: firmware + SBOM + version + expiry); **Identity** (`/publisher/identity`: standing, registration, signing key) |
+| `/app` | the approver / fleet operator | **Overview** (KPIs, latest releases, rules in force, live activity); **Releases** (`/app/releases?r=<id>`: searchable table → detail panel with tabs *Summary* (risk meters against the rules), *Checks* (the eight checks in words), *AI analysis* (the real feature values and top drivers), *Explanation* (the written rationale with a *writing…* state), *Devices*, *Proof* (on-chain leaf check and identifiers)); **Devices**; **Activity** (`/app/activity`: the full live log); **Governance** (`/app/governance`: rules, a rules simulator that re-computes verdicts from recorded scores, inspection models with model cards, revocation replays); **Scenarios** (`/app/scenarios`: the seven-step walkthrough with one Run button each, and all eleven security drills with their results) |
 
-The publisher portal never shows fleet, rules, logs or drills; the approval console never shows a
-publish form or anything from another publisher's private material. Hashes live behind
-"Technical identifiers". Roles are separated by route, not by login — authentication is out of
+Old routes redirect: `/publish` → `/publisher`, `/approve` → `/app/releases`, `/story` and
+`/demo` → `/app/scenarios`. Roles are separated by route, not by login — authentication is out of
 scope for this prototype.
 
 ```
 src/
   api/        client.ts (typed fetch, multipart publish), schema.d.ts (generated: npm run api:types), types.ts
   chain/      abi/*.json (synced by scripts/sync_abi.py), useChain.ts (direct RPC reads, verifyLeaf)
-  lib/        words.ts — every sentence the interface says (verdicts, checks, reasons, activity)
-  pages/      Landing · Publisher · Approver · Story · Drills
-  components/ Shell (top bar), Bits (stamp, meter, id), Insight (what the AI saw, explanation, model cards, rules simulator), Activity (websocket /logs as sentences), usePoll
-  state/      zustand store (log buffer, websocket status, running drill)
+  lib/        words.ts — every sentence the interface says (verdicts, checks, reasons, activity); scenarios.ts — the walkthrough steps
+  pages/      Landing · app/{Overview,Releases,Devices,ActivityPage,Governance,Scenarios} · publisher/{PubReleases,PubIdentity}
+  components/ AppShell (sidebar + top bar), Bits (stamp, id, meter, kpi, panel, tabs, modal), Insight (AI analysis, explanation, model cards, rules simulator), Activity (live feed), usePoll
+  state/      store.ts (zustand: log buffer, websocket status, running drill, simulator), activity.ts (websocket → readable lines)
 ```
 
 Fonts are bundled (`@fontsource/ibm-plex-*`), so the UI renders identically offline.

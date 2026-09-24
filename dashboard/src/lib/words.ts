@@ -327,3 +327,7 @@ export function simulate(
   if (R >= sim.reject) return 'REJECT';
   return 'DEFER';
 }
+
+/** Type guard for verification entries in the verdict log (receipts are the other kind). */
+export const isVerdict = (e: unknown): e is VerificationResult =>
+  typeof e === 'object' && e !== null && 'verdict' in e && 'stage1' in e;

@@ -10,7 +10,8 @@ polls the status of every model the gateway runs; when one turns REVOKED it
 4. re-runs the full gate for every pair — the new records land in a new batch — and
 5. persists a before/after report (``STATE_DIR/revocations.json``) the dashboard renders.
 
-Everything is idempotent per revoked hash; a restart does not replay a handled revocation.
+Everything is idempotent per revoked hash; a restart does not replay a handled revocation, but
+it does re-apply the successor swap (the swap is in-memory, the report is on disk).
 """
 
 from __future__ import annotations
@@ -134,14 +135,23 @@ class RevocationJob:
         done: list[RevocationReport] = []
         for digest in self.service.model_hashes():
             model_hash = "0x" + digest.hex()
-            if model_hash in self.handled():
-                continue
             try:
                 record = await asyncio.to_thread(self.service.chain.get_model, digest)
             except ChainError as exc:
                 log.warning("revocation.chain_unavailable", error=str(exc))
                 return done
             if record.status != STATUS_REVOKED:
+                continue
+            if model_hash in self.handled():
+                # Replayed by an earlier process: the report is on disk but the swap lived in
+                # memory, so a restarted gateway would keep scoring with the revoked file and
+                # Stage 1 would reject every release on ``model_active``. Re-apply the swap only.
+                if model_hash not in self._running:
+                    self._running.add(model_hash)
+                    try:
+                        await self.service.swap_model(model_hash, "0x" + record.successor.hex())
+                    finally:
+                        self._running.discard(model_hash)
                 continue
             self._running.add(model_hash)
             try:

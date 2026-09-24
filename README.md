@@ -85,8 +85,9 @@ Enable Stage 2 at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL
 `LLM_ENABLED` / `OLLAMA_URL` / `LLM_MODEL` control the explain-only rationale (ADR-0002): a small
 open-weights model (`qwen2.5:3b-instruct`, Apache-2.0, ~1.9 GB, runs on any x86-64/ARM laptop CPU
 through Ollama; `qwen2.5:1.5b-instruct`, ~1.0 GB, fits 8 GB machines and answers in ~13 s, at the cost of vaguer prose — see the results table) writes a plain-language rationale from
-the recorded scores and the ingredient-list diff. With `LLM_AUTO_EXPLAIN=false` it writes only
-when the approver presses **Explain this verdict** (`POST /releases/{id}/explain`). The model cards under
+the recorded scores and the ingredient-list diff — only when the approver presses **Explain with
+AI** on a release (`POST /releases/{id}/explain`); `LLM_AUTO_EXPLAIN=true` writes after every
+release-level verdict instead. The model cards under
 `models/` state every number. Everything in the cards and under
 `evaluation/results/` is measured on this machine — nothing is typed by hand.
 

@@ -208,6 +208,7 @@ function Detail({
   const ran = new Map(stage1?.checks.map((c) => [c.name, c]) ?? []);
   const stand = standing(fleetLevel?.reputation ?? publisher?.reputation);
   const [tab, setTab] = useState<Tab>(initialTab ?? 'summary');
+  const [ask, setAsk] = useState(0);
   const [proof, setProof] = useState<{ p: Proof; onChain: boolean | null } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -266,7 +267,25 @@ function Detail({
                 : 'Not inspected yet — the gateway picks up new releases within seconds.'}
           </p>
         </div>
-        <Stamp verdict={fleetLevel?.verdict ?? release.lastVerdict} revoked={release.revoked} big />
+        <div className="detail-side">
+          <Stamp
+            verdict={fleetLevel?.verdict ?? release.lastVerdict}
+            revoked={release.revoked}
+            big
+          />
+          {fleetLevel && stage1?.ok && !release.revoked && (
+            <button
+              className="btn-primary"
+              title="Ask the local language model to explain this verdict in plain words"
+              onClick={() => {
+                setTab('explanation');
+                setAsk((n) => n + 1);
+              }}
+            >
+              Explain with AI
+            </button>
+          )}
+        </div>
       </div>
       <Tabs
         tabs={[
@@ -357,6 +376,7 @@ function Detail({
           <ExplanationBox
             releaseId={release.releaseId}
             hasStage2={Boolean(fleetLevel && stage1?.ok)}
+            ask={ask}
           />
         )}
         {tab === 'devices' && (

@@ -1006,3 +1006,10 @@ details.card pre {
 .row-between h3 {
   margin: 0;
 }
+
+.detail-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}

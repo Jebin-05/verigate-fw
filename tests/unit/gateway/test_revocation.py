@@ -159,6 +159,26 @@ async def test_revocation_replays_stale_verdicts(
     assert [r.to_dict() for r in again.reports] == [report.to_dict()]
     assert again.reports[0].to_dict()["changed"] == 0
     assert chain.get_model(bytes.fromhex(models["v1"][2:])).status == STATUS_REVOKED
+    # A restarted gateway boots with the configured (revoked) model again: the job must re-apply
+    # the swap without replaying, or every new release would be rejected on ``model_active``.
+    reborn = GatewayService(
+        settings=world["cfg"], chain=chain, ipfs=service.ipfs, state_dir=service.state_dir
+    )
+    reborn.scorer = Stage2Scorer(
+        None,
+        ImageScorer(
+            models["dir"] / "image_anomaly.onnx",
+            json.loads((models["dir"] / "image_anomaly.context.json").read_text()),
+        ),
+    )
+    assert reborn.model_hashes() == (v1,)
+    restarted = RevocationJob(reborn, job.path)
+    assert await restarted.check_once() == []  # no second report
+    assert reborn.model_hashes() == (v2,)  # but the successor is in use
+    assert len(restarted.reports) == 1
+    fresh = await reborn.verify(bytes.fromhex(first.release_id[2:]))
+    assert fresh.stage1 is not None and fresh.stage1.ok
+    assert await restarted.check_once() == []  # idempotent again
 
 
 async def test_revocation_without_successor_stays_closed(

@@ -25,8 +25,9 @@ soon as it exists. The decision path is unchanged: the rationale is still never 
 rationale from the console (button *Explain this verdict*; `?again=true` discards a failed or
 finished attempt). The gateway re-runs Stage 1 and re-scores the release with the same models,
 so the writer describes exactly what the gate saw; a release stopped by Stage 1 is never
-explained. `LLM_AUTO_EXPLAIN=false` makes this the only trigger, which is what a live
-demonstration wants: the verdict is on screen first, the explanation is asked for second. The `recommended_action` field is the verdict's, not
+explained. This is the default trigger (`LLM_AUTO_EXPLAIN=false`), at the owner's request: the
+verdict is on screen first, the explanation is asked for second; `LLM_AUTO_EXPLAIN=true` restores
+writing after every release-level verdict. The `recommended_action` field is the verdict's, not
 the writer's: the prompt states the required value (APPROVE → install, DEFER → review, REJECT →
 block) and the explainer overwrites any deviation before pinning, logging `explain.action_aligned`.
 Measured 2026-09-24 on the CPU-only laptop with the model warm: `qwen2.5:3b-instruct` 30–33 s and

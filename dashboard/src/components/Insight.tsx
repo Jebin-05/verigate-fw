@@ -1,5 +1,5 @@
 /** The AI made visible: what the models saw, the written explanation, model cards, rules simulator. */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { ModelCard, Policy, RationaleStatus, Stage2Block } from '../api/types';
 import { aiSaw, bp } from '../lib/words';
@@ -45,12 +45,16 @@ export function AiSaw({ stage2 }: { stage2: Stage2Block | null | undefined }) {
 export function ExplanationBox({
   releaseId,
   hasStage2,
+  ask = 0,
 }: {
   releaseId: string;
   hasStage2: boolean;
+  /** Bumped by the header's "Explain with AI" button: start writing unless one exists already. */
+  ask?: number;
 }) {
   const [status, setStatus] = useState<RationaleStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const askedAt = useRef(0);
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -72,25 +76,35 @@ export function ExplanationBox({
     };
   }, [releaseId]);
 
-  const ask = async (again: boolean) => {
-    setBusy(true);
-    try {
-      const s = await api.explain(releaseId, again);
-      setStatus(s);
-      if (s.status === 'writing') {
-        const poll = async () => {
-          const next = await api.rationaleStatus(releaseId);
-          setStatus(next);
-          if (next.status === 'writing') setTimeout(() => void poll(), 3000);
-        };
-        setTimeout(() => void poll(), 3000);
+  const request = useCallback(
+    async (again: boolean) => {
+      setBusy(true);
+      try {
+        const s = await api.explain(releaseId, again);
+        setStatus(s);
+        if (s.status === 'writing') {
+          const poll = async () => {
+            const next = await api.rationaleStatus(releaseId);
+            setStatus(next);
+            if (next.status === 'writing') setTimeout(() => void poll(), 3000);
+          };
+          setTimeout(() => void poll(), 3000);
+        }
+      } catch (err) {
+        setStatus({ status: 'failed', reason: (err as Error).message });
+      } finally {
+        setBusy(false);
       }
-    } catch (err) {
-      setStatus({ status: 'failed', reason: (err as Error).message });
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    [releaseId],
+  );
+  useEffect(() => {
+    // The header button: write once per press, but never discard an explanation that exists.
+    if (ask === 0 || ask === askedAt.current || !status || !hasStage2) return;
+    askedAt.current = ask;
+    if (status.status === 'none' || status.status === 'failed')
+      void request(status.status === 'failed');
+  }, [ask, status, hasStage2, request]);
 
   let body: React.ReactNode;
   let action: React.ReactNode = null;
@@ -121,7 +135,7 @@ export function ExplanationBox({
       </div>
     );
     action = (
-      <button className="btn-sm" disabled={busy} onClick={() => void ask(true)}>
+      <button className="btn-sm" disabled={busy} onClick={() => void request(true)}>
         Write again
       </button>
     );
@@ -148,7 +162,7 @@ export function ExplanationBox({
     );
     if (!status.reason)
       action = (
-        <button className="btn-primary" disabled={busy} onClick={() => void ask(false)}>
+        <button className="btn-primary" disabled={busy} onClick={() => void request(false)}>
           {busy ? 'Asking…' : 'Explain this verdict'}
         </button>
       );
@@ -160,7 +174,7 @@ export function ExplanationBox({
       </p>
     );
     action = (
-      <button className="btn-primary" disabled={busy} onClick={() => void ask(true)}>
+      <button className="btn-primary" disabled={busy} onClick={() => void request(true)}>
         {busy ? 'Asking…' : 'Try again'}
       </button>
     );

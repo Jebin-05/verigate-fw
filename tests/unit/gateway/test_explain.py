@@ -170,6 +170,7 @@ async def test_rationale_never_blocks_a_verdict_and_is_picked_up_later(
     world: dict[str, Any],
 ) -> None:
     service: GatewayService = world["service"]
+    service.settings = service.settings.model_copy(update={"llm_auto_explain": True})
     gate = asyncio.Event()
     loop = asyncio.get_running_loop()
 
@@ -204,7 +205,7 @@ async def test_rationale_never_blocks_a_verdict_and_is_picked_up_later(
     assert release.scores is not None
     await asyncio.gather(*service._rationales.values())  # noqa: SLF001
     status = await service.rationale_status(rid_hex)
-    # The writer answered "review"; the pinned action follows the gate's verdict (APPROVE → install).
+    # The writer answered "review"; the pinned action follows the verdict (APPROVE → install).
     assert status["status"] == "ready" and status["rationale"]["recommended_action"] == "install"
     pinned = json.loads(world["ipfs"].get(status["cid"]))
     assert pinned["summary"].startswith("Facts") and pinned["recommended_action"] == "install"
@@ -250,9 +251,9 @@ def test_connection_failure_backs_off_without_caching(tmp_path: Path) -> None:
 
 
 async def test_explanation_on_request_only(world: dict[str, Any]) -> None:
-    """``LLM_AUTO_EXPLAIN=false``: verdicts never start the writer; the console's button does."""
+    """Default (``LLM_AUTO_EXPLAIN=false``): verdicts never start the writer; the button does."""
     service: GatewayService = world["service"]
-    service.settings = service.settings.model_copy(update={"llm_auto_explain": False})
+    assert service.settings.llm_auto_explain is False
     answers: list[Any] = [httpx.ConnectError("refused"), GOOD, GOOD]
     calls = 0
 

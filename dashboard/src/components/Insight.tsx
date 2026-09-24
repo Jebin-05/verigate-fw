@@ -89,7 +89,7 @@ export function ExplanationBox({
         {status.rationale.top_risks.length > 0 && (
           <ul>
             {status.rationale.top_risks.map((r) => (
-              <li key={r}>{r}</li>
+              <li key={r}>{r.replace(/_/g, ' ')}</li>
             ))}
           </ul>
         )}

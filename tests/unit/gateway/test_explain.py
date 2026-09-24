@@ -84,7 +84,7 @@ def test_sbom_diff_and_prompt_are_bounded() -> None:
     small = SbomDiff((Component("a", "1"),), (), ()).to_json()
     assert small["added"] == ["a@1"] and small["changed"] == []
     prompt = build_prompt(explain_input())
-    assert '"verdict_from_deterministic_gate":"DEFER"' in prompt and len(prompt) < 3000
+    assert '"verdict from the deterministic gate":"DEFER"' in prompt and len(prompt) < 3000
 
 
 def test_rationale_schema_is_strict() -> None:

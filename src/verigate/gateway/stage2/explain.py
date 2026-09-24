@@ -177,26 +177,27 @@ class Explanation:
 def build_prompt(inp: ExplainInput) -> str:
     """The user message: structured facts, nothing the model has to guess."""
     facts = {
-        "release": {"version": inp.version, "device_model": inp.device_model},
-        "verdict_from_deterministic_gate": inp.verdict,
-        "scores_0_to_1": {
-            "ingredient_list_risk": inp.r_sbom_bp / 10_000,
-            "binary_structure_risk": inp.r_img_bp / 10_000,
-            "expected_exploited_vulnerabilities": inp.expected_exploited,
-            "known_vulnerabilities_in_ingredient_list": inp.cves,
+        "release": {"version": inp.version, "device model": inp.device_model},
+        "verdict from the deterministic gate": inp.verdict,
+        "scores from 0 to 1": {
+            "ingredient list risk": inp.r_sbom_bp / 10_000,
+            "binary structure risk": inp.r_img_bp / 10_000,
+            "expected exploited vulnerabilities": inp.expected_exploited,
+            "known vulnerabilities in the ingredient list": inp.cves,
         },
-        "what_drove_the_scores": {
-            "ingredient_list_model": _readable(inp.top_sbom),
-            "binary_structure_model": _readable(inp.top_img),
+        "what drove the scores": {
+            "ingredient list model": _readable(inp.top_sbom),
+            "binary structure model": _readable(inp.top_img),
         },
-        "ingredient_list_changes_vs_previous_release": inp.diff.to_json(),
+        "ingredient list changes versus the previous release": inp.diff.to_json(),
     }
     return (
         "Facts (JSON):\n"
         + json.dumps(facts, separators=(",", ":"))
         + "\n\nRespond with a JSON object with keys summary (2-4 sentences), top_risks (up to 5 "
-        "short strings, empty if none), recommended_action (install | review | block). The "
-        "decision was already made by the deterministic gate; explain it for a human."
+        "plain-English phrases such as 'many outdated packages', never field names; empty if "
+        "none), recommended_action (install | review | block). The decision was already made by "
+        "the deterministic gate; explain it for a human."
     )
 
 

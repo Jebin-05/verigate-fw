@@ -48,7 +48,8 @@ export function Publisher() {
 
   const submit = async (ev: FormEvent<HTMLFormElement>) => {
     ev.preventDefault();
-    const form = new FormData(ev.currentTarget);
+    const formEl = ev.currentTarget; // React clears currentTarget once the handler yields
+    const form = new FormData(formEl);
     form.set('device_model', effectiveModel);
     form.set('version', version || suggested);
     form.set('expiry', `${expiry}T00:00:00Z`);
@@ -61,7 +62,7 @@ export function Publisher() {
         tone: 'ok',
       });
       setVersion('');
-      ev.currentTarget.reset();
+      formEl.reset();
       void releases.refresh();
     } catch (err) {
       setMessage({ text: `Not published: ${(err as Error).message}`, tone: 'bad' });

@@ -1,7 +1,8 @@
 /** Devices: every device that has checked in, what it runs, and its receipts. */
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
-import { Empty, Id, Kpi, Panel } from '../../components/Bits';
+import { Empty, Id, Kpi, Loading, Panel } from '../../components/Bits';
 import { usePoll } from '../../components/usePoll';
 
 function since(epoch: number): string {
@@ -16,37 +17,64 @@ function since(epoch: number): string {
 export function Devices() {
   const devices = usePoll(api.devices, 4000);
   const releases = usePoll(api.releases, 5000);
-  const list = (devices.data ?? []).slice().sort((a, b) => b.last_seen - a.last_seen);
+  const [query, setQuery] = useState('');
+  const all = useMemo(
+    () => (devices.data ?? []).slice().sort((a, b) => b.last_seen - a.last_seen),
+    [devices.data],
+  );
+  const q = query.trim().toLowerCase();
+  const list = q
+    ? all.filter((d) =>
+        `${d.device_id} ${d.device_model} ${d.installed_version}`.toLowerCase().includes(q),
+      )
+    : all;
   const byVersion = new Map<string, number>();
-  for (const d of list)
+  for (const d of all)
     byVersion.set(d.installed_version, (byVersion.get(d.installed_version) ?? 0) + 1);
   const latest = (releases.data ?? [])
     .filter((r) => r.lastVerdict === 'APPROVE' && !r.revoked)
     .at(-1);
   const onLatest = latest
-    ? list.filter((d) => d.installed_release_id === latest.releaseId).length
+    ? all.filter((d) => d.installed_release_id === latest.releaseId).length
     : 0;
   const versionOf = (id: string | null) =>
     (releases.data ?? []).find((r) => r.releaseId === id)?.version ?? null;
   return (
     <>
       <div className="kpis">
-        <Kpi label="Devices checked in" value={list.length} />
+        <Kpi label="Devices checked in" value={all.length} />
         <Kpi
           label="On the latest approved release"
           value={onLatest}
           sub={latest ? latest.version : 'no approved release'}
+          to={latest ? `/app/releases?r=${latest.releaseId}` : undefined}
         />
         <Kpi
           label="Versions in the field"
           value={byVersion.size}
           sub={[...byVersion.entries()].map(([v, n]) => `${v} ×${n}`).join(' · ')}
         />
-        <Kpi label="Receipts received" value={list.reduce((a, d) => a + d.receipts, 0)} />
+        <Kpi label="Receipts received" value={all.reduce((a, d) => a + d.receipts, 0)} />
       </div>
-      <Panel title="Devices" flush>
-        {list.length === 0 ? (
+      <Panel
+        title={`Devices (${list.length})`}
+        flush
+        actions={
+          <input
+            type="search"
+            placeholder="Search device, model, version…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search devices"
+          />
+        }
+      >
+        {devices.loading ? (
+          <Loading what="devices" />
+        ) : all.length === 0 ? (
           <Empty>No device has checked in yet.</Empty>
+        ) : list.length === 0 ? (
+          <Empty>No device matches “{query}”.</Empty>
         ) : (
           <table className="data">
             <thead>
@@ -78,7 +106,12 @@ export function Devices() {
                     )}
                   </td>
                   <td className="num">{d.receipts}</td>
-                  <td className="muted">{since(d.last_seen)}</td>
+                  <td
+                    className="muted"
+                    title={d.last_seen ? new Date(d.last_seen * 1000).toLocaleString() : undefined}
+                  >
+                    {since(d.last_seen)}
+                  </td>
                   <td>
                     <Id value={d.public_key} chars={10} />
                   </td>

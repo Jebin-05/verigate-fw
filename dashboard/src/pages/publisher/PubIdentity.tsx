@@ -44,11 +44,6 @@ export function PubIdentity() {
         ) : (
           <p className="muted">Loading…</p>
         )}
-        <p className="hint">
-          Standing moves up with every signed install receipt and down with every release-level
-          rejection. It can hold a borderline release for review; it can never reject one on its
-          own. Only the gateway can write it.
-        </p>
       </Panel>
     </>
   );

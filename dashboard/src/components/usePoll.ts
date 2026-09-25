@@ -1,4 +1,4 @@
-/** Poll an async loader on an interval; exposes data, error and a manual refresh. */
+/** Poll an async loader on an interval; exposes data, error, loading and a manual refresh. */
 import { useCallback, useEffect, useState } from 'react';
 
 export function usePoll<T>(loader: () => Promise<T>, intervalMs = 3000) {
@@ -17,5 +17,5 @@ export function usePoll<T>(loader: () => Promise<T>, intervalMs = 3000) {
     const id = setInterval(() => void refresh(), intervalMs);
     return () => clearInterval(id);
   }, [refresh, intervalMs]);
-  return { data, error, refresh };
+  return { data, error, refresh, loading: data === null && error === null };
 }

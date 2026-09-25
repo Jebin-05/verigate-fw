@@ -19,9 +19,6 @@ export function Landing() {
             <span>Publish releases, track their status and installs, withdraw.</span>
           </Link>
         </div>
-        <p className="foot">
-          Roles are separated by workspace in this prototype; sign-in is out of scope.
-        </p>
       </div>
     </div>
   );

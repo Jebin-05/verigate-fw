@@ -62,10 +62,6 @@ export function Governance() {
           ) : (
             <Empty>Rules unavailable.</Empty>
           )}
-          <p className="hint">
-            Changing these is a blockchain transaction by an administrator (`verigate-admin
-            set-policy`); the gateway only reads them, once per block.
-          </p>
         </Panel>
         <Panel>
           <RulesSimulator policy={p} sim={sim} setSim={setSim} changed={changed} />

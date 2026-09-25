@@ -1,5 +1,5 @@
 /** Releases: filterable table on the left, the selected release's inspection detail on the right. */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import type {
@@ -12,10 +12,10 @@ import type {
   VerificationResult,
 } from '../../api/types';
 import { verifyLeafOnChain } from '../../chain/useChain';
-import { Empty, Id, Meter, Panel, Stamp, Tabs } from '../../components/Bits';
+import { Empty, Id, Loading, Meter, Panel, Stamp, Tabs, Time } from '../../components/Bits';
 import { AiSaw, ExplanationBox } from '../../components/Insight';
 import { usePoll } from '../../components/usePoll';
-import { useSim } from '../../state/store';
+import { useSim, useToast } from '../../state/store';
 import {
   CHECKS,
   VERDICT_TONE,
@@ -30,6 +30,7 @@ import {
 } from '../../lib/words';
 
 type Filter = 'all' | 'APPROVE' | 'DEFER' | 'REJECT' | 'withdrawn';
+const FILTERS: Filter[] = ['all', 'APPROVE', 'DEFER', 'REJECT', 'withdrawn'];
 
 export function Releases() {
   const health = useOutletContext<Health | null>();
@@ -50,8 +51,26 @@ export function Releases() {
     (publishers.data ?? []).find((p) => p.publisherId === id)?.did.replace('did:verigate:', '') ??
     '—';
 
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  // Search, filter, selection and tab all live in the URL so links and the back button work.
+  const [params, setParams] = useSearchParams();
+  const query = params.get('q') ?? '';
+  const filter = (FILTERS.includes(params.get('f') as Filter) ? params.get('f') : 'all') as Filter;
+  const patch = useCallback(
+    (next: Record<string, string | null>, replace = false) => {
+      setParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(next)) {
+            if (v === null || v === '' || (k === 'f' && v === 'all')) p.delete(k);
+            else p.set(k, v);
+          }
+          return p;
+        },
+        { replace },
+      );
+    },
+    [setParams],
+  );
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (releases.data ?? [])
@@ -68,12 +87,26 @@ export function Releases() {
       });
   }, [releases.data, query, filter, publishers.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [params, setParams] = useSearchParams();
   const selected = params.get('r');
   useEffect(() => {
-    if (!selected && list.length > 0) setParams({ r: list[0].releaseId }, { replace: true });
-  }, [list, selected, setParams]);
+    if (!selected && list.length > 0) patch({ r: list[0].releaseId }, true);
+  }, [list, selected, patch]);
   const release = (releases.data ?? []).find((r) => r.releaseId === selected) ?? null;
+  const select = (id: string) => patch({ r: id, tab: null });
+  const onRowKey = (e: KeyboardEvent<HTMLTableRowElement>, index: number) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      select(list[index].releaseId);
+    } else if (e.key === 'ArrowDown' && index < list.length - 1) {
+      e.preventDefault();
+      select(list[index + 1].releaseId);
+      (e.currentTarget.nextElementSibling as HTMLElement | null)?.focus();
+    } else if (e.key === 'ArrowUp' && index > 0) {
+      e.preventDefault();
+      select(list[index - 1].releaseId);
+      (e.currentTarget.previousElementSibling as HTMLElement | null)?.focus();
+    }
+  };
 
   return (
     <div className="split">
@@ -83,11 +116,17 @@ export function Releases() {
         actions={
           <>
             <input
+              type="search"
               placeholder="Search version, model, publisher…"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => patch({ q: e.target.value }, true)}
+              aria-label="Search releases"
             />
-            <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
+            <select
+              value={filter}
+              onChange={(e) => patch({ f: e.target.value })}
+              aria-label="Filter by verdict"
+            >
               <option value="all">All</option>
               <option value="APPROVE">Approved</option>
               <option value="DEFER">Needs review</option>
@@ -104,8 +143,21 @@ export function Releases() {
           </p>
         )}
         {releases.error && <p className="notice bad">{releases.error}</p>}
-        {list.length === 0 ? (
-          <Empty>No releases match.</Empty>
+        {releases.loading ? (
+          <Loading what="releases" />
+        ) : list.length === 0 ? (
+          <Empty>
+            {(releases.data ?? []).length === 0 ? (
+              'No releases registered yet.'
+            ) : (
+              <>
+                No releases match.{' '}
+                <button className="link-button" onClick={() => patch({ q: null, f: null })}>
+                  Clear the search and filter
+                </button>
+              </>
+            )}
+          </Empty>
         ) : (
           <table className="data">
             <thead>
@@ -120,7 +172,7 @@ export function Releases() {
               </tr>
             </thead>
             <tbody>
-              {list.map((r) => {
+              {list.map((r, i) => {
                 const f = fleetByRelease.get(r.releaseId);
                 const simulated =
                   sim && f ? simulate(f.verdict, f.stage1?.ok ?? null, f.R, sim) : null;
@@ -131,7 +183,10 @@ export function Releases() {
                   <tr
                     key={r.releaseId}
                     className={`clickable${r.releaseId === selected ? ' selected' : ''}`}
-                    onClick={() => setParams({ r: r.releaseId })}
+                    onClick={() => select(r.releaseId)}
+                    onKeyDown={(e) => onRowKey(e, i)}
+                    tabIndex={0}
+                    aria-selected={r.releaseId === selected}
                   >
                     <td>
                       <b>{r.version}</b>
@@ -145,7 +200,9 @@ export function Releases() {
                       )}
                     </td>
                     <td className="num">{f && f.stage1?.ok ? bp(f.R) : '—'}</td>
-                    <td className="muted">{fmtDate(r.lastVerdictAt)}</td>
+                    <td className="muted">
+                      <Time iso={r.lastVerdictAt} />
+                    </td>
                     <td className="num">{installed}</td>
                   </tr>
                 );
@@ -168,6 +225,7 @@ export function Releases() {
             initialTab={
               TABS.includes(params.get('tab') as Tab) ? (params.get('tab') as Tab) : undefined
             }
+            onTab={(t) => patch({ tab: t }, true)}
           />
         ) : (
           <Panel>
@@ -190,6 +248,7 @@ function Detail({
   health,
   policy,
   initialTab,
+  onTab,
 }: {
   release: Release;
   publisher: Publisher | undefined;
@@ -198,7 +257,9 @@ function Detail({
   health: Health | null;
   policy: Policy | null;
   initialTab?: Tab;
+  onTab: (tab: Tab) => void;
 }) {
+  const toast = useToast();
   const fleetLevel =
     entries.filter((e) => e.deviceId === 'release-level').at(-1) ?? entries.at(-1) ?? null;
   const perDevice = new Map<string, VerificationResult>();
@@ -207,13 +268,18 @@ function Detail({
   const stage1 = fleetLevel?.stage1 ?? null;
   const ran = new Map(stage1?.checks.map((c) => [c.name, c]) ?? []);
   const stand = standing(fleetLevel?.reputation ?? publisher?.reputation);
-  const [tab, setTab] = useState<Tab>(initialTab ?? 'summary');
+  const [tab, setTabState] = useState<Tab>(initialTab ?? 'summary');
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    onTab(t);
+  };
   const [ask, setAsk] = useState(0);
+  const [explainState, setExplainState] = useState<string | null>(null);
   const [proof, setProof] = useState<{ p: Proof; onChain: boolean | null } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     setProof(null);
-    setTab(initialTab ?? 'summary');
+    setTabState(initialTab ?? 'summary');
   }, [release.releaseId, initialTab]);
 
   const checkOnChain = async () => {
@@ -232,7 +298,7 @@ function Detail({
       }
       setProof({ p, onChain });
     } catch (err) {
-      window.alert(`Could not fetch the proof: ${(err as Error).message}`);
+      toast(`Could not fetch the proof: ${(err as Error).message}`, 'bad');
     } finally {
       setBusy(false);
     }
@@ -276,13 +342,22 @@ function Detail({
           {fleetLevel && stage1?.ok && !release.revoked && (
             <button
               className="btn-primary"
-              title="Ask the local language model to explain this verdict in plain words"
+              title={
+                explainState === 'ready'
+                  ? 'Show the written explanation'
+                  : 'Ask the local language model to explain this verdict in plain words'
+              }
+              disabled={explainState === 'writing'}
               onClick={() => {
                 setTab('explanation');
                 setAsk((n) => n + 1);
               }}
             >
-              Explain with AI
+              {explainState === 'writing'
+                ? 'Writing…'
+                : explainState === 'ready'
+                  ? 'Show explanation'
+                  : 'Explain with AI'}
             </button>
           )}
         </div>
@@ -325,10 +400,6 @@ function Detail({
                 marks={marks}
                 overall
               />
-              <p className="hint" style={{ marginTop: 22 }}>
-                0 = no concern, 1 = maximum. Overall risk is a weighted mix compared with the
-                approve and reject lines set on-chain.
-              </p>
             </div>
           ) : (
             <dl className="kv">
@@ -377,6 +448,7 @@ function Detail({
             releaseId={release.releaseId}
             hasStage2={Boolean(fleetLevel && stage1?.ok)}
             ask={ask}
+            onStatus={setExplainState}
           />
         )}
         {tab === 'devices' && (
@@ -411,7 +483,9 @@ function Detail({
                       <td>
                         <Stamp verdict={v.verdict} />
                       </td>
-                      <td className="muted">{fmtDate(v.checkedAt)}</td>
+                      <td className="muted">
+                        <Time iso={v.checkedAt} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -423,11 +497,7 @@ function Detail({
           <>
             {fleetLevel?.verdictId ? (
               <>
-                <p className="small muted">
-                  The decision is signed by the gateway and anchored on the blockchain in a batch.
-                  Check it against the chain directly.
-                </p>
-                <p style={{ marginTop: 10 }}>
+                <p>
                   <button onClick={() => void checkOnChain()} disabled={busy}>
                     {busy ? 'Checking…' : 'Verify on the blockchain'}
                   </button>

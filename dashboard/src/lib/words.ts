@@ -134,10 +134,19 @@ export function fmtDate(iso: string | null | undefined): string {
 export interface Line {
   text: string;
   tone: Tone;
+  /** The release the event is about, when it names one — lets the feed link to it. */
+  releaseId?: string;
 }
 
 /** Turn a structured gateway event into one sentence, or `null` to leave it out of the feed. */
 export function describeEvent(e: LogEvent): Line | null {
+  const line = describe(e);
+  const rid = e.release_id;
+  if (line && typeof rid === 'string' && rid.startsWith('0x')) line.releaseId = rid;
+  return line;
+}
+
+function describe(e: LogEvent): Line | null {
   const s = (k: string) => (typeof e[k] === 'string' ? (e[k] as string) : undefined);
   const device = s('device_id');
   const where = !device || device === 'release-level' ? 'for the fleet' : `for device ${device}`;

@@ -3,9 +3,10 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { Release, VerificationResult } from '../../api/types';
-import { Empty, Kpi, Modal, Panel, Stamp } from '../../components/Bits';
+import { Confirm, Empty, Kpi, Loading, Modal, Panel, Stamp, Time } from '../../components/Bits';
 import { usePoll } from '../../components/usePoll';
-import { fmtDate, isVerdict, reasonWords } from '../../lib/words';
+import { isVerdict, reasonWords } from '../../lib/words';
+import { useToast } from '../../state/store';
 
 function nextVersion(releases: Release[], model: string): string {
   const own = releases
@@ -14,6 +15,16 @@ function nextVersion(releases: Release[], model: string): string {
   if (own.length === 0) return '1.0.0';
   const [a, b, c] = own.sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2]).at(-1)!;
   return `${a}.${b}.${c + 1}`;
+}
+
+/** True when `candidate` is strictly higher than every version already published for `model`. */
+function isNewer(releases: Release[], model: string, candidate: string): boolean {
+  const c = candidate.split('.').map(Number);
+  if (c.length !== 3 || c.some((n) => Number.isNaN(n))) return false;
+  return releases
+    .filter((r) => r.deviceModel === model)
+    .map((r) => r.version.split('.').map(Number))
+    .every(([a, b, d]) => c[0] > a || (c[0] === a && (c[1] > b || (c[1] === b && c[2] > d))));
 }
 
 function yearFromNow(): string {
@@ -47,20 +58,21 @@ export function PubReleases({ openForm = false }: { openForm?: boolean }) {
   const models = useMemo(() => Array.from(new Set(mine.map((r) => r.deviceModel))).sort(), [mine]);
 
   const [showForm, setShowForm] = useState(openForm);
-  const [message, setMessage] = useState<{ text: string; tone: 'ok' | 'bad' } | null>(null);
+  const [pending, setPending] = useState<Release | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const toast = useToast();
 
   const withdraw = async (r: Release) => {
-    if (
-      !window.confirm(
-        `Withdraw ${r.version} for ${r.deviceModel}? Devices will refuse it from now on.`,
-      )
-    )
-      return;
+    setWithdrawing(true);
     try {
       await api.withdraw(r.releaseId);
+      toast(`${r.version} for ${r.deviceModel} withdrawn. Devices refuse it from now on.`, 'ok');
+      setPending(null);
       void releases.refresh();
     } catch (err) {
-      window.alert(`Could not withdraw: ${(err as Error).message}`);
+      toast(`Could not withdraw ${r.version}: ${(err as Error).message}`, 'bad');
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -83,7 +95,6 @@ export function PubReleases({ openForm = false }: { openForm?: boolean }) {
           }
         />
       </div>
-      {message && <p className={`notice ${message.tone}`}>{message.text}</p>}
       <Panel
         title="Releases"
         flush
@@ -94,7 +105,9 @@ export function PubReleases({ openForm = false }: { openForm?: boolean }) {
         }
       >
         {releases.error && <p className="notice bad">{releases.error}</p>}
-        {mine.length === 0 ? (
+        {releases.loading || me.loading ? (
+          <Loading what="releases" />
+        ) : mine.length === 0 ? (
           <Empty>No releases yet. Use “New release” to publish your first one.</Empty>
         ) : (
           <table className="data">
@@ -121,14 +134,16 @@ export function PubReleases({ openForm = false }: { openForm?: boolean }) {
                     <td>
                       <Stamp verdict={r.lastVerdict} revoked={r.revoked} />
                     </td>
-                    <td className="muted">{fmtDate(r.lastVerdictAt)}</td>
+                    <td className="muted">
+                      <Time iso={r.lastVerdictAt} />
+                    </td>
                     <td className="num">{installedCount(r.releaseId)}</td>
                     <td className="wrap muted" style={{ maxWidth: 380 }}>
                       {r.revoked ? 'Withdrawn' : f && f.verdict !== 'APPROVE' ? reasonWords(f) : ''}
                     </td>
                     <td>
                       {!r.revoked && (
-                        <button className="btn-sm btn-danger" onClick={() => void withdraw(r)}>
+                        <button className="btn-sm btn-danger" onClick={() => setPending(r)}>
                           Withdraw
                         </button>
                       )}
@@ -140,16 +155,33 @@ export function PubReleases({ openForm = false }: { openForm?: boolean }) {
           </table>
         )}
       </Panel>
+      {pending && (
+        <Confirm
+          title={`Withdraw ${pending.version}?`}
+          confirmLabel="Withdraw release"
+          danger
+          busy={withdrawing}
+          onCancel={() => setPending(null)}
+          onConfirm={() => void withdraw(pending)}
+        >
+          <p>
+            Devices running <b>{pending.deviceModel}</b> will refuse {pending.version} from now on,
+            and the approval console will show it as withdrawn. This cannot be undone; publish a new
+            version instead.
+          </p>
+        </Confirm>
+      )}
       {showForm && (
         <NewRelease
           models={models}
           suggested={(m) => nextVersion(mine, m)}
+          newer={(m, v) => isNewer(mine, m, v)}
           onClose={() => {
             setShowForm(false);
             if (openForm) navigate('/publisher');
           }}
           onDone={(text) => {
-            setMessage({ text, tone: 'ok' });
+            toast(text, 'ok');
             void releases.refresh();
           }}
         />
@@ -161,11 +193,13 @@ export function PubReleases({ openForm = false }: { openForm?: boolean }) {
 function NewRelease({
   models,
   suggested,
+  newer,
   onClose,
   onDone,
 }: {
   models: string[];
   suggested: (model: string) => string;
+  newer: (model: string, version: string) => boolean;
   onClose: () => void;
   onDone: (text: string) => void;
 }) {
@@ -175,9 +209,16 @@ function NewRelease({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hint = suggested(model || 'demo-device');
+  const versionProblem =
+    version && !/^\d+\.\d+\.\d+$/.test(version)
+      ? 'Use MAJOR.MINOR.PATCH, for example 1.2.0.'
+      : version && !newer(model || 'demo-device', version)
+        ? `Must be higher than every version already published for ${model || 'demo-device'}.`
+        : null;
 
   const submit = async (ev: FormEvent<HTMLFormElement>) => {
     ev.preventDefault();
+    if (versionProblem) return;
     const form = new FormData(ev.currentTarget);
     form.set('device_model', model || 'demo-device');
     form.set('version', version || hint);
@@ -187,7 +228,7 @@ function NewRelease({
     try {
       const result = await api.publish(form);
       onDone(
-        `Published ${result.version} for ${result.deviceModel}. It is registered on the blockchain and being inspected; the status updates within seconds.`,
+        `Published ${result.version} for ${result.deviceModel}. It is being inspected; the status updates within seconds.`,
       );
       onClose();
     } catch (err) {
@@ -222,11 +263,10 @@ function NewRelease({
               value={version}
               placeholder={hint}
               onChange={(e) => setVersion(e.target.value)}
-              pattern="\d+\.\d+\.\d+"
-              title="MAJOR.MINOR.PATCH"
+              aria-invalid={Boolean(versionProblem)}
             />
-            <div className="hint">
-              Must be higher than your last release for this model ({hint} suggested).
+            <div className={versionProblem ? 'hint bad' : 'hint'}>
+              {versionProblem ?? `Leave empty to use ${hint}.`}
             </div>
           </div>
         </div>
@@ -259,7 +299,7 @@ function NewRelease({
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn-primary" disabled={busy}>
+          <button type="submit" className="btn-primary" disabled={busy || Boolean(versionProblem)}>
             {busy ? 'Publishing…' : 'Publish release'}
           </button>
         </div>

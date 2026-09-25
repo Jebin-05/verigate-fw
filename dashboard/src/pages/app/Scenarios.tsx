@@ -6,7 +6,7 @@ import type { AttackReport } from '../../api/types';
 import { Empty, Panel, Stamp } from '../../components/Bits';
 import { usePoll } from '../../components/usePoll';
 import { DRILL_TITLES, OUTCOME_WORD, WALKTHROUGH, type Outcome } from '../../lib/scenarios';
-import { useStore } from '../../state/store';
+import { useStore, useToast } from '../../state/store';
 
 type Run =
   | { state: 'idle' }
@@ -17,6 +17,7 @@ type Run =
 export function Scenarios() {
   const [runs, setRuns] = useState<Record<string, Run>>({});
   const { running, setRunning } = useStore();
+  const toast = useToast();
   const drills = usePoll(api.attacks, 30000);
   const [reports, setReports] = useState<AttackReport[]>([]);
   const busy = running !== null;
@@ -43,7 +44,7 @@ export function Scenarios() {
       const report = await api.runAttack(name);
       setReports((r) => [report, ...r]);
     } catch (err) {
-      window.alert(`Could not run: ${(err as Error).message}`);
+      toast(`Could not run ${name}: ${(err as Error).message}`, 'bad');
     } finally {
       setRunning(null);
     }
@@ -56,9 +57,6 @@ export function Scenarios() {
         flush
         actions={
           <>
-            <span className="small muted">
-              Runs against the live gate; nothing is pre-recorded.
-            </span>
             <button className="btn-primary btn-sm" disabled={busy} onClick={() => void runAll()}>
               Run all
             </button>

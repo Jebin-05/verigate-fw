@@ -211,6 +211,96 @@ label {
   color: var(--ink);
 }
 
+/* ---- feedback ---- */
+.toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: grid;
+  gap: 8px;
+  z-index: 30;
+  max-width: min(420px, calc(100vw - 40px));
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  background: var(--sidebar);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
+  border-left: 3px solid var(--sidebar-muted);
+}
+.toast.ok {
+  border-left-color: var(--ok);
+}
+.toast.bad {
+  border-left-color: var(--bad);
+}
+.toast button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 0 2px;
+  font-size: 16px;
+  line-height: 1;
+  margin-left: auto;
+  box-shadow: none;
+}
+.offline {
+  background: var(--bad-bg);
+  color: var(--ink);
+  border-bottom: 1px solid var(--bad);
+  padding: 8px 24px;
+  font-size: 13px;
+}
+.hint.bad {
+  color: var(--bad);
+}
+.id-chip {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  cursor: copy;
+  font: inherit;
+}
+.id-chip:hover code {
+  text-decoration: underline dotted;
+}
+.id-chip.copied code {
+  color: var(--ok);
+}
+.empty.loading {
+  color: var(--ink-3);
+}
+a.kpi {
+  color: inherit;
+  text-decoration: none;
+  transition: box-shadow 0.12s ease;
+}
+a.kpi:hover {
+  box-shadow: 0 0 0 2px var(--accent);
+  text-decoration: none;
+}
+.sidebar nav a .badge {
+  margin-left: auto;
+  background: var(--warn);
+  color: #1c1300;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  text-align: center;
+}
+table.data tbody tr.clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* ---- shell ---- */
 .app {
   display: grid;
@@ -305,12 +395,10 @@ label {
   border-top: 1px solid var(--sidebar-2);
   font-size: 12px;
   color: var(--sidebar-muted);
-  display: grid;
-  gap: 4px;
 }
-.sidebar .sb-foot b {
-  color: var(--sidebar-ink);
-  font-weight: 500;
+.sidebar .sb-foot .ver {
+  font-family: var(--mono, ui-monospace, monospace);
+  opacity: 0.7;
 }
 .dot {
   width: 8px;
@@ -962,11 +1050,6 @@ details.card pre {
 .gate .choice span {
   color: var(--ink-2);
   font-size: 12.5px;
-}
-.gate .foot {
-  margin-top: 18px;
-  font-size: 12.5px;
-  color: var(--ink-2);
 }
 
 @media (max-width: 1100px) {

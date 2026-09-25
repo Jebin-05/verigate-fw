@@ -3,9 +3,9 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { Health } from '../../api/types';
 import { ActivityFeed } from '../../components/Activity';
-import { Empty, Kpi, Panel, Stamp } from '../../components/Bits';
+import { Empty, Kpi, Loading, Panel, Stamp, Time } from '../../components/Bits';
 import { usePoll } from '../../components/usePoll';
-import { bp, fmtDate } from '../../lib/words';
+import { bp } from '../../lib/words';
 
 export function Overview() {
   const health = useOutletContext<Health | null>();
@@ -27,15 +27,35 @@ export function Overview() {
           label="Releases"
           value={releases.data?.length ?? '—'}
           sub={`${counts.pending} pending inspection`}
+          to="/app/releases"
         />
-        <Kpi label="Approved" value={<span className="ok">{counts.APPROVE}</span>} />
-        <Kpi label="Needs review" value={<span className="warn">{counts.DEFER}</span>} />
-        <Kpi label="Rejected" value={<span className="bad">{counts.REJECT}</span>} />
-        <Kpi label="Devices" value={devices.data?.length ?? '—'} sub="checked in" />
+        <Kpi
+          label="Approved"
+          value={<span className="ok">{counts.APPROVE}</span>}
+          to="/app/releases?f=APPROVE"
+        />
+        <Kpi
+          label="Needs review"
+          value={<span className="warn">{counts.DEFER}</span>}
+          sub={counts.DEFER > 0 ? 'waiting for a decision' : undefined}
+          to="/app/releases?f=DEFER"
+        />
+        <Kpi
+          label="Rejected"
+          value={<span className="bad">{counts.REJECT}</span>}
+          to="/app/releases?f=REJECT"
+        />
+        <Kpi
+          label="Devices"
+          value={devices.data?.length ?? '—'}
+          sub="checked in"
+          to="/app/devices"
+        />
         <Kpi
           label="Anchored on-chain"
           value={health?.batches ?? '—'}
           sub={`batches · ${health?.pendingVerdicts ?? 0} verdicts pending`}
+          to="/app/governance"
         />
       </div>
       <div className="three">
@@ -48,7 +68,9 @@ export function Overview() {
             </Link>
           }
         >
-          {list.length === 0 ? (
+          {releases.loading ? (
+            <Loading what="releases" />
+          ) : list.length === 0 ? (
             <Empty>No releases registered yet.</Empty>
           ) : (
             <table className="data">
@@ -70,7 +92,9 @@ export function Overview() {
                     <td>
                       <Stamp verdict={r.lastVerdict} revoked={r.revoked} />
                     </td>
-                    <td className="muted">{fmtDate(r.lastVerdictAt)}</td>
+                    <td className="muted">
+                      <Time iso={r.lastVerdictAt} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -78,7 +102,14 @@ export function Overview() {
           )}
         </Panel>
         <div style={{ display: 'grid', gap: 16 }}>
-          <Panel title="Rules in force">
+          <Panel
+            title="Rules in force"
+            actions={
+              <Link className="btn btn-sm" to="/app/governance">
+                Governance
+              </Link>
+            }
+          >
             {p ? (
               <dl className="kv">
                 <dt>Approve below</dt>

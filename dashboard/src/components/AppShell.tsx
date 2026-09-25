@@ -1,6 +1,8 @@
-/** Application shell: persistent sidebar (workspace, navigation, status) + top bar + outlet. */
+/** Application shell: persistent sidebar (workspace, navigation) + top bar + outlet. */
+import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
+import { Toaster } from './Bits';
 import { usePoll } from './usePoll';
 
 export type Workspace = 'approver' | 'publisher';
@@ -35,10 +37,21 @@ const TITLES: Record<string, string> = {
 
 export function AppShell({ workspace }: { workspace: Workspace }) {
   const { data: health, error } = usePoll(api.health, 5000);
+  const releases = usePoll(api.releases, 6000);
   const loc = useLocation();
   const up = !error && health?.status === 'ok';
   const title = TITLES[loc.pathname] ?? '';
+  const wsName = workspace === 'approver' ? 'Approval console' : 'Publisher portal';
   const other = workspace === 'approver' ? 'publisher' : 'approver';
+  const attention =
+    workspace === 'approver'
+      ? (releases.data ?? []).filter((r) => !r.revoked && r.lastVerdict === 'DEFER').length
+      : 0;
+
+  useEffect(() => {
+    document.title = title ? `${title} · VeriGate` : 'VeriGate';
+  }, [title]);
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -46,47 +59,46 @@ export function AppShell({ workspace }: { workspace: Workspace }) {
           <span className="mark">V</span> VeriGate
         </div>
         <div className="workspace">
-          <b>{workspace === 'approver' ? 'Approval console' : 'Publisher portal'}</b>
+          <b>{wsName}</b>
           <Link to={other === 'approver' ? '/app' : '/publisher'}>
             Switch to {other === 'approver' ? 'approval console' : 'publisher portal'}
           </Link>
         </div>
-        <nav>
+        <nav aria-label="Main">
           {NAV[workspace].map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end}>
               <span className="ico">{n.ico}</span>
               {n.label}
+              {n.to === '/app/releases' && attention > 0 && (
+                <span className="badge" title={`${attention} release(s) need review`}>
+                  {attention}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
         <div className="sb-foot">
-          <div>
-            <span className={`dot ${up ? 'on' : 'off'}`} />
-            <b>{up ? 'Gateway connected' : 'Gateway unreachable'}</b>
-          </div>
-          <div>
-            Chain {health?.chain ? `block ${health.block ?? '—'}` : 'unreachable'} · id{' '}
-            {health?.chainId ?? '—'}
-          </div>
-          <div>
-            {health?.knownReleases ?? '—'} releases · {health?.devices ?? '—'} devices ·{' '}
-            {health?.batches ?? '—'} batches on-chain
-          </div>
+          <span className="ver">v{__APP_VERSION__}</span>
         </div>
       </aside>
       <div className="main">
         <header className="topbar">
-          <span className="crumbs">
-            {workspace === 'approver' ? 'Approval console' : 'Publisher portal'} /
-          </span>
+          <span className="crumbs">{wsName} /</span>
           <h1>{title}</h1>
           <span className="spacer" />
-          <span className="small muted">{up ? 'Live' : 'Offline'}</span>
+          <span className={`small ${up ? 'muted' : 'bad'}`}>{up ? 'Live' : 'Offline'}</span>
         </header>
+        {!up && (
+          <div className="offline" role="alert">
+            The gateway is not responding. Data on this page may be stale; it reconnects
+            automatically.
+          </div>
+        )}
         <div className="content">
           <Outlet context={health} />
         </div>
       </div>
+      <Toaster />
     </div>
   );
 }

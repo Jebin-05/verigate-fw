@@ -6,13 +6,15 @@
 \usepackage[T1]{fontenc}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{url}
-\usepackage{hyperref}
+\usepackage[hyphens]{url}
+\urlstyle{tt}
+\usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={VeriGate-FW: Verifiable AI-Gated Firmware Updates for IoT Devices with Revocable Analysis Models on a Blockchain}}
 \usepackage{amsmath}
 \graphicspath{{../../evaluation/figures/}}
 
 \newcommand{\sys}{VeriGate-FW}
-\newcommand{\res}[1]{\texttt{\small #1}}
+\newcommand{\res}[1]{{\small\path{#1}}}  % \path breaks at / and _
 
 \begin{document}
 
@@ -161,8 +163,11 @@ configured and Stage 1 rejects on \emph{model active}: the gate fails closed~\ci
 A local \texttt{qwen2.5:3b-instruct} via Ollama receives the SBOM diff against the previous
 release, the scores and the top attributions and must answer with a schema-constrained JSON
 object (summary, up to five risks, a suggested action). The validated object is pinned to IPFS
-and its CID stored in the verdict. Release-level verifications wait for it; device polls never
-do; a missing or malformed answer degrades to ``no rationale'', never to ``no verdict''~\cite{adr2}.
+and its CID stored in the verdict. No verification waits for it: the reviewer asks for the
+rationale from the console (the gateway re-runs the gate with the same models so the text
+describes exactly what the gate saw), or, when configured, the gateway writes it after each
+release-level verdict; the suggested action is forced to match the verdict. A missing or malformed
+answer degrades to ``no rationale'', never to ``no verdict''~\cite{adr2}.
 
 \section{Implementation}
 Python 3.11 (FastAPI gateway, asyncio device emulator, Typer CLIs, structlog), Solidity/Hardhat
@@ -172,8 +177,8 @@ and dashboard; \texttt{make smoke} proves a verdict from a clean machine). The f
 OpenWrt \texttt{busybox} builds (22.03.7, 23.05.3, 24.10.0 and an end-of-life 19.07.10) with
 SBOMs derived from the real package manifests, so Stage-2 inputs are in the training
 distribution. Eleven attack scripts run only against the local emulated fleet. The code base has
-331 unit tests (92\,\% coverage), 72 contract tests (100\,\%), 12 integration and 12 end-to-end
-tests, all in CI.
+346 unit tests (92\,\% coverage), 74 contract tests (100\,\%), 19 integration and 12 end-to-end
+tests, run before every release.
 
 \section{Evaluation}
 \label{sec:eval}
@@ -187,13 +192,13 @@ contract addresses, model hashes and vulnerability-snapshot date. Figures are pr
 Fig.~\ref{fig:latency}. The eight Stage-1 checks on a fetched bundle take 3.3\,ms
 (IQR 2.8--3.7); the full deterministic verification path---model status and policy reads from
 the chain, checks, record signing and batch queueing---takes 88.7\,ms warm and 98.3\,ms when the
-manifest, firmware and SBOM are fetched from IPFS first (\res{latency\_stage1/2026-09-18\_1045},
+manifest, firmware and SBOM are fetched from IPFS first (\res{latency_stage1/2026-09-18_1045},
 $n=90$ per metric). Stage 2 adds 115\,ms for SBOM scoring and 104\,ms for image scoring the
 first time a release is seen and 0.1\,ms / 1.3\,ms afterwards (per-hash caches); a complete
 verification for a device costs 110.8\,ms in-process and 216\,ms over HTTP
-(\res{latency\_stage2/2026-09-18\_1100}, $n=60$). The explainer is three orders of magnitude
-slower: six sequential rationales took 42.5--91.3\,s each (median 88.4\,s) on the CPU, which is
-why devices never wait for it.
+(\res{latency_stage2/2026-09-18_1100}, $n=60$). The explainer is three orders of magnitude
+slower: six sequential rationales took 42.5--91.3\,s each (median 88.4\,s) on the CPU
+(30--33\,s with the model already loaded~\cite{adr2}), which is why no verification waits for it.
 
 \begin{figure}[t]
 \centering
@@ -207,7 +212,7 @@ Fig.~\ref{fig:gas}. \texttt{commitBatch} costs 209\,642 gas independent of the n
 verdicts it covers (the root, the count and two model hashes are stored; leaves are not), so the
 cost per verdict falls from 209\,642 with one verdict per transaction to 20\,964 at 10, 4\,193 at
 50, 2\,096 at 100 and 1\,048 at 200---a 99.5\,\% reduction
-(\res{gas\_per\_verdict\_vs\_batched/2026-09-18\_1044}, five receipts per size). These are
+(\res{gas_per_verdict_vs_batched/2026-09-18_1044}, five receipts per size). These are
 \texttt{gasUsed} values from local receipts; no gas price and no L2 data-availability cost are
 included. On a real rollup each transaction also pays for its calldata, which batching reduces in
 the same direction but not by the same factor, so the figure above is a statement about execution
@@ -224,7 +229,7 @@ gas alone; a public-testnet measurement is left for future work.
 Fig.~\ref{fig:revocation}. After the gateway notices a revocation, replaying 5 / 20 / 50 stale
 device verdicts with the successor takes 7.5 / 8.8 / 11.7\,s (IQR within 0.1\,s), to which the
 2\,s poll interval adds the detection bound
-(\res{revocation\_propagation/2026-09-18\_1109}, five repetitions per size). About 7\,s is the
+(\res{revocation_propagation/2026-09-18_1109}, five repetitions per size). About 7\,s is the
 fixed cost of loading the successor ONNX model and its SHAP background; each further device adds
 roughly 90\,ms. Every replayed verdict kept its outcome because the successor in this experiment
 is the same detector retrained with another seed---the experiment measures propagation, not
@@ -239,18 +244,20 @@ detection.
 
 \subsection{Attack matrix}
 Table~\ref{tab:attacks}. Each scenario was run five times against the running gateway
-(\res{attack\_matrix/2026-09-18\_1114}); \emph{poisoned-model} twice, because a model hash can
+(\res{attack_matrix/2026-09-18_1114}); \emph{poisoned-model} twice, because a model hash can
 be revoked once and the shipped stack has one primary image model and one successor (the second
 run revokes the successor with no replacement and every replayed verdict fails closed). All 52
 runs produced the expected outcome.
 
 \begin{table}[t]
-\caption{Attack matrix: expected vs observed outcome, runs and pass rate.}
+\caption{Attack matrix: expected outcome (observed in every run), runs and pass rate.}
 \label{tab:attacks}
 \centering
-\begin{tabular}{llrr}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcrr@{}}
 \toprule
-attack & expected / observed & runs & pass \\
+attack & outcome & runs & pass \\
 \midrule
 tamper (patched image behind the CID) & REJECT & 5 & 100\,\% \\
 forge (attacker key, victim DID) & REJECT & 5 & 100\,\% \\
@@ -268,13 +275,13 @@ poisoned model (revoke, replay) & REPLAYED & 2 & 100\,\% \\
 \end{table}
 
 \subsection{Detector quality}
-\textbf{Image anomaly} (Fig.~\ref{fig:detection}, \res{detection\_f1/2026-09-18\_1125}, 165
+\textbf{Image anomaly} (Fig.~\ref{fig:detection}, \res{detection_f1/2026-09-18_1125}, 165
 benign and 165 mutated binaries per class, operating point $r_\mathrm{img}\ge0.5$): appended
 payloads are detected with recall 1.000, precision 0.988 and AUROC 1.000; packing has AUROC
 0.895 but recall 0.061 at the operating point; byte patches (0.012 / 0.543), section swaps
 (0.012 / 0.504) and relabelled downgrades (0.000 / 0.431) are at or below chance. The benign
 false-positive rate of 1.2\,\% is optimistic because the benign rows are the training rows.
-\textbf{SBOM risk} (\res{sbom\_ranking/2026-09-18\_1125}, 196 held-out rows from the 14 newest
+\textbf{SBOM risk} (\res{sbom_ranking/2026-09-18_1125}, 196 held-out rows from the 14 newest
 releases, 200 bootstrap resamples): Spearman 0.965 for the model versus 0.976 for the
 CVSS/EPSS/KEV baseline, both with AUROC 1.0 for ``$\ge 3$ expected exploited CVEs''; the model's
 gain is calibration---MAE 0.167 versus 1.012 expected exploited CVEs---which is what absolute
@@ -296,8 +303,8 @@ the previous release: without a predecessor the same payload scores 0.41 and the
 approved. (ii)~No component of the OpenWrt corpus matches the CISA KEV catalogue, so the KEV
 feature and the baseline's KEV floor are untested on real data; the vulnerable-but-genuine
 scenario shows EPSS/CVSS mass instead. (iii)~The learned SBOM model does not out-rank the
-baseline. (iv)~The explainer costs 43--91\,s per rationale on a CPU; the full demonstration takes
-348\,s with it and 53\,s without. (v)~A model hash can be revoked once, so replay scenarios
+baseline. (iv)~The explainer costs 43--91\,s per rationale on a CPU (30--33\,s warm); the full
+demonstration takes 348\,s with it and 53\,s without. (v)~A model hash can be revoked once, so replay scenarios
 consume models. (vi)~Release-level rejections burn the publisher's reputation and the listener's
 own verification counts as a second signal, so the order of scenarios matters. (vii)~Because the
 release identifier is the manifest hash, a squatter can register a predictable manifest first;
@@ -334,8 +341,8 @@ staged rollout control, and Merkle-rooted update accountability,''
 \url{https://github.com/ajalkhodair-spec/ledgerguard}, 2026.
 \bibitem{sbomtriage} A. Tolay, ``Automated SBOM-driven vulnerability triage for IoT firmware: A
 lightweight pipeline for risk prioritization,'' arXiv:2601.01308, 2026.
-\bibitem{card-sbom} \sys{} model card \texttt{models/sbom\_risk.card.md}, 2026.
-\bibitem{card-img} \sys{} model card \texttt{models/image\_anomaly.card.md}, 2026.
+\bibitem{card-sbom} \sys{}, model card, \path{models/sbom_risk.card.md}, 2026.
+\bibitem{card-img} \sys{}, model card, \path{models/image_anomaly.card.md}, 2026.
 \bibitem{adr2} \sys{} ADR-0002, ``The LLM explains; deterministic models decide,'' 2026.
 \bibitem{adr8} \sys{} ADR-0008, ``Default policy parameters,'' 2026.
 \bibitem{adr9} \sys{} ADR-0009, ``Model revocation: successor by hash, replay at the gateway,'' 2026.

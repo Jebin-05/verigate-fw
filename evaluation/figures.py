@@ -16,6 +16,9 @@ from typing import Any
 import matplotlib
 
 matplotlib.use("Agg")
+# Embed TrueType (Type 42) fonts: IEEE PDF eXpress rejects the Type 3 default.
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 

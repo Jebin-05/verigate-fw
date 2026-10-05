@@ -3,6 +3,26 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 ### Changed
+- The explainer calls OpenRouter instead of a local Ollama model (owner's request, 2026-09-28): `OPENROUTER_API_KEY` / `LLM_MODEL` (default `openai/gpt-4o-mini`) in `.env`, strict `json_schema` output routed only to providers that honour it, 30 s timeout; no key → the explainer is off. A refused key or exhausted credits (401/402/403) backs off instead of retrying. Ollama is gone from `docker-compose.yml`, the Makefile (`llm-pull`) and the latency runner. Measured on the CPU-only laptop before the switch: a cold explanation took 29 s (21 s prompt evaluation, 11 s generation at 8 tok/s).
+- Explanations say why the AI judged a release safe or risky: overall and per-model risk level, the drivers with their values and whether each pushed the risk up or down.
+### Added
+- Explanations for releases stopped by the checks: the writer is told which check failed, why, and which passed, and is forbidden to invent scores. A rejection is explained as recorded in the console, even when re-running the gate today would decide differently (e.g. a revoked model since replaced).
+- **Run AI analysis** on the AI tab (`POST /releases/{id}/analyse`, `GET /releases/{id}/analysis`): scores a release the checks stopped, on request and for information only (never a verdict, the log or the chain); a later explanation describes the models' view too. For a release that reached the models, **Show AI analysis** reveals what they saw; AI output appears only after the button.
+### Added
+- Human review (owner's request, 2026-10-03): `POST /releases/{id}/review` and **Accept** / **Reject** on a held release in the approval console. Only a DEFER from the policy or from check #9 can be decided, once; the decision is signed and anchored as its own verdict record (`human-review`), later verdicts carry it (devices install an accepted release on their next poll), and a rejection lowers reputation once. `GET /reviews` lists decisions.
+### Fixed
+- The console called a release held by check #9 "Rejected before any risk scoring"; it now says it is held for review.
+### Added
+- Stage-1 check #9 `release_delta` (ADR-0010): an image that is the last *approved* image of the same publisher and device model with ≤ 2 KiB changed, or with blocks reordered, is held for review (DEFER) with the changed offsets in the reason. Measured on the corpus: 120/120 byte patches and 97/97 section swaps on an unchanged base held, 0/165 benign flagged; nothing caught inside a rebuild (`release_delta/2026-10-02_1619_3300b9f`). Cost ≈ 10 ms in-process per verification (A/B, `ablation_check9_off/`).
+- Devices read the publisher key and the release record from the chain themselves (`verigate-fleet --chain-check`, default on): a compromised gateway cannot make them install unregistered, withdrawn or revoked-key firmware.
+- Attack scenarios `insider-patch` (DEFER via check #9) and `rogue-gateway` (device refuses three pushes, genuine control installs); attack matrix 62/62 (`attack_matrix/2026-10-02_1653_3300b9f`). Dashboard drills for both.
+- Experiments `release_delta` and `delta_features_iforest` (the negative result behind ADR-0010).
+### Fixed
+- Anchoring could stop for good: concurrent sends from the gateway account raced for a nonce, and a queued verdict naming a model revoked meanwhile made every later `commitBatch` revert with `ModelNotActive`. Sends are now serialised per account (pending nonce); such verdicts are held back, the rest commit, and the revocation job replays them with the successor.
+- `downgrade-relabel` / `section-swap` evaluation counted byte-identical (no-op) mutations as tampering; corrected numbers in `docs/limitations.md` and the paper.
+### Changed
+- Paper: nine checks, device-side enforcement, DDoSViT in related work, re-measured latency (95 / 128 / 244 ms) and revocation (13.0 s at 50 devices), detector table with check #9, AI-use acknowledgment, abstract ≤ 250 words.
+### Changed
 - The rationale's `recommended_action` now follows the verdict (APPROVE → install, DEFER → review, REJECT → block): the prompt states it and the explainer enforces it before pinning, so the console never shows "Approved" next to "suggested action: review". Measured on request with the model warm: 3B 30–33 s (specific), 1.5B 12–15 s (generic); README and ADR-0002 record both.
 ### Added
 - Explanation on request: `POST /releases/{id}/explain` (and the **Explain this verdict** / **Write again** / **Try again** buttons in the release's Explanation tab) asks the local language model for the rationale; the gateway re-runs Stage 1 and re-scores with the same models first, so a release stopped by the checks is never explained. On request is the default (`LLM_AUTO_EXPLAIN=false`, owner's decision 2026-09-24): the AI explanation is a button, never silent; `LLM_AUTO_EXPLAIN=true` writes after every verdict (ADR-0002 amendment). The release header carries **Explain with AI**, which opens the Explanation tab and starts the writer.

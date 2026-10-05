@@ -16,7 +16,7 @@ check each claim against the code and the measured results. It was finalised aft
 VeriGate-FW verifies firmware updates for a fleet of IoT devices before they are installed. A
 publisher signs a **manifest** (hashes of firmware and SBOM, version, expiry, IPFS CIDs) and
 registers its hash on a blockchain; artefacts live on IPFS. A **gateway** runs a two-stage gate for
-every (release, device) pair: Stage 1 is eight deterministic cryptographic/registry checks that can
+every (release, device) pair: Stage 1 is nine deterministic cryptographic/registry/release-delta checks that can
 only reject or defer; Stage 2 is an AI risk score (SBOM vulnerability model + firmware image
 anomaly model + publisher reputation) combined by an on-chain policy into APPROVE / DEFER / REJECT.
 Each verdict names the models that produced it and is anchored on-chain in Merkle batches; models
@@ -30,7 +30,7 @@ Software-only: devices are emulated; the chain is a local Hardhat node (Arbitrum
 |---|---|
 | release | one firmware version for one device model, identified by `releaseId = keccak256(canonical manifest)` |
 | manifest | signed JSON: `firmwareHash`, `sbomHash`, `version` (SemVer), `deviceModel`, `expiry`, `cids`, `publisherDid` |
-| Stage 1 | the eight fail-closed checks (`gateway/stage1/checks.py`) |
+| Stage 1 | the nine fail-closed checks (`gateway/stage1/checks.py`) |
 | Stage 2 | `r_sbom`, `r_img` ∈ [0,1] from ONNX models plus reputation; `R = w_sbom·r_sbom + w_img·r_img + w_rep·(1−rep)` in basis points |
 | verdict | APPROVE / DEFER / REJECT plus scores, feature hash, model hashes, gateway signature |
 | batch | a Merkle tree of verdict leaves committed by `VerdictRegistry.commitBatch` |
@@ -99,9 +99,10 @@ Verification column: **U** unit test, **I** integration test (hardhat + IPFS), *
 ### 3.2 Stage 1 — deterministic gate (FR-S1)
 | id | requirement | verification |
 |---|---|---|
-| FR-S1.0 | Stage 1 shall consist of exactly these checks, run in order, short-circuiting on the first failure: firmware_hash, signature, publisher_active, version_monotonic, expiry, sbom_hash, registry_record, model_active. | U `test_stage1_runner.py` |
+| FR-S1.0 | Stage 1 shall consist of exactly these checks, run in order, short-circuiting on the first failure: firmware_hash, signature, publisher_active, version_monotonic, expiry, sbom_hash, registry_record, model_active, release_delta. | U `test_stage1_runner.py` |
 | FR-S1.1 | Each check shall be a pure function of its inputs (no I/O), so that a verdict can be reproduced from the recorded inputs. | U `test_stage1_checks.py` (table-driven, missing/malformed/boundary rows) |
-| FR-S1.2 | Any failing check except `expiry` shall yield REJECT; a failed `expiry` shall yield DEFER and an alert. | U, E `test_attack_freeze.py` |
+| FR-S1.2 | Any failing check except `expiry` and `release_delta` shall yield REJECT; a failed `expiry` or `release_delta` shall yield DEFER and an alert. | U, E `test_attack_freeze.py`, `test_attack_insider_patch.py` |
+| FR-S1.5 | `release_delta` shall compare the image with the newest earlier, non-revoked release of the same publisher and device model that the gateway approved and whose served image matches its on-chain hash, and fail (DEFER) iff the image is not byte-identical to it and differs in at most 32 64-byte blocks or has reordered blocks; the reason shall name the changed offsets. | U `test_release_delta.py`, `test_stage1_checks.py`; E `test_attack_insider_patch.py`; M `release_delta`; ADR-0010 |
 | FR-S1.3 | A dependency failure (chain RPC, IPFS) shall yield DEFER, never APPROVE. | U `test_service_verdicts.py`, `test_chain_bindings.py` |
 | FR-S1.4 | The six Stage-1 attack scenarios (tamper, forge, stolen-key, rollback, freeze, sbom-swap) shall end in the verdict of the threat model with the named check. | E `tests/e2e/test_attack_*.py`; M `attack_matrix` (5/5 each) |
 
@@ -120,6 +121,7 @@ Verification column: **U** unit test, **I** integration test (hardhat + IPFS), *
 | FR-POL1 | `PolicyContract` shall hold weights (bp, sum 10 000) and thresholds `τ_approve < τ_reject`; only ADMIN_ROLE may change them; every change shall emit the old and new policy and the sender. | C `PolicyContract.test.ts`; E `test_attack_policy_tamper.py` |
 | FR-POL2 | The gateway shall compute `R` in integer basis points from the policy in force (cached per block) and decide APPROVE if `R < τ_approve`, REJECT if `R ≥ τ_reject`, else DEFER; a policy read failure shall yield DEFER. | U `test_policy_engine.py` |
 | FR-POL3 | Publisher reputation shall move by an EWMA (α = 0.1): up on a signed install receipt, down on a release-level REJECT; only GATEWAY_ROLE may write it. | U `test_batch_reputation.py`; C `PublisherRegistry.test.ts`; ADR-0006 |
+| FR-POL5 | A reviewer shall be able to accept (APPROVE) or reject (REJECT) a release the gate currently holds for review by the policy or by `release_delta` — never a Stage-1 REJECT, an expired manifest or a dependency outage — once per release, with a name and an optional note. The decision shall be signed and anchored as its own verdict record (device `human-review`, feature hash committing to decision, reviewer, note and the held verdict id); later verifications of the release, release-level and per device, shall carry the decision; a rejection shall lower publisher reputation once. | U `tests/unit/gateway/test_review.py`; dashboard Accept / Reject on the release |
 | FR-POL4 | The reputation term shall be able to move a borderline release from APPROVE to DEFER but never to REJECT on its own (`w_rep = 0.2 < τ_reject − τ_approve`… see ADR-0008). | E `test_attack_bad_history.py` |
 
 ### 3.5 Verdicts and anchoring (FR-V)
@@ -148,6 +150,7 @@ Verification column: **U** unit test, **I** integration test (hardhat + IPFS), *
 |---|---|---|
 | FR-D1 | Devices shall authenticate to the gateway with Ed25519-signed messages carrying a nonce and a timestamp inside a window; the first key seen is pinned (TOFU); replays shall be refused. | U `tests/unit/common/test_protocol.py`, `test_service_api.py` |
 | FR-D2 | A device shall re-verify the manifest and firmware hash itself before installing (defence in depth), install into an A/B slot, persist NVS state and send a signed install receipt. | U `tests/unit/fleet/test_device.py`, `test_runner.py`; E `test_full_stack.py` |
+| FR-D2a | With chain access (`verigate-fleet --chain-check`, the default), a device shall take the publisher key from `PublisherRegistry`, not from the gateway, and refuse to install unless the publisher is ACTIVE and the release is registered, not revoked, from that publisher and for exactly this image. | U `test_device.py` (`test_chain_check_*`); E `test_attack_rogue_gateway.py`; M `attack_matrix` |
 | FR-D3 | `verigate-fleet run` shall emulate N devices concurrently (asyncio) and report installs/receipts. | U `test_runner.py`; `scripts/demo.sh` |
 
 ### 3.9 Operator interfaces (FR-O)
@@ -157,19 +160,19 @@ Verification column: **U** unit test, **I** integration test (hardhat + IPFS), *
 | FR-O2 | The dashboard shall separate the two roles: a publisher portal (publish a release from the browser, follow only the publisher's own releases and their plain-words outcome, withdraw) and an approval console (incoming releases, an inspection report that states each of the eight checks and the risk scores in plain words, the on-chain proof check via direct RPC, live activity as sentences, fleet / rules / model summaries); neither portal shows the other's controls; demonstration drills and a guided seven-step walkthrough live on a Scenarios page of the console; the report also states what the models saw (feature values and top drivers in words), shows the written explanation as soon as it exists (and lets the approver ask for it with a button), and offers a rules simulator that re-computes verdicts from recorded scores without touching the chain. | `dashboard/src/pages/{app,publisher}/*.tsx`, `dashboard/src/lib/words.ts`; `npm run lint && tsc --noEmit && build` |
 | FR-O5 | The gateway shall offer the publisher portal `GET /publisher/me`, `POST /publisher/releases` (multipart firmware + SBOM + version + device model + expiry, validated before the signing CLI is spawned) and `POST /publisher/releases/{id}/withdraw` (own releases only); `POST /releases/{id}/explain` starts the written explanation on request — the default trigger (`LLM_AUTO_EXPLAIN=true` writes after every verdict instead). | U `tests/unit/gateway/test_publisher_portal.py`, `test_explain.py` |
 | FR-O3 | `verigate-admin` shall register / revoke models, register every hash of `models/MANIFEST.sha256`, set policy, revoke publishers and grant the gateway role, printing JSON. | U `test_admin_cli.py` |
-| FR-O4 | `verigate-attack run <name|all>` shall execute the eleven scenarios against the local emulated fleet only and print one JSON report per scenario with expected vs observed. | E `tests/e2e/`; M `attack_matrix` |
+| FR-O4 | `verigate-attack run <name|all>` shall execute the thirteen scenarios against the local emulated fleet only and print one JSON report per scenario with expected vs observed. | E `tests/e2e/`; M `attack_matrix` |
 
 ## 4. Non-functional requirements
 
 | id | requirement | measured / verified |
 |---|---|---|
-| NFR-1 Fail closed | No path shall produce APPROVE on a failed check, an outage or a revoked model. | FR-S1.2/3, FR-M2; `attack_matrix` 11/11 |
+| NFR-1 Fail closed | No path shall produce APPROVE on a failed check, an outage or a revoked model. | FR-S1.2/3, FR-M2; `attack_matrix` 13/13 scenarios, 62/62 runs |
 | NFR-2 Determinism | Same inputs → same verdict; verdict reproducible from featureHash + model files. | ONNX byte-identity tests; ADR-0002 |
-| NFR-3 Stage-1 latency | Deterministic gate ≤ 250 ms per verification on the reference machine. | `latency_stage1`: checks 3.3 ms, warm verify 89 ms, cold 98 ms (median) |
-| NFR-4 Stage-2 latency | Full gate per device poll ≤ 500 ms once a release has been scored. | `latency_stage2`: 111 ms in-process, 216 ms over HTTP; cold scoring 115 + 104 ms |
+| NFR-3 Stage-1 latency | Deterministic gate ≤ 250 ms per verification on the reference machine. | `latency_stage1/2026-10-02_1702`: checks 3.7 ms, warm verify 95 ms, cold 108 ms (median) |
+| NFR-4 Stage-2 latency | Full gate per device poll ≤ 500 ms once a release has been scored. | `latency_stage2/2026-10-02_1702`: 128 ms in-process, 244 ms over HTTP; cold scoring 111 + 114 ms |
 | NFR-5 Explainer cost | Rationale generation shall not block device polls; cost stated. | 43–91 s per rationale on CPU (`latency_stage2/raw_llm.csv`) |
 | NFR-6 Anchoring cost | Gas per verdict shall fall with batch size. | `gas_per_verdict_vs_batched`: 209 642 per batch, 1 048 per verdict at 200 |
-| NFR-7 Revocation propagation | All stale device verdicts replayed within 30 s for a 50-device fleet. | 11.7 s + 2 s poll (`revocation_propagation`) |
+| NFR-7 Revocation propagation | All stale device verdicts replayed within 30 s for a 50-device fleet. | 13.0 s + 2 s poll (`revocation_propagation/2026-10-02_1704`) |
 | NFR-8 Test coverage | Python unit coverage ≥ 80 %, contracts 100 % statements. | 92 % / 100 % (`make test-all`) |
 | NFR-9 Portability | `make up` from a clean clone reaches a verdict; `make smoke` run manually. | smoke 12 min cold (vulnerability fetch), demo 53 s warm |
 | NFR-10 Security hygiene | No secrets in git; audits recorded. | `.gitleaks.toml`, `docs/security-audit.md` |

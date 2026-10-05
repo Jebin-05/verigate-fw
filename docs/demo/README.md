@@ -19,15 +19,15 @@ Open the dashboard (`http://localhost:5173`), enter the **approval console** and
 **Scenarios** (`/app/scenarios`): seven steps in story order, one Run button each (or *Run all*),
 with the expected and the live result — genuine release → tampered file → honest-but-old software
 → hidden payload → rules tampering → a revoked model replayed → one device's install cycle. Every
-result links to the release in **Releases**, where the detail panel shows the eight checks, the
-risk meters, *AI analysis*, the written *Explanation* (arrives about a minute later if Ollama is
-running) and *Proof* (verify on the blockchain). The publisher portal (`/publisher`) shows the
-same releases from the publisher's side; the eleven raw drills sit under the walkthrough.
+result links to the release in **Releases**, where the detail panel shows the nine checks, the
+risk meters, *AI analysis*, the written *Explanation* (arrives a few seconds later if an
+OpenRouter key is set) and *Proof* (verify on the blockchain). The publisher portal (`/publisher`) shows the
+same releases from the publisher's side; the thirteen raw drills sit under the walkthrough.
 `make logs`
 shows every container.
 
-Explanations need Ollama on the host (`ollama serve`, model `qwen2.5:3b-instruct`, ~1.9 GB,
-CPU only) and `LLM_ENABLED=true`; without it the report says the explanation model is switched
+Explanations need `OPENROUTER_API_KEY` in `.env`, internet access and `LLM_ENABLED=true`;
+without them the report says the explanation model is switched
 off and everything else works. Explanations are written on request (the default): the verdict
 appears in seconds, then the presenter presses **Explain with AI** on the release — the
 *writing…* state shows the local model at work and the prose arrives in about 30 s (3B model)
@@ -65,3 +65,7 @@ demo completed in **45 s with 11/11 attacks caught**; the gateway scored 6 SBOMs
 from the 21 MB snapshot, wrote nothing to it, and raised no `OfflineMissError`. `make up`
 (docker) is not offline-capable in this form: the compose gateway reads `VULN_CACHE_DIR` from
 `.env`, so set those three variables there and seed the volume with `make vulndb-seed SNAP=data/vulndb-demo`.
+
+Latest rehearsal (2026-10-02, host mode, fresh chain, explainer off, after check #9 and the
+device-side chain checks were added): `scripts/demo.sh` completed in **62 s with 13/13 attacks
+caught** — `insider-patch` held by `release_delta`, `rogue-gateway` refused by the device.

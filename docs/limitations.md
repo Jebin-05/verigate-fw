@@ -16,6 +16,21 @@ operating point r_img ≥ 0.5 = benign 99th percentile):
 | `section-swap` | 0.012 | 0.504 | chance |
 | `downgrade-relabel` | 0.000 | 0.431 | worse than chance: an old genuine build looks *more* normal |
 
+Correction (2026-10-02, `release_delta/2026-10-02_1619_3300b9f`): in 120 of the 165 benign pairs
+OpenWrt did not rebuild the package, so the release is byte-identical to its predecessor and
+`downgrade-relabel` returns the *same file*; 29 `section-swap` rows likewise swap identical
+regions. Those rows are not tampering. Excluding them: section-swap 0.015 / 0.527 (n = 136),
+downgrade-relabel 0.000 / 0.435 (n = 45). The conclusion does not change.
+
+What covers part of the gap is Stage-1 check #9 (release delta, ADR-0010), not the model: on pairs
+whose package was not rebuilt it holds 120/120 byte patches and 97/97 section swaps for review and
+flags 0/165 benign releases. On rebuilt pairs it catches nothing, so **a patch inside a rebuild is
+still invisible to every detector in the system**. Feeding the delta to the IsolationForest as
+features does not work either (patch recall 0.012, append recall falls to 0.297,
+`delta_features_iforest/2026-10-02_1712_3300b9f`). Check #9 also holds a genuine vendor binary
+hot-patch for review — by design, it never rejects — and its 2 KiB limit is set from a corpus that
+contains no benign hot-patch releases (smallest benign rebuild: 76 blocks = 4.75 KiB).
+
 A well-crafted malicious build that keeps size, entropy and layout is not detected by Stage 2;
 the system relies on Stage 1 (hash, signature, registry) for that, which is exactly the Guide's
 stated scope ("detects structural tampering, not well-crafted malicious builds"). The threshold
@@ -48,17 +63,17 @@ is needed for ranking; the answer is the calibrated absolute scale the policy th
 
 ## 6. The explainer is slow on CPU and cannot be waited for by devices
 Six sequential `qwen2.5:3b-instruct` calls on an i7-1255U (no GPU): median 88 s, range 43–91 s
-(`evaluation/results/latency_stage2/2026-09-18_1100_ec248b1`, `raw_llm.csv`) against 111 ms for
-the whole deterministic gate in-process (216 ms over HTTP). Consequently only release-level verifications
+(`evaluation/results/latency_stage2/2026-09-18_1100_ec248b1`, `raw_llm.csv`) against 128 ms for
+the whole gate in-process (244 ms over HTTP, `latency_stage2/2026-10-02_1702_3300b9f`). Consequently only release-level verifications
 wait for the rationale; device polls issued before it exists carry `rationaleCid = null`. The full
 demo takes 348 s with the explainer versus 53 s without (README). A GPU or a smaller prompt would
 change this; the design does not.
 
-## 7. Model revocation has a fixed ~7 s cost before the first replay
-`evaluation/results/revocation_propagation/2026-09-18_1109_ec248b1`: replaying 5 / 20 / 50 stale
-device verdicts takes 7.5 / 8.8 / 11.7 s (median) after the job notices the revocation, plus its
-poll interval (2 s). About 7 s of that is loading the successor ONNX model and its SHAP
-background, independent of fleet size; each additional device costs ≈ 90 ms. Every replayed
+## 7. Model revocation has a fixed ~8 s cost before the first replay
+`evaluation/results/revocation_propagation/2026-10-02_1704_3300b9f`: replaying 5 / 20 / 50 stale
+device verdicts takes 8.3 / 9.9 / 13.0 s (median) after the job notices the revocation, plus its
+poll interval (2 s). About 7.8 s of that is loading the successor ONNX model and its SHAP
+background, independent of fleet size; each additional device costs ≈ 100 ms. Every replayed
 verdict kept its outcome (`changed = 0`), because the successor is the same detector retrained
 with another seed — the experiment measures propagation, not a better model.
 
@@ -97,7 +112,30 @@ the `arbitrumSepolia` network config are in the repository, so the measurement c
 without code changes. Latency figures are in-process on one laptop; the fleet is emulated
 (asyncio), not hardware.
 
+## 14. A compromised gateway can still approve a registered release
+Devices read the publisher key and the release record from the chain (`Device._check_chain`), so a
+rogue gateway cannot make them install unregistered, withdrawn, revoked-key or downgraded firmware
+(`rogue-gateway` scenario, 5/5). It *can* approve a release that is registered and genuinely
+signed but that the gate would have held (an `insider-patch` release, say): the gateway is the
+only verdict authority. That verdict is signed, anchored and carries its feature hash and model
+hashes, so the misbehaviour is detectable afterwards, not prevented. Preventing it needs k-of-n
+gateways or device-side verification of anchored verdicts, neither of which is built.
+
+## 15. One latent anchoring bug was found by the expanded attack matrix
+Before 2026-10-02, two concurrent transactions from the gateway account (a batch commit and a
+reputation update) could pick the same nonce; the failed batch stayed queued, and if a model it
+named was revoked meanwhile, `commitBatch` reverted with `ModelNotActive` on every retry, so
+anchoring stopped for good. Fixed: sends are serialised per account, and verdicts naming an
+inactive model are held back and replayed by the revocation job. It is listed here because the
+September measurements ran on the old code.
+
 ## 13. Operating point chosen on the fixtures
 τ_approve = 0.45 / τ_reject = 0.70 (ADR-0008) were set so that the three genuine fixture
 releases sit at APPROVE / DEFER / APPROVE with neutral reputation. They are defaults measured on
 three releases, not a tuned operating point.
+
+## 16. Reviewer identity is not authenticated
+A held release can be accepted or rejected from the console (`POST /releases/{id}/review`); the
+decision is signed by the gateway and anchored, but the reviewer's name is whatever was typed —
+the console has no login. Anyone who can reach the gateway API can decide a held release (not a
+Stage-1 rejection). A deployment would need reviewer accounts or reviewer-signed decisions.

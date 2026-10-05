@@ -38,11 +38,13 @@ Over-the-air updates are how IoT fleets get fixed **and** how they get attacked.
 answer *who* built an update, not whether a genuine update is *safe* to install. VeriGate-FW is a
 software-only update gate that combines:
 
-- **A deterministic stage** — eight fail-closed checks against on-chain publisher, firmware and model registries. It can only reject or defer.
+- **A deterministic stage** — nine fail-closed checks against on-chain publisher, firmware and model registries, and against the last approved image (a release that is that image with a few blocks overwritten or moved is held for review). It can only reject or defer.
 - **An AI risk stage** — an SBOM vulnerability model and a firmware-image anomaly model, exported to ONNX and registered *by hash*. An on-chain policy turns their scores into **approve / needs review / reject**.
 - **Accountable verdicts** — every verdict names the model hashes that produced it, commits to its feature vector, and is anchored on-chain in Merkle batches.
 - **Revocable models** — revoke a model hash and every verdict it produced goes stale; the gateway swaps to the successor and re-verifies the affected devices.
-- **An explain-only language model** — a local `qwen2.5:3b-instruct` writes a plain-language rationale on request. It is stored, never consulted by the decision.
+- **A person decides what needs review** — a held release can be accepted or rejected from the console (Accept / Reject on the release); the decision is signed, anchored on-chain like any verdict, and reaches devices on their next poll. Hard failures (forged, tampered, revoked, expired) cannot be overridden.
+- **Devices that check the chain themselves** — a device reads the publisher key and the release record from the registries, so a compromised gateway cannot make it install unregistered, withdrawn or revoked-key firmware.
+- **An explain-only language model** — a model on OpenRouter (default `openai/gpt-4o-mini`) writes a plain-language rationale on request. It is stored, never consulted by the decision.
 
 Everything is measured on one laptop against a local Hardhat chain and IPFS node, and the
 failures are reported next to the successes (`docs/limitations.md`).
@@ -79,7 +81,7 @@ git clone https://github.com/Jebin-05/verigate-fw.git && cd verigate-fw
 make doctor         # checks docker, RAM, disk, free ports
 make up             # chain, IPFS, contract deploy, model registration, gateway, fleet, dashboard
 make smoke          # proves the stack reaches an APPROVE verdict end to end
-make llm-pull       # optional: the explainer (qwen2.5:3b-instruct, ~1.9 GB, CPU only)
+# optional: the explainer — put your key in .env as OPENROUTER_API_KEY=sk-or-...
 ```
 
 Open **http://localhost:5173**. Works on Linux, macOS (Docker Desktop) and Windows (WSL2 + Docker
@@ -111,7 +113,7 @@ Every command prints one JSON object and is idempotent: same inputs → same CID
 **Run the demo**
 
 ```bash
-./scripts/demo.sh                 # publish → devices install → eleven attacks caught
+./scripts/demo.sh                 # publish → devices install → thirteen attacks caught
 DEMO_MODE=host ./scripts/demo.sh  # against make gateway + make infra-up
 ```
 
@@ -152,7 +154,7 @@ the day before, or `make vulndb-seed` from a host cache. Runbook: `docs/demo/REA
 
 </div>
 
-Plus Ollama for the explainer, OpenZeppelin `AccessControl`, `onnxruntime`, SHAP attributions,
+Plus OpenRouter for the explainer, OpenZeppelin `AccessControl`, `onnxruntime`, SHAP attributions,
 and `structlog`. Contracts: `PublisherRegistry`, `FirmwareRegistry`, `ModelRegistry`,
 `PolicyContract`, `VerdictRegistry`.
 
@@ -162,7 +164,7 @@ and `structlog`. Contracts: `PublisherRegistry`, `FirmwareRegistry`, `ModelRegis
 
 ## <img width="26" height="26" alt="" src="https://skillicons.dev/icons?i=bash&theme=dark"/> Scenarios
 
-Eleven scripted attacks, all run against the live gate (`verigate-attack run <name|all>` or the
+Thirteen scripted attacks, all run against the live gate (`verigate-attack run <name|all>` or the
 **Scenarios** page):
 
 | Stage | Attack | Expected | Observed (5 runs) |
@@ -170,10 +172,12 @@ Eleven scripted attacks, all run against the live gate (`verigate-attack run <na
 | Cryptographic | tamper · forge · stolen key · rollback · SBOM swap | Rejected | 25 / 25 |
 | Cryptographic | freeze (expired manifest) | Needs review | 5 / 5 |
 | AI gate | vulnerable-but-genuine · hidden payload · bad history | Needs review | 15 / 15 |
+| Release delta | insider patch (approved build + 256 B, signed with the real key) | Needs review | 5 / 5 |
+| Device | rogue gateway (unregistered · withdrawn · revoked-key pushes; genuine control installs) | Refused | 5 / 5 |
 | Governance | policy tamper (non-admin `setPolicy`) | Blocked | 5 / 5 |
 | Governance | poisoned model (revoke → replay with successor) | Re-checked | 2 / 2 |
 
-Source: `evaluation/results/attack_matrix/2026-09-18_1114_ec248b1`.
+Source: `evaluation/results/attack_matrix/2026-10-02_1653_3300b9f` (62 / 62).
 
 ---
 
@@ -187,15 +191,17 @@ unless stated; ≥ 5 repetitions, warm-up discarded, median. **Every number has 
 
 | What | Result | Source |
 |---|---|---|
-| Stage 1: eight checks · warm verify · cold verify (IPFS + chain) | 3.3 ms · 89 ms · 98 ms | `latency_stage1/2026-09-18_1045_ec248b1` |
-| Stage 2: SBOM score cold / warm · image score cold / warm | 115 / 0.1 ms · 104 / 1.3 ms | `latency_stage2/2026-09-18_1100_ec248b1` |
-| Full gate per device: in-process · over HTTP | 111 ms · 216 ms | same |
-| LLM rationale, `qwen2.5:3b-instruct` on CPU: cold · model warm | 43–91 s (median 88 s) · 30–33 s | same, `raw_llm.csv` · ADR-0002 |
+| Stage 1: nine checks · warm verify · cold verify (IPFS + chain) | 3.7 ms · 95 ms · 108 ms | `latency_stage1/2026-10-02_1702_3300b9f` |
+| Stage 2: SBOM score cold / warm · image score cold / warm | 111 / 0.1 ms · 114 / 1.3 ms | `latency_stage2/2026-10-02_1702_3300b9f` |
+| Full gate per device: in-process · over HTTP | 128 ms · 244 ms | same |
+| Cost of check 9 (same-session A/B, check off): in-process · over HTTP | +10 ms · +18 ms | `ablation_check9_off/` vs `latency_stage2/2026-10-02_1626_3300b9f` |
+| LLM rationale, `qwen2.5:3b-instruct` on CPU: cold · model warm | 43–91 s (median 88 s) · 30–33 s | `latency_stage2/2026-09-18_1100_ec248b1`, `raw_llm.csv` · ADR-0002 |
 | Gas per `commitBatch` · per verdict at 200 / batch | 209 642 · 1 048 (−99.5 % execution gas vs 1 tx per verdict) | `gas_per_verdict_vs_batched/2026-09-18_1044_ec248b1_1` |
-| Model revocation → 5 / 20 / 50 device verdicts replayed | 7.5 / 8.8 / 11.7 s (+ 2 s poll) | `revocation_propagation/2026-09-18_1109_ec248b1` |
-| Image anomaly: append · pack · byte-patch · section-swap · downgrade (recall @ r ≥ 0.5 / AUROC) | 1.00/1.00 · 0.06/0.90 · 0.01/0.54 · 0.01/0.50 · 0.00/0.43 | `detection_f1/2026-09-18_1125_ec248b1` |
+| Model revocation → 5 / 20 / 50 device verdicts replayed | 8.3 / 9.9 / 13.0 s (+ 2 s poll) | `revocation_propagation/2026-10-02_1704_3300b9f` |
+| Image anomaly: append · pack · byte-patch · section-swap · downgrade (recall @ r ≥ 0.5 / AUROC; no-op mutations excluded) | 1.00/1.00 · 0.06/0.89 · 0.01/0.54 · 0.02/0.53 · 0.00/0.44 | `release_delta/2026-10-02_1619_3300b9f` |
+| Release delta (check 9), package not rebuilt: byte-patch · section-swap · benign flagged | 120/120 · 97/97 · 0/165 (rebuilt packages: 0 caught) | same |
 | SBOM risk model vs CVSS/EPSS/KEV baseline (Spearman / MAE) | 0.965 / 0.17 vs 0.976 / 1.01 | `sbom_ranking/2026-09-18_1125_ec248b1` |
-| Demo, 11 attacks | docker 58 s warm · host 53 s without / 348 s with the explainer | `docs/demo/README.md` |
+| Demo, 13 attacks (host, explainer off, fresh chain) | 62 s, 13 / 13 (2026-10-02) · earlier 11-attack runs: docker 58 s warm · host 348 s with the explainer | `docs/demo/README.md` |
 
 The weak rows are discussed, not hidden: the anomaly detector only sees *structural* tampering,
 the learned SBOM model calibrates better than the baseline but does not out-rank it, and all gas
@@ -206,7 +212,7 @@ figures are local `gasUsed` (no public-testnet run by decision). Details: `docs/
 
 ```bash
 make up                          # or host mode: make infra-up && make contracts-deploy-local && make models-register && LLM_ENABLED=false make gateway
-./scripts/demo.sh                # publish → fleet installs → eleven attacks
+./scripts/demo.sh                # publish → fleet installs → thirteen attacks
 make eval-all && make figures    # every experiment (~40 min; explainer section ~10 min)
 make train                       # retrain both models — byte-identical ONNX (needs: verigate-train data fetch|sbom|images)
 ```
@@ -226,10 +232,10 @@ verigate-admin revoke-model <hash> --successor <hash>     # the gateway replays 
 ```
 
 Stage 2 is enabled at the gateway with `SBOM_MODEL`, `IMAGE_MODEL` and `STAGE2_MODEL_HASHES`.
-`LLM_ENABLED` / `OLLAMA_URL` / `LLM_MODEL` control the explainer; it writes only when the approver
-presses **Explain with AI** (`POST /releases/{id}/explain`), or after every release-level verdict
-with `LLM_AUTO_EXPLAIN=true`. `qwen2.5:1.5b-instruct` is the documented low-RAM option (12–15 s,
-vaguer prose). The model cards under `models/` state every number.
+`LLM_ENABLED` / `OPENROUTER_API_KEY` / `LLM_MODEL` control the explainer (no key → off); it writes
+only when the approver presses **Explain with AI** (`POST /releases/{id}/explain`), or after every
+release-level verdict with `LLM_AUTO_EXPLAIN=true`. `LLM_MODEL` accepts any OpenRouter model that
+supports structured outputs. The model cards under `models/` state every number.
 
 </details>
 
@@ -277,6 +283,7 @@ vaguer prose). The model cards under `models/` state every number.
 
 - [x] P0–P4 — contracts, publisher CLI, gateway, fleet emulator, dashboard, `make smoke` from a clean machine
 - [x] P5–P6 — SBOM risk model, image anomaly model, explainer, model revocation, eleven attack scripts
+- [x] P9 (2026-10-02) — gap closure: Stage-1 check #9 (release delta), devices read the chain themselves, insider-patch and rogue-gateway scenarios, anchoring liveness fix, all numbers re-measured
 - [x] P7 — seven experiments with raw results and regenerated figures
 - [x] P8 — SRS, paper draft, demo rehearsals ×3, `v1.0.0` release with wheel, models, cards and gas report
 - [ ] P8-07 — fresh-machine rehearsal on a different computer

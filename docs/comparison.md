@@ -1,7 +1,7 @@
 # Comparison with the closest prior systems (P7-05)
 
 Feature presence only — no performance numbers are claimed for other systems. "●" = present as
-described in the cited source, "◐" = partial or differently scoped, "○" = absent or not described.
+described in the cited source, "◐" = partial or differently scoped, "○" = absent or not described, "?" = not assessed (the source was not checked for this row).
 Every VeriGate-FW cell points at the code or the measured result that backs it.
 
 | Feature | Uptane / TUF [1, 2] | FOTB [3] | Baza et al. [4] | DIDAuth-IoTFW [5] | LedgerGuard [6] | SBOM triage [7] | **VeriGate-FW** |
@@ -12,14 +12,15 @@ Every VeriGate-FW cell points at the code or the measured result that backs it.
 | Rollback / freeze protection | ● | ◐ | ○ | ◐ | ◐ | ○ | ● Stage 1 #4 (device-side monotonic version) and #5 (expiry → DEFER + alert) |
 | SBOM carried with the release and checked | ○ | ○ | ○ | ○ | ● | ● (generated) | ● SBOM hash in the signed manifest (Stage 1 #6), CycloneDX 1.5 |
 | Vulnerability-aware risk score (CVSS / EPSS / KEV) | ○ | ○ | ○ | ○ | ○ | ● | ● baseline + learned `sbom_risk` model with temporal split (`models/sbom_risk.card.md`, `evaluation/results/sbom_ranking`) |
-| Binary anomaly detection on the image | ○ | ○ | ○ | ○ | ○ | ○ | ● `image_anomaly` IsolationForest, per-mutation metrics (`evaluation/results/detection_f1`) |
+| Binary anomaly detection on the image | ○ | ○ | ○ | ○ | ○ | ○ | ● `image_anomaly` IsolationForest, per-mutation metrics (`evaluation/results/detection_f1`); plus Stage-1 check #9 (release delta vs the last approved image: 120/120 patches, 97/97 swaps on an unchanged base, 0/165 benign; `release_delta`) |
 | Three-outcome decision (approve / defer / reject) with on-chain policy | ○ | ○ | ○ | ○ | ○ | ○ (score only) | ● `PolicyContract`, τ_approve / τ_reject, ADR-0008; DEFER on any dependency outage |
 | Decision anchored on the ledger | ○ | ◐ (update record) | ◐ | ◐ (credential presentation) | ● (signed receipts, Merkle-rooted) | ○ | ● verdict record (scores, feature hash, model hashes, gateway signature) as a Merkle leaf, `commitBatch` per batch |
 | Batched anchoring (one tx per N verdicts) | ○ | ○ | ○ | ○ | ◐ (Merkle-rooted accountability; batching granularity per its docs) | ○ | ● measured: gas per verdict 209 642 → 1 048 at 200/batch (`evaluation/results/gas_per_verdict_vs_batched`) |
 | Analysis model as a registered, revocable artefact | ○ | ○ | ○ | ○ | ○ | ○ | ● `ModelRegistry`, `staleByModel`, gateway replay under the successor (ADR-0009, `evaluation/results/revocation_propagation`) |
 | Human-readable rationale, kept out of the decision | ○ | ○ | ○ | ○ | ○ | ○ | ● LLM explain-only, CID in the verdict (ADR-0002) |
 | Publisher reputation feeding the decision | ○ | ○ | ○ | ○ | ○ | ○ | ● EWMA from receipts / release-level rejects (ADR-0006) |
-| Emulated fleet, attack scripts, reproducible evaluation | ◐ (reference impl.) | ○ | ○ | ◐ (hardware testbed) | ● (emulated devices, receipts) | ◐ (firmware corpus) | ● eleven scripted attacks with measured pass rates (`evaluation/results/attack_matrix`) |
+| Device verifies against the ledger itself (resilient to a compromised gateway) | ● (full verification on ECUs) | ? | ? | ● (device-side VC + revocation checks on ESP32) | ? | ○ | ● device reads publisher key + release record from the chain, refuses unregistered / withdrawn / revoked-key pushes (`fleet/device.py`, `rogue-gateway` 5/5); a rogue gateway can still approve a registered release (limitations §14) |
+| Emulated fleet, attack scripts, reproducible evaluation | ◐ (reference impl.) | ○ | ○ | ◐ (hardware testbed) | ● (emulated devices, receipts) | ◐ (firmware corpus) | ● thirteen scripted attacks with measured pass rates (`evaluation/results/attack_matrix`) |
 | Real hardware validation | ● (deployments) | ○ | ○ | ● | ○ | ○ | ○ — software emulation only (stated scope) |
 
 ## References

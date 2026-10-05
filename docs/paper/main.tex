@@ -26,26 +26,24 @@
 \maketitle
 
 \begin{abstract}
-Over-the-air firmware updates are the main channel through which IoT fleets are both repaired
-and attacked. Signature-based frameworks such as Uptane answer \emph{who} produced an update but
-not whether a genuine update is \emph{safe} to install, and systems that add a risk analysis treat
-the analyser as trusted infrastructure that is never wrong. We present \sys{}, a software-only
-update gate that combines a deterministic cryptographic stage (eight fail-closed checks against
-on-chain publisher, firmware and model registries) with an AI risk stage (an SBOM vulnerability
-model and a firmware-image anomaly model, both exported to ONNX and registered by hash) whose
-scores are combined by an on-chain policy into approve / defer / reject. Every verdict names the
-model hashes that produced it, commits to its feature vector and is anchored on-chain in Merkle
-batches; an analysis model is therefore a revocable supply-chain artefact: revoking its hash marks
-every verdict it produced stale and the gateway re-verifies the affected devices with the
-successor. A local language model writes a rationale that is stored but never consulted by the
-decision. On a laptop with a local Hardhat chain, the deterministic gate takes 89\,ms per
-verification, the full gate 111\,ms in-process and 216\,ms per device over HTTP, anchoring costs
-1\,048 gas per verdict at 200 verdicts per batch (99.5\,\% below one transaction per verdict), a
-revoked model's verdicts for 50 devices are replayed in 11.7\,s, and eleven scripted attacks
-are caught in 100\,\% of 52 runs. We report the detector's failures with the same care: the
-anomaly model catches appended payloads (AUROC 1.0) but small patches and section swaps are at
-chance, and the learned SBOM model improves calibration (MAE 0.17 vs 1.01) without improving
-ranking over a CVSS/EPSS/KEV baseline.
+Signature-based update frameworks such as Uptane establish \emph{who} produced a firmware update,
+not whether a genuine update is \emph{safe} to install, and systems that add a risk analysis
+treat the analyser as infallible. We present \sys{}, a software-only update gate in which a
+deterministic stage (nine fail-closed checks against on-chain registries and the last approved
+image) precedes an AI risk stage (an SBOM vulnerability model and a firmware-image anomaly model,
+both registered on-chain by hash) whose scores an on-chain policy maps to approve, defer or
+reject. Every verdict names its model hashes, commits to its features and is anchored in Merkle
+batches, so a model is a revocable supply-chain artefact: revoking it marks its verdicts stale and
+gateways re-verify the affected devices with the successor. Devices read publisher keys and
+release records from the chain themselves, so a compromised gateway cannot install unregistered,
+withdrawn or revoked-key firmware. On a laptop with a local chain, a device verification takes
+128\,ms in-process, anchoring costs 1\,048 gas per verdict at 200 per batch, a revoked model's
+verdicts for 50 devices are replayed in 13.0\,s, and thirteen attacks are caught in all 62 runs.
+We report failures with the same care: the anomaly model misses small byte patches and section
+swaps (AUROC 0.54, 0.53); a deterministic release-delta check holds all 120 such patches and
+97 swaps on an unchanged base for review with no benign release flagged (0/165), but nothing
+detects a patch inside a rebuild; and the learned SBOM model improves calibration, not ranking,
+over a CVSS/EPSS/KEV baseline.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -75,8 +73,13 @@ leaf on-chain, so anyone holding the model files can recompute and check it.
 it marks every batch that used it stale; gateways swap to the registry's successor and re-verify
 the affected devices automatically.
 \end{enumerate}
-A language model produces a human-readable rationale for reviewers; its content is stored by
-content identifier in the verdict and is never read by the decision path.
+Two deterministic mechanisms complement the AI where it is measurably weak: a
+\emph{release-delta} check that holds for review an image that is the last approved image with a
+few blocks overwritten or moved (the footprint of a post-build modification that no learned
+detector here can see), and device-side registry checks that keep a compromised gateway from
+installing anything unregistered, withdrawn or signed by a revoked key. A language model produces
+a human-readable rationale for reviewers; its content is stored by content identifier in the
+verdict and is never read by the decision path.
 
 Everything is measured, and the failures are reported alongside the successes
 (Section~\ref{sec:limits}). The implementation, models, fixtures, attack scripts and raw results
@@ -91,8 +94,10 @@ serve images from IPFS; DIDAuth-IoTFW~\cite{didauth} authenticates firmware with
 identifiers and verifiable credentials on real hardware. LedgerGuard~\cite{ledgerguard} adds
 SBOMs, staged roll-out and Merkle-rooted accountability of device receipts on a permissioned
 ledger. The SBOM-triage pipeline of Tolay~\cite{sbomtriage} scores firmware SBOMs with CVSS,
-EPSS and CISA KEV but does not connect the score to an update decision or an audit trail. None
-registers the analysis model, none can revoke it, and none combines a deterministic gate with a
+EPSS and CISA KEV but does not connect the score to an update decision or an audit trail.
+DDoSViT~\cite{ddosvit} applies a vision transformer to OTA updates, but to the \emph{network}:
+it detects DDoS traffic against the update channel, not risk in the firmware being delivered,
+and its model is not registered or revocable. None registers the analysis model, none can revoke it, and none combines a deterministic gate with a
 three-outcome policy. The supplementary comparison table (\res{docs/comparison.md})
 lists feature presence per system as described in each source.
 
@@ -113,12 +118,24 @@ roots and answers \texttt{staleByModel}. All contracts are Solidity 0.8.26 on Op
 \texttt{AccessControl} with custom errors and 100\,\% statement coverage.
 
 \subsection{Stage 1: the deterministic gate}
-Eight pure checks run in order and short-circuit: firmware hash, manifest signature under the
+Nine pure checks run in order and short-circuit: firmware hash, manifest signature under the
 DID's registered key, publisher active, version strictly above the device's installed version,
-expiry, SBOM hash, registry record not revoked, and every configured model active. Any failure
-except expiry yields REJECT; an expired manifest yields DEFER with an alert (the freeze attack). A
-dependency outage (chain RPC or IPFS) yields DEFER, never APPROVE. Because the checks are pure
-functions of recorded inputs, a verdict can be replayed.
+expiry, SBOM hash, registry record not revoked, every configured model active, and the
+\emph{release delta} (below). Any failure except expiry and release delta yields REJECT; an
+expired manifest yields DEFER with an alert (the freeze attack). A dependency outage (chain RPC or
+IPFS) yields DEFER, never APPROVE. Because the checks are pure functions of recorded inputs, a
+verdict can be replayed.
+
+\textbf{Release delta (check 9).} The reference is the newest earlier, non-revoked release of the
+same publisher and device model that this gateway \emph{approved} and whose served image still
+matches its on-chain hash---never a held, rejected or tampered release. Every 64-byte block of
+the new image is looked up among the reference's 64-byte windows at every 4-byte offset, so code
+that merely moved still matches; repeated blocks (padding, tables) must also sit where the
+reference continues. If at most 32 blocks (2\,KiB) changed and the image is not byte-identical,
+or blocks were reordered, the release is the approved image modified after the build and is held
+for review (DEFER) with the changed offsets in the reason. A rebuild changes far more: the
+smallest benign rebuild in the corpus changes 76 blocks. The check never rejects, because a vendor
+binary hot-patch has the same footprint; it moves the decision to a person.
 
 \subsection{Stage 2: the AI risk gate}
 \textbf{SBOM risk.} Ten integer-quantised features (component and CVE counts, CVSS statistics,
@@ -149,7 +166,11 @@ the gateway role may write it, and with $w_\mathrm{rep}=0.2$ it can move a relea
 never into REJECT by itself. The verdict record (release, device, model hashes, feature hash,
 scores, $R$, verdict, rationale CID, timestamp) is signed by the gateway (EIP-191), hashed into a
 domain-separated Merkle leaf and committed in batches bounded by size or time; the gateway serves
-proofs and the contract verifies them.
+proofs and the contract verifies them. A DEFER from the policy or from check~9 can be resolved
+once by a named reviewer (accept or reject, with a note); the decision is itself a signed verdict
+record whose feature hash commits to the decision, the reviewer and the held verdict it resolves,
+and later verdicts for the release carry it. Stage-1 rejections, expired manifests and outages
+cannot be overridden.
 
 \subsection{Model revocation}
 An administrator revokes a model hash naming a successor. The gateway polls model status; on
@@ -158,6 +179,16 @@ store (only where the Merkle root matches the chain), locates the successor \emp
 its model directory, swaps only that scorer slot and re-runs the full gate for every stale
 (release, device) pair through the normal batcher. Without a successor file the revoked hash stays
 configured and Stage 1 rejects on \emph{model active}: the gate fails closed~\cite{adr9}.
+
+\subsection{Device-side enforcement}
+Before writing its inactive A/B slot, the device re-checks the firmware hash, the manifest
+signature, the device model and the version. It does not take the publisher key from the gateway:
+it reads the publisher record and the release record from the chain itself and requires the
+publisher to be active and the release to be registered, not withdrawn, from that publisher and
+for exactly this image. A compromised gateway therefore cannot make a device install code that is
+unsigned, unregistered, withdrawn, downgraded or signed by a revoked key. It can still approve a
+registered release the gate would have held; that verdict is anchored with its feature hash and
+model hashes, so the misbehaviour is detectable afterwards rather than prevented.
 
 \subsection{Explainer}
 A local \texttt{qwen2.5:3b-instruct} via Ollama receives the SBOM diff against the previous
@@ -176,8 +207,8 @@ portability (\texttt{make up} starts the chain, IPFS, deployer, model registrar,
 and dashboard; \texttt{make smoke} proves a verdict from a clean machine). The fixtures are real
 OpenWrt \texttt{busybox} builds (22.03.7, 23.05.3, 24.10.0 and an end-of-life 19.07.10) with
 SBOMs derived from the real package manifests, so Stage-2 inputs are in the training
-distribution. Eleven attack scripts run only against the local emulated fleet. The code base has
-346 unit tests (92\,\% coverage), 74 contract tests (100\,\%), 19 integration and 12 end-to-end
+distribution. Thirteen attack scripts run only against the local emulated fleet. The code base has
+385 unit tests (92\,\% coverage), 74 contract tests (100\,\%), 19 integration and 14 end-to-end
 tests, run before every release.
 
 \section{Evaluation}
@@ -189,14 +220,18 @@ contract addresses, model hashes and vulnerability-snapshot date. Figures are pr
 \res{evaluation/figures.py}.
 
 \subsection{Latency}
-Fig.~\ref{fig:latency}. The eight Stage-1 checks on a fetched bundle take 3.3\,ms
-(IQR 2.8--3.7); the full deterministic verification path---model status and policy reads from
-the chain, checks, record signing and batch queueing---takes 88.7\,ms warm and 98.3\,ms when the
-manifest, firmware and SBOM are fetched from IPFS first (\res{latency_stage1/2026-09-18_1045},
-$n=90$ per metric). Stage 2 adds 115\,ms for SBOM scoring and 104\,ms for image scoring the
-first time a release is seen and 0.1\,ms / 1.3\,ms afterwards (per-hash caches); a complete
-verification for a device costs 110.8\,ms in-process and 216\,ms over HTTP
-(\res{latency_stage2/2026-09-18_1100}, $n=60$). The explainer is three orders of magnitude
+Fig.~\ref{fig:latency}. The nine Stage-1 checks on a fetched bundle take 3.7\,ms
+(IQR 3.0--4.2); the full deterministic verification path---model status and policy reads from
+the chain, the reference image, checks, record signing and batch queueing---takes 95.3\,ms warm
+and 108.1\,ms when the manifest, firmware and SBOM are fetched from IPFS first
+(\res{latency_stage1/2026-10-02_1702}, $n=90$ per metric). Stage 2 adds 111\,ms for SBOM scoring
+and 114\,ms for image scoring the first time a release is seen and 0.1\,ms / 1.3\,ms afterwards
+(per-hash caches); a complete verification for a device costs 128.2\,ms in-process (IQR
+113--134) and 244\,ms over HTTP (\res{latency_stage2/2026-10-02_1702}, $n=60$). An A/B in one
+session with check~9's reference lookup disabled measured 114.9\,ms and 213.5\,ms
+(\res{ablation_check9_off/}), so the check costs about 10\,ms in-process and 18\,ms over HTTP;
+its comparison alone takes 3.1\,ms median and at most 27\,ms over the corpus and is cached per
+(release, reference) pair. The explainer is three orders of magnitude
 slower: six sequential rationales took 42.5--91.3\,s each (median 88.4\,s) on the CPU
 (30--33\,s with the model already loaded~\cite{adr2}), which is why no verification waits for it.
 
@@ -227,11 +262,13 @@ gas alone; a public-testnet measurement is left for future work.
 
 \subsection{Model revocation propagation}
 Fig.~\ref{fig:revocation}. After the gateway notices a revocation, replaying 5 / 20 / 50 stale
-device verdicts with the successor takes 7.5 / 8.8 / 11.7\,s (IQR within 0.1\,s), to which the
+device verdicts with the successor takes 8.3 / 9.9 / 13.0\,s (IQR within 0.31\,s), to which the
 2\,s poll interval adds the detection bound
-(\res{revocation_propagation/2026-09-18_1109}, five repetitions per size). About 7\,s is the
+(\res{revocation_propagation/2026-10-02_1704}, five repetitions per size). About 7.8\,s is the
 fixed cost of loading the successor ONNX model and its SHAP background; each further device adds
-roughly 90\,ms. Every replayed verdict kept its outcome because the successor in this experiment
+roughly 100\,ms. Verdicts that used the revoked model but were not yet anchored---still queued, or
+refused by \texttt{VerdictRegistry} because the model is no longer active---are taken out of the
+queue and replayed too; earlier, one such verdict blocked every later batch. Every replayed verdict kept its outcome because the successor in this experiment
 is the same detector retrained with another seed---the experiment measures propagation, not
 detection.
 
@@ -244,10 +281,15 @@ detection.
 
 \subsection{Attack matrix}
 Table~\ref{tab:attacks}. Each scenario was run five times against the running gateway
-(\res{attack_matrix/2026-09-18_1114}); \emph{poisoned-model} twice, because a model hash can
+(\res{attack_matrix/2026-10-02_1653}); \emph{poisoned-model} twice, because a model hash can
 be revoked once and the shipped stack has one primary image model and one successor (the second
-run revokes the successor with no replacement and every replayed verdict fails closed). All 52
-runs produced the expected outcome.
+run revokes the successor with no replacement and every replayed verdict fails closed). In
+\emph{insider patch} a fresh publisher's clean build is approved, then the same build with
+256\,bytes overwritten is signed with the real key: every cryptographic check passes and check~9
+holds it. In \emph{rogue gateway} a fake gateway answers a device's poll with APPROVE and pushes an
+attacker-signed unregistered image, a withdrawn release and a release of a revoked publisher; the
+device refuses all three from the chain records, while a genuine release pushed the same way (with
+the attacker's key offered) installs. All 62 runs produced the expected outcome.
 
 \begin{table}[t]
 \caption{Attack matrix: expected outcome (observed in every run), runs and pass rate.}
@@ -267,6 +309,8 @@ freeze (expired manifest) & DEFER & 5 & 100\,\% \\
 SBOM swap (clean hash, dirty SBOM) & REJECT & 5 & 100\,\% \\
 vulnerable-but-genuine (EOL base) & DEFER & 5 & 100\,\% \\
 hidden payload (200\,KiB appended) & DEFER & 5 & 100\,\% \\
+insider patch (256\,B, real key) & DEFER & 5 & 100\,\% \\
+rogue gateway (3 pushes + control) & REFUSED & 5 & 100\,\% \\
 bad history (four prior rejects) & DEFER & 5 & 100\,\% \\
 policy tamper (non-admin setPolicy) & BLOCKED & 5 & 100\,\% \\
 poisoned model (revoke, replay) & REPLAYED & 2 & 100\,\% \\
@@ -278,14 +322,50 @@ poisoned model (revoke, replay) & REPLAYED & 2 & 100\,\% \\
 \textbf{Image anomaly} (Fig.~\ref{fig:detection}, \res{detection_f1/2026-09-18_1125}, 165
 benign and 165 mutated binaries per class, operating point $r_\mathrm{img}\ge0.5$): appended
 payloads are detected with recall 1.000, precision 0.988 and AUROC 1.000; packing has AUROC
-0.895 but recall 0.061 at the operating point; byte patches (0.012 / 0.543), section swaps
-(0.012 / 0.504) and relabelled downgrades (0.000 / 0.431) are at or below chance. The benign
+0.895 but recall 0.061 at the operating point; byte patches (recall / AUROC 0.012 / 0.543),
+section swaps (0.015 / 0.527) and relabelled downgrades (0.000 / 0.435) are at or below chance.
+The section-swap and relabel figures exclude mutations that leave the file byte-identical (29 and
+120 of 165): in 120 of the 165 benign pairs OpenWrt did not rebuild the package, so the
+``downgrade'' is the same file, and the original run had scored those as tampering. The benign
 false-positive rate of 1.2\,\% is optimistic because the benign rows are the training rows.
+Retraining the IsolationForest with check~9's delta features instead of the changed-chunk share
+did not help: patch and swap recall stayed at 0.012 and 0.022 and appended-payload recall fell
+from 1.000 to 0.297 (\res{delta_features_iforest/2026-10-02_1712}), which is why the release
+delta is a deterministic check and not a model feature.
+\textbf{Release delta} (Table~\ref{tab:delta}, \res{release_delta/2026-10-02_1619}): on the
+pairs whose package was not rebuilt, check~9 holds every patched and swapped image (Wilson 95\,\%
+lower bounds 0.969 and 0.962); it holds 38 of 45 relabelled downgrades, the other 7 being
+byte-identical to the approved image; it flags no benign release (0/165, upper bound 0.023). On
+rebuilt pairs it catches nothing, and nothing in the stack detects a 256-byte patch inside a
+rebuild.
 \textbf{SBOM risk} (\res{sbom_ranking/2026-09-18_1125}, 196 held-out rows from the 14 newest
 releases, 200 bootstrap resamples): Spearman 0.965 for the model versus 0.976 for the
 CVSS/EPSS/KEV baseline, both with AUROC 1.0 for ``$\ge 3$ expected exploited CVEs''; the model's
 gain is calibration---MAE 0.167 versus 1.012 expected exploited CVEs---which is what absolute
 policy thresholds need, not ranking.
+
+\begin{table}[t]
+\caption{Share of images flagged per class: check 9 (release delta), image model
+($r_\mathrm{img}\ge0.5$) and either. ``Base'' = package not rebuilt; ``rebuild'' = rebuilt.}
+\label{tab:delta}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+class & pairs & $n$ & check 9 & model & either \\
+\midrule
+benign & all & 165 & 0.000 & 0.012 & 0.012 \\
+byte patch & base & 120 & 1.000 & 0.000 & 1.000 \\
+byte patch & rebuild & 45 & 0.000 & 0.044 & 0.044 \\
+section swap & base & 97 & 1.000 & 0.000 & 1.000 \\
+section swap & rebuild & 39 & 0.000 & 0.051 & 0.051 \\
+relabel & rebuild & 45 & 0.844 & 0.000 & 0.844 \\
+append & all & 165 & 0.000 & 1.000 & 1.000 \\
+pack & all & 165 & 0.000 & 0.061 & 0.061 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{figure}[t]
 \centering
@@ -300,7 +380,10 @@ Each item is backed by a measured failure (\res{docs/limitations.md}).
 (i)~The image detector sees \emph{structural} tampering only; a malicious build that preserves
 size, entropy and layout passes Stage 2, and detection of an appended payload depends on having
 the previous release: without a predecessor the same payload scores 0.41 and the release would be
-approved. (ii)~No component of the OpenWrt corpus matches the CISA KEV catalogue, so the KEV
+approved. Check~9 only helps when the release reuses the approved image; a modification inside a
+rebuild (or a malicious source change that is then built) is invisible to every detector here,
+and a genuine binary hot-patch is held for review like an attack. Its 2\,KiB limit is set from
+this corpus (smallest benign rebuild 4.75\,KiB), which has no benign hot-patch releases. (ii)~No component of the OpenWrt corpus matches the CISA KEV catalogue, so the KEV
 feature and the baseline's KEV floor are untested on real data; the vulnerable-but-genuine
 scenario shows EPSS/CVSS mass instead. (iii)~The learned SBOM model does not out-rank the
 baseline. (iv)~The explainer costs 43--91\,s per rationale on a CPU (30--33\,s warm); the full
@@ -309,9 +392,14 @@ consume models. (vi)~Release-level rejections burn the publisher's reputation an
 own verification counts as a second signal, so the order of scenarios matters. (vii)~Because the
 release identifier is the manifest hash, a squatter can register a predictable manifest first;
 the squatted copy fails Stage 1 but the genuine publisher must re-issue with a fresh expiry.
-(viii)~Gas is local \texttt{gasUsed} only; the fleet is emulated; all timings are from one
-laptop; and the first Stage-2 verification on an empty vulnerability cache takes about ten
-minutes.
+(viii)~A compromised gateway can still approve a registered release that the gate would have
+held; device-side checks prevent only unregistered, withdrawn, revoked-key and downgraded
+installs, and the rest is detectable after the fact through the anchored verdict.
+(ix)~Gas is local \texttt{gasUsed} only: by decision the contracts were not deployed to a public
+testnet, although the deploy script targets any EVM network. The fleet is emulated rather than
+run on ESP32 or Raspberry Pi hardware as in DIDAuth-IoTFW~\cite{didauth}; all timings are from
+one laptop in daily use, so medians vary between runs; and the first
+Stage-2 verification on an empty vulnerability cache takes about ten minutes.
 
 \section{Conclusion}
 \sys{} shows that an AI risk gate for firmware updates can be made accountable with the same
@@ -319,11 +407,21 @@ machinery that makes the firmware itself accountable: register the model by hash
 every verdict, anchor the verdicts, and revoke the model when it is wrong. The deterministic
 stage keeps the AI from ever loosening a decision, the on-chain policy keeps the rules auditable,
 and the explain-only language model keeps the reviewer informed without touching the outcome.
-The measured costs---about 100\,ms per verification, about a thousand gas per anchored verdict,
-seconds to replay a revoked model's verdicts---are compatible with fleet-scale operation; the
-measured weaknesses of the detectors define the work that remains.
+Where the learned detector is measurably blind---small patches and moved sections---a
+deterministic comparison with the last approved image covers the case the corpus shows to be
+common, and devices that read the chain themselves keep a compromised gateway from installing
+anything the registries do not vouch for. The measured costs---about 100\,ms per verification,
+about a thousand gas per anchored verdict, seconds to replay a revoked model's verdicts---are
+compatible with fleet-scale operation; the measured weaknesses define the work that remains,
+first among them tampering inside a rebuild.
 
-\begin{thebibliography}{9}
+\section*{Acknowledgment}
+Generative AI tools (Anthropic Claude) were used to assist with software implementation,
+experiment scripting and drafting of this manuscript. The author reviewed and verified the code,
+the experiments and the text, and takes full responsibility for all content and for every
+reported measurement, each of which is produced by the released scripts.
+
+\begin{thebibliography}{99}
 \bibitem{tuf} J. Samuel, N. Mathewson, J. Cappos, R. Dingledine, ``Survivable key compromise in
 software update systems,'' in \emph{Proc. ACM CCS}, 2010.
 \bibitem{uptane} T. K. Kuppusamy, A. Brown, S. Awwad, D. McCoy, R. Bielawski, C. Mott, S. Lauzon,
@@ -341,6 +439,9 @@ staged rollout control, and Merkle-rooted update accountability,''
 \url{https://github.com/ajalkhodair-spec/ledgerguard}, 2026.
 \bibitem{sbomtriage} A. Tolay, ``Automated SBOM-driven vulnerability triage for IoT firmware: A
 lightweight pipeline for risk prioritization,'' arXiv:2601.01308, 2026.
+\bibitem{ddosvit} M. Ali, Y. Saleem, S. Hina, G. A. Shah, ``DDoSViT: IoT DDoS attack detection
+for fortifying firmware over-the-air (OTA) updates using vision transformer,'' \emph{Internet of
+Things}, vol. 30, 101527, 2025.
 \bibitem{card-sbom} \sys{}, model card, \path{models/sbom_risk.card.md}, 2026.
 \bibitem{card-img} \sys{}, model card, \path{models/image_anomaly.card.md}, 2026.
 \bibitem{adr2} \sys{} ADR-0002, ``The LLM explains; deterministic models decide,'' 2026.

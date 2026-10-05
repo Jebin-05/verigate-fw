@@ -74,18 +74,45 @@ releases, a new-release dialog, withdraw, identity).
 
 ## <img width="26" height="26" alt="" src="https://skillicons.dev/icons?i=git&theme=dark"/> Quick start
 
-**Demo mode — only Docker needed**
+**Run it on any machine — you only need [Docker](https://docs.docker.com/get-docker/) and Git**
 
-```bash
-git clone https://github.com/Jebin-05/verigate-fw.git && cd verigate-fw
-make doctor         # checks docker, RAM, disk, free ports
-make up             # chain, IPFS, contract deploy, model registration, gateway, fleet, dashboard
-make smoke          # proves the stack reaches an APPROVE verdict end to end
-# optional: the explainer — put your key in .env as OPENROUTER_API_KEY=sk-or-...
-```
+1. Get the code
+   ```bash
+   git clone https://github.com/Jebin-05/verigate-fw.git
+   cd verigate-fw
+   cp .env.example .env          # Windows PowerShell: copy .env.example .env
+   ```
+2. Put your OpenRouter key in `.env` — the only line you edit (get one at https://openrouter.ai/keys):
+   ```
+   OPENROUTER_API_KEY=sk-or-v1-...
+   ```
+   Without a key everything still runs; only **Explain with AI** stays off.
+3. Start backend and frontend with one command
+   ```bash
+   make up
+   ```
+   No `make` (e.g. Windows PowerShell)? Run the same thing directly:
+   ```bash
+   docker compose --env-file .env -f infra/docker-compose.yml --profile app up -d --build
+   ```
+4. Open **http://localhost:5173/app** (approval console) · **http://localhost:5173/publisher** (publisher portal) · **http://localhost:8000/docs** (gateway API).
 
-Open **http://localhost:5173**. Works on Linux, macOS (Docker Desktop) and Windows (WSL2 + Docker
-Desktop); no Python or Node on the host.
+The first start builds the images (a few minutes, depending on your connection); later starts take
+about a minute. One command starts the chain, IPFS, contract deployment, model registration, the
+gateway, 20 emulated devices and the dashboard. Vulnerability data for the bundled releases ships
+with the image, so the first verdict arrives in seconds.
+
+| Task | Command |
+|---|---|
+| Stop | `make down` (wipe all data: `make down V=1`) |
+| Logs | `make logs` |
+| Changed `.env` (new key, ports) | `make up` again |
+| A port is already in use | set `GATEWAY_PORT`, `DASHBOARD_PORT`, `HARDHAT_PORT`, `IPFS_API_PORT` or `IPFS_GATEWAY_PORT` in `.env`, then `make up` |
+| Check the machine first | `make doctor` |
+| End-to-end proof | `make smoke` |
+
+Works on Linux, macOS (Docker Desktop) and Windows (Docker Desktop; WSL2 or PowerShell). No Python
+or Node needed on the host.
 
 **Host mode — hot reload**
 
@@ -117,8 +144,8 @@ Every command prints one JSON object and is idempotent: same inputs → same CID
 DEMO_MODE=host ./scripts/demo.sh  # against make gateway + make infra-up
 ```
 
-The first run on an empty vulnerability cache fetches OSV / EPSS / KEV and takes 9–30 min; run it
-the day before, or `make vulndb-seed` from a host cache. Runbook: `docs/demo/README.md`.
+Vulnerability data for the bundled releases is preloaded; a new SBOM is looked up online (OSV /
+EPSS / KEV) the first time. Runbook: `docs/demo/README.md`.
 
 ---
 

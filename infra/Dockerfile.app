@@ -13,6 +13,10 @@ COPY --from=build /usr/local/lib/python3.11/site-packages /usr/local/lib/python3
 COPY --from=build /usr/local/bin/verigate-* /usr/local/bin/
 COPY --chown=app models /app/models
 COPY --chown=app tests/fixtures /app/fixtures
+# Vulnerability answers for the bundled releases (OSV / EPSS / KEV, data/vulndb-demo): a fresh
+# vuln-cache volume starts from this copy, so the first verdict takes seconds instead of the
+# 10–30 min online fill. Anything not in it is still fetched online.
+ADD --chown=app data/vulndb-demo.tar.gz /app/data/processed/vulndb/
 WORKDIR /app
 USER app
 EXPOSE 8000

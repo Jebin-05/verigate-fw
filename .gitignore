@@ -31,6 +31,7 @@ keys/
 data/raw/
 data/processed/
 data/vulndb-demo/
+!data/vulndb-demo.tar.gz
 !data/README.md
 !data/MANIFEST.sha256
 evaluation/results/**/*.parquet

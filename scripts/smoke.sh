@@ -3,11 +3,11 @@
 # Used by CI (portability job), by `make smoke`, and by you on any new laptop before a demo.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-COMPOSE="docker compose -f infra/docker-compose.yml --profile app"
+[ -f .env ] || cp .env.example .env
+COMPOSE="docker compose --env-file .env -f infra/docker-compose.yml --profile app"
 cleanup() { $COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-[ -f .env ] || cp .env.example .env
 echo "▶ starting full stack"
 $COMPOSE up -d --build
 echo "▶ waiting for gateway health"

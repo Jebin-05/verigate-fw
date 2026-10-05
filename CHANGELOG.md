@@ -3,6 +3,8 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 ### Changed
+- One-command start for any machine: copy `.env.example` to `.env`, set `OPENROUTER_API_KEY`, run `make up` (or the plain `docker compose --env-file .env …` line). `scripts/up.sh` checks Docker, creates `.env` if missing, warns on an empty key, waits for the gateway and prints the URLs. Port overrides in `.env` now reach Compose (`--env-file`). The vulnerability snapshot for the bundled releases ships as `data/vulndb-demo.tar.gz` and seeds a fresh cache volume, so the first verdict takes seconds (measured on a clean copy: 7 s from publish to APPROVE) instead of 10–30 min. `.dockerignore` keeps `.env`, keys and local caches out of the build context.
+### Changed
 - The explainer calls OpenRouter instead of a local Ollama model (owner's request, 2026-09-28): `OPENROUTER_API_KEY` / `LLM_MODEL` (default `openai/gpt-4o-mini`) in `.env`, strict `json_schema` output routed only to providers that honour it, 30 s timeout; no key → the explainer is off. A refused key or exhausted credits (401/402/403) backs off instead of retrying. Ollama is gone from `docker-compose.yml`, the Makefile (`llm-pull`) and the latency runner. Measured on the CPU-only laptop before the switch: a cold explanation took 29 s (21 s prompt evaluation, 11 s generation at 8 tok/s).
 - Explanations say why the AI judged a release safe or risky: overall and per-model risk level, the drivers with their values and whether each pushed the risk up or down.
 ### Added

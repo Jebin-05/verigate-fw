@@ -3,21 +3,21 @@ SHELL := /bin/bash
 PY := .venv/bin/python
 PIP := .venv/bin/pip
 N ?= 20
+# .env sits at the repo root, not next to the compose file: pass it so port overrides apply.
+COMPOSE := docker compose --env-file .env -f infra/docker-compose.yml --profile app
 
 .PHONY: up down logs smoke doctor help bootstrap lint format typecheck test test-unit test-integration test-contracts test-all \
         infra-up infra-down contracts-build contracts-deploy-local gateway fleet dashboard \
         train models-hash models-register vulndb-seed eval eval-all figures clean
 
 up:              ## run EVERYTHING in docker (any machine, no host toolchain needed)
-	[ -f .env ] || cp .env.example .env
-	docker compose -f infra/docker-compose.yml --profile app up -d --build
-	@echo "dashboard → http://localhost:$${DASHBOARD_PORT:-5173}   gateway → http://localhost:$${GATEWAY_PORT:-8000}/docs"
+	./scripts/up.sh
 
 down:            ## stop everything (keeps volumes; add V=1 to wipe)
-	docker compose -f infra/docker-compose.yml --profile app down $(if $(V),-v,)
+	$(COMPOSE) down $(if $(V),-v,)
 
 logs:            ## follow all container logs
-	docker compose -f infra/docker-compose.yml --profile app logs -f --tail=100
+	$(COMPOSE) logs -f --tail=100
 
 smoke:           ## fresh-machine proof: up → deploy → publish → verify → APPROVE → down
 	./scripts/smoke.sh
@@ -26,7 +26,7 @@ doctor:          ## diagnose this machine before running anything
 	./scripts/doctor.sh
 
 vulndb-seed:     ## copy the host vulnerability cache (or SNAP=data/vulndb-demo) into the running gateway's volume
-	docker compose -f infra/docker-compose.yml --profile app cp $(or $(SNAP),data/processed/vulndb)/. gateway:/app/data/processed/vulndb/
+	$(COMPOSE) cp $(or $(SNAP),data/processed/vulndb)/. gateway:/app/data/processed/vulndb/
 	@echo "seeded; the first Stage-2 verification is now warm"
 
 help:            ## show this help

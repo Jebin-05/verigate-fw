@@ -1,0 +1,21 @@
+# Build context for infra/Dockerfile.*: only what the images copy. Secrets never leave the host.
+.git
+.env
+.env.*
+!.env.example
+keys/
+.verigate/
+.venv/
+**/node_modules/
+**/__pycache__/
+dashboard/dist/
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/coverage/
+contracts/deployments/localhost/
+data/raw/
+data/processed/
+data/vulndb-demo/
+evaluation/results/
+docs/

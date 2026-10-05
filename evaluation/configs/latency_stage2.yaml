@@ -3,5 +3,5 @@ experiment: latency_stage2
 repetitions: 20
 warmup: 2
 llm:
-  repetitions: 6            # sequential Ollama calls (≈ 1–2 min each on a CPU); 0 disables
-  timeout_s: 300
+  repetitions: 6            # sequential OpenRouter calls; 0 disables
+  timeout_s: 60

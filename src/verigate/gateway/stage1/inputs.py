@@ -20,7 +20,11 @@ class DeviceView:
 
 @dataclass(frozen=True)
 class Stage1Input:
-    """Everything the eight checks look at. ``None`` means "could not be obtained" → fail closed."""
+    """Everything the nine checks look at. ``None`` means "could not be obtained" → fail closed.
+
+    ``trusted_firmware`` is the image of the last non-revoked release of the same publisher and
+    device model; ``None`` with ``trusted_unavailable=False`` means there is no such release.
+    """
 
     manifest: SignedManifest | None
     firmware: bytes | None
@@ -30,3 +34,5 @@ class Stage1Input:
     device: DeviceView
     models: tuple[ModelRecord | None, ...]
     now: datetime
+    trusted_firmware: bytes | None = None
+    trusted_unavailable: bool = False

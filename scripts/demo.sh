@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Demo script (P4-08, P6-07): publish → fleet installs → all eleven attacks, end to end, < 5 min.
+# Demo script (P4-08, P6-07): publish → fleet installs → all thirteen attacks, end to end, < 5 min.
 # Docker mode (default): the stack from `make up` (gateway, fleet, hardhat, ipfs). Host mode
 # (DEMO_MODE=host): `make gateway` + `make infra-up` running on this machine.
 set -euo pipefail
@@ -59,7 +59,7 @@ ds = json.loads(os.environ["DATA"])
 print(len(ds), "devices · installed versions:", sorted({d["installed_version"] for d in ds}))
 PY
 
-step "eleven attacks: six Stage-1 (tamper … sbom-swap) + five AI-gate (vulnerable-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper)"
+step "thirteen attacks: six Stage-1 (tamper … sbom-swap), five AI-gate (vulnerable-genuine, hidden-payload, bad-history, poisoned-model, policy-tamper), insider-patch (check #9) and rogue-gateway (device)"
 ATTACK_URL=$GATEWAY_URL; [ "$DEMO_MODE" = "docker" ] && ATTACK_URL=http://127.0.0.1:8000
 run_in_gateway verigate-attack run all --gateway "$ATTACK_URL" 2>/dev/null > /tmp/verigate-demo-attacks.json || true
 python3 - <<'PY'

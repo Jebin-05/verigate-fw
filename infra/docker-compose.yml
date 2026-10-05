@@ -1,5 +1,5 @@
 # ONE file, two profiles.
-#   docker compose -f infra/docker-compose.yml up -d                 → infra only (hardhat, ipfs, ollama)
+#   docker compose -f infra/docker-compose.yml up -d                 → infra only (hardhat, ipfs)
 #   docker compose -f infra/docker-compose.yml --profile app up -d   → everything: + deployer, registrar, gateway, fleet, dashboard
 # Every image is pinned. Every port is overridable via .env. No host paths other than the repo itself.
 name: verigate
@@ -10,7 +10,6 @@ x-python-app: &python-app
   environment:
     RPC_URL: http://hardhat:8545
     IPFS_API: http://ipfs:5001
-    OLLAMA_URL: http://ollama:11434
     GATEWAY_PORT: 8000            # containers always listen on 8000; the host mapping uses .env
     STATE_DIR: /app/.verigate/state
     VULN_CACHE_DIR: /app/data/processed/vulndb
@@ -41,13 +40,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-
-  ollama:
-    image: ollama/ollama:0.3.12
-    ports: ["${OLLAMA_PORT:-11434}:11434"]
-    volumes: ["ollama-data:/root/.ollama"]
-    deploy: { resources: { limits: { memory: 4g } } }
-    profiles: ["llm"]          # optional: docker compose --profile llm up  (pull model once: make llm-pull)
 
   deployer:                     # one-shot: compiles + deploys contracts, writes deployments/localhost/addresses.json
     image: verigate-hardhat:local   # built by the hardhat service
@@ -96,5 +88,4 @@ services:
 volumes:
   vuln-cache:
   ipfs-data:
-  ollama-data:
   fleet-state:

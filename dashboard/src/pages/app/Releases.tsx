@@ -1,5 +1,12 @@
 /** Releases: filterable table on the left, the selected release's inspection detail on the right. */
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import type {
@@ -12,8 +19,8 @@ import type {
   VerificationResult,
 } from '../../api/types';
 import { verifyLeafOnChain } from '../../chain/useChain';
-import { Empty, Id, Loading, Meter, Panel, Stamp, Tabs, Time } from '../../components/Bits';
-import { AiSaw, ExplanationBox } from '../../components/Insight';
+import { Empty, Id, Loading, Meter, Modal, Panel, Stamp, Tabs, Time } from '../../components/Bits';
+import { AiRun, ExplanationBox } from '../../components/Insight';
 import { usePoll } from '../../components/usePoll';
 import { useSim, useToast } from '../../state/store';
 import {
@@ -25,6 +32,7 @@ import {
   fmtDate,
   isVerdict,
   reasonWords,
+  reviewable,
   simulate,
   standing,
 } from '../../lib/words';
@@ -274,9 +282,12 @@ function Detail({
     onTab(t);
   };
   const [ask, setAsk] = useState(0);
+  const [analysed, setAnalysed] = useState(0);
   const [explainState, setExplainState] = useState<string | null>(null);
   const [proof, setProof] = useState<{ p: Proof; onChain: boolean | null } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deciding, setDeciding] = useState<'APPROVE' | 'REJECT' | null>(null);
+  const canReview = !release.revoked && !release.review && reviewable(fleetLevel);
   useEffect(() => {
     setProof(null);
     setTabState(initialTab ?? 'summary');
@@ -339,13 +350,13 @@ function Detail({
             revoked={release.revoked}
             big
           />
-          {fleetLevel && stage1?.ok && !release.revoked && (
+          {fleetLevel && (
             <button
               className="btn-primary"
               title={
                 explainState === 'ready'
                   ? 'Show the written explanation'
-                  : 'Ask the local language model to explain this verdict in plain words'
+                  : 'Ask the language model to explain this verdict in plain words'
               }
               disabled={explainState === 'writing'}
               onClick={() => {
@@ -360,8 +371,34 @@ function Detail({
                   : 'Explain with AI'}
             </button>
           )}
+          {canReview && (
+            <div className="review-actions">
+              <button className="btn-ok" onClick={() => setDeciding('APPROVE')}>
+                Accept
+              </button>
+              <button className="btn-danger" onClick={() => setDeciding('REJECT')}>
+                Reject
+              </button>
+            </div>
+          )}
         </div>
       </div>
+      {release.review && (
+        <div className={`review-line ${release.review.decision === 'APPROVE' ? 'ok' : 'bad'}`}>
+          <b>{release.review.decision === 'APPROVE' ? 'Accepted' : 'Rejected'}</b> by{' '}
+          {release.review.reviewer} · {fmtDate(release.review.decidedAt)}
+          {release.review.note && <span className="note">“{release.review.note}”</span>}
+          {release.review.reviewVerdictId && (
+            <span className="muted">
+              {' '}
+              · decision <Id value={release.review.reviewVerdictId} />
+            </span>
+          )}
+        </div>
+      )}
+      {deciding && (
+        <ReviewDialog release={release} decision={deciding} onClose={() => setDeciding(null)} />
+      )}
       <Tabs
         tabs={[
           { id: 'summary', label: 'Summary' },
@@ -407,7 +444,7 @@ function Detail({
               <dd>{fleetLevel ? VERDICT_WORD[fleetLevel.verdict] : 'Pending'}</dd>
               {stage1 && !stage1.ok && (
                 <>
-                  <dt>Stopped at</dt>
+                  <dt>{stage1.outcome === 'DEFER' ? 'Held because' : 'Stopped at'}</dt>
                   <dd>{failureWords(stage1.failed, stage1.reason)}</dd>
                 </>
               )}
@@ -439,15 +476,20 @@ function Detail({
         )}
         {tab === 'ai' &&
           (fleetLevel && stage1?.ok ? (
-            <AiSaw stage2={fleetLevel.stage2} />
+            <AiRun releaseId={release.releaseId} marks={marks} recorded={fleetLevel.stage2} />
           ) : (
-            <p className="muted">The models did not run: the release was stopped by the checks.</p>
+            <AiRun
+              releaseId={release.releaseId}
+              marks={marks}
+              onRun={() => setAnalysed((n) => n + 1)}
+            />
           ))}
         {tab === 'explanation' && (
           <ExplanationBox
             releaseId={release.releaseId}
-            hasStage2={Boolean(fleetLevel && stage1?.ok)}
+            inspected={Boolean(fleetLevel)}
             ask={ask}
+            refresh={analysed}
             onStatus={setExplainState}
           />
         )}
@@ -553,5 +595,82 @@ function Detail({
         )}
       </div>
     </section>
+  );
+}
+
+const REVIEWER_KEY = 'verigate.reviewer';
+
+function ReviewDialog({
+  release,
+  decision,
+  onClose,
+}: {
+  release: Release;
+  decision: 'APPROVE' | 'REJECT';
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  const [reviewer, setReviewer] = useState(() => localStorage.getItem(REVIEWER_KEY) ?? '');
+  const [note, setNote] = useState('');
+  const [sending, setSending] = useState(false);
+  const accept = decision === 'APPROVE';
+  const submit = async (ev: FormEvent) => {
+    ev.preventDefault();
+    if (!reviewer.trim()) return;
+    setSending(true);
+    try {
+      localStorage.setItem(REVIEWER_KEY, reviewer.trim());
+      const out = await api.review(release.releaseId, decision, reviewer.trim(), note.trim());
+      toast(
+        `${release.version} ${accept ? 'accepted' : 'rejected'} — now ${VERDICT_WORD[out.verdict.verdict].toLowerCase()}`,
+        accept ? 'ok' : 'bad',
+      );
+      onClose();
+    } catch (err) {
+      toast((err as Error).message, 'bad');
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <Modal
+      title={`${accept ? 'Accept' : 'Reject'} ${release.version}`}
+      onClose={onClose}
+      actions={
+        <>
+          <button onClick={onClose}>Cancel</button>
+          <button
+            type="submit"
+            form="review"
+            className={accept ? 'btn-ok' : 'btn-danger'}
+            disabled={sending || !reviewer.trim()}
+          >
+            {sending ? 'Recording…' : accept ? 'Accept release' : 'Reject release'}
+          </button>
+        </>
+      }
+    >
+      <form id="review" onSubmit={(ev) => void submit(ev)}>
+        <div className="field">
+          <label htmlFor="reviewer">Reviewer</label>
+          <input
+            id="reviewer"
+            value={reviewer}
+            maxLength={64}
+            onChange={(e) => setReviewer(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="note">Note</label>
+          <textarea
+            id="note"
+            rows={3}
+            maxLength={500}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -4,6 +4,11 @@ One transaction per batch of up to ``BATCH_MAX_SIZE`` verdicts or ``BATCH_MAX_WA
 (ADR-0005). Batches are persisted under ``STATE_DIR/batches/<batchId>.json`` with every record
 and leaf, so ``/verdicts/{id}/proof`` can rebuild a proof at any time and anyone can check it
 against ``VerdictRegistry.verifyLeaf``. A failed commit keeps the verdicts pending and retries.
+
+``commitBatch`` reverts with ``ModelNotActive`` when a verdict names a model revoked after it was
+made. Retrying cannot succeed, so such verdicts are held back and the rest commit; the revocation
+job takes the held verdicts (:meth:`VerdictBatcher.take_unanchored`) and re-verifies their pairs
+with the successor. Without this one late revocation would stop anchoring for good.
 """
 
 from __future__ import annotations
@@ -18,7 +23,7 @@ from typing import Any
 
 from eth_account.signers.local import LocalAccount
 
-from verigate.common.chain import ChainClient
+from verigate.common.chain import STATUS_ACTIVE, ChainClient, ContractRevertError
 from verigate.common.errors import ChainError
 from verigate.common.logging import get_logger
 from verigate.common.merkle import MerkleTree
@@ -81,6 +86,7 @@ class VerdictBatcher:
     max_size: int = 50
     max_wait_s: float = 10.0
     _pending: list[VerdictRecord] = field(default_factory=list, init=False)
+    _held: list[VerdictRecord] = field(default_factory=list, init=False)
     _index: dict[str, int] = field(default_factory=dict, init=False)
     _batches: dict[int, CommittedBatch] = field(default_factory=dict, init=False)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
@@ -116,6 +122,27 @@ class VerdictBatcher:
         """Verdicts waiting for the next commit."""
         return len(self._pending)
 
+    @property
+    def held(self) -> int:
+        """Verdicts held back because a model they name is no longer active."""
+        return len(self._held)
+
+    async def take_unanchored(self, model_hash: str) -> list[VerdictRecord]:
+        """Remove and return every pending or held verdict that names ``model_hash``."""
+        async with self._lock:
+            taken = [r for r in self._held + self._pending if model_hash in r.modelHashes]
+            self._held = [r for r in self._held if model_hash not in r.modelHashes]
+            self._pending = [r for r in self._pending if model_hash not in r.modelHashes]
+            if not self._pending:
+                self._first_pending_at = None
+        return taken
+
+    def _inactive_models(self, records: list[VerdictRecord]) -> set[str]:
+        hashes = {h for r in records for h in r.modelHashes}
+        return {
+            h for h in hashes if self.chain.get_model(bytes.fromhex(h[2:])).status != STATUS_ACTIVE
+        }
+
     # ------------------------------------------------------------------ commit
 
     def _commit(self, records: list[VerdictRecord]) -> CommittedBatch:
@@ -150,7 +177,21 @@ class VerdictBatcher:
             records, self._pending = self._pending, []
             self._first_pending_at = None
             try:
-                batch = await asyncio.to_thread(self._commit, records)
+                try:
+                    batch = await asyncio.to_thread(self._commit, records)
+                except ContractRevertError as exc:
+                    if exc.name != "ModelNotActive":
+                        raise
+                    inactive = await asyncio.to_thread(self._inactive_models, records)
+                    held = [r for r in records if inactive & set(r.modelHashes)]
+                    if not held:
+                        raise
+                    records = [r for r in records if r not in held]
+                    self._held.extend(held)
+                    log.warning("batch.held_back", count=len(held), models=sorted(inactive))
+                    if not records:
+                        return None
+                    batch = await asyncio.to_thread(self._commit, records)
             except ChainError as exc:
                 self.failures += 1
                 self._pending = records + self._pending

@@ -18,7 +18,7 @@ import tempfile
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import uvicorn
 from fastapi import (
@@ -34,6 +34,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from verigate.common.chain import ChainClient, device_model_id, publisher_id
 from verigate.common.errors import ChainError, IpfsError, VerificationError, VerigateError
@@ -45,10 +46,11 @@ from verigate.common.settings import Settings, get_settings
 from verigate.gateway.api.logs import hub
 from verigate.gateway.listener import NewReleaseListener
 from verigate.gateway.revocation import RevocationJob
-from verigate.gateway.service import GatewayService
+from verigate.gateway.service import GatewayService, ReviewError
 from verigate.gateway.stage1.inputs import DeviceView
 from verigate.gateway.stage2.explain import build_explainer
 from verigate.gateway.stage2.scores import build_scorer
+from verigate.gateway.verdicts.types import Verdict
 
 log = get_logger(__name__)
 
@@ -64,6 +66,14 @@ def _release_id(text: str) -> bytes:
     if len(raw) != 32:
         raise HTTPException(400, "releaseId must be 32 bytes")
     return raw
+
+
+class ReviewBody(BaseModel):
+    """A reviewer's decision on a release held for review."""
+
+    decision: Literal["APPROVE", "REJECT"]
+    reviewer: str = Field(min_length=1, max_length=64)
+    note: str = Field(default="", max_length=500)
 
 
 def _release_json(service: GatewayService, record: Any) -> dict[str, Any]:  # noqa: ANN401
@@ -88,6 +98,9 @@ def _release_json(service: GatewayService, record: Any) -> dict[str, Any]:  # no
         "revoked": record.revoked,
         "lastVerdict": last["verdict"] if last else None,
         "lastVerdictAt": last["checkedAt"] if last else None,
+        "review": review.to_dict()
+        if (review := service.reviews.get("0x" + record.release_id.hex()))
+        else None,
     }
 
 
@@ -227,6 +240,22 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
         """Poll model status now instead of waiting for the job (the demo/attack path)."""
         return [r.to_dict() for r in await revocations.check_once()]
 
+    @app.post("/releases/{release_id}/review")
+    async def release_review(release_id: str, body: ReviewBody) -> dict[str, Any]:
+        """Accept or reject a release the gate holds for review; anchored, once per release."""
+        rid = _release_id(release_id)
+        try:
+            return await service.review(
+                rid, Verdict(body.decision), body.reviewer.strip(), body.note.strip()
+            )
+        except ReviewError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+
+    @app.get("/reviews")
+    async def reviews() -> list[dict[str, Any]]:
+        """Every reviewer decision, oldest first."""
+        return [r.to_dict() for r in service.reviews.all()]
+
     @app.get("/releases/{release_id}/rationale")
     async def release_rationale(release_id: str) -> dict[str, Any]:
         """The written explanation for a release, or where it stands (writing / off / none)."""
@@ -235,9 +264,21 @@ def create_app(service: GatewayService, start_listener: bool = True) -> FastAPI:
 
     @app.post("/releases/{release_id}/explain")
     async def release_explain(release_id: str, again: bool = False) -> dict[str, Any]:
-        """Ask the local language model to write (or rewrite) the explanation for a release."""
+        """Ask the language model to write (or rewrite) the explanation for a release."""
         rid = _release_id(release_id)
         return await service.explain_now("0x" + rid.hex(), again=again)
+
+    @app.post("/releases/{release_id}/analyse")
+    async def release_analyse(release_id: str) -> dict[str, Any]:
+        """Run the risk models on a release on request; informational, never part of a verdict."""
+        rid = _release_id(release_id)
+        return await service.analyse_now("0x" + rid.hex())
+
+    @app.get("/releases/{release_id}/analysis")
+    async def release_analysis(release_id: str) -> dict[str, Any]:
+        """The last on-request analysis for a release (``{"status": "none"}`` if never run)."""
+        rid = _release_id(release_id)
+        return service.analysis_status("0x" + rid.hex())
 
     @app.get("/models/cards")
     async def model_cards() -> list[dict[str, Any]]:

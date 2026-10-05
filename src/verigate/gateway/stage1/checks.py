@@ -1,4 +1,4 @@
-"""The eight deterministic, fail-closed checks of the cryptographic gate (Guide §5).
+"""The nine deterministic, fail-closed checks of the cryptographic gate (Guide §5 + #9).
 
 Every check is a pure function of :class:`~verigate.gateway.stage1.inputs.Stage1Input`: no I/O,
 no clock, no environment. A missing input is a failure, never a pass. The runner
@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from verigate.common.chain import STATUS_ACTIVE, STATUS_NONE, STATUS_REVOKED, publisher_id
 from verigate.common.crypto import parse_hash, sha256
+from verigate.gateway.stage1.delta import PATCH_LIMIT_BLOCKS, release_delta
 from verigate.gateway.stage1.inputs import Stage1Input
 
 
@@ -152,6 +153,37 @@ def check_models_active(inp: Stage1Input) -> CheckResult:
     return CheckResult(name, True)
 
 
+def check_release_delta(inp: Stage1Input) -> CheckResult:
+    """#9 The image is not the last trusted image with a few blocks overwritten or reordered.
+
+    Stops (by routing to review) post-build modification of a genuinely signed release: an insider
+    patch or an old build relabelled as new. A rebuild or a byte-identical re-release passes.
+    """
+    name = "release_delta"
+    if inp.trusted_unavailable:
+        return CheckResult(name, False, "previous trusted image unavailable")
+    if inp.trusted_firmware is None:
+        return CheckResult(name, True)
+    if inp.firmware is None:
+        return CheckResult(name, False, "firmware unavailable")
+    delta = release_delta(inp.firmware, inp.trusted_firmware)
+    if not delta.patched:
+        return CheckResult(name, True)
+    where = ", ".join(f"0x{off:x}+{length}" for off, length in delta.regions[:4])
+    more = f" (+{len(delta.regions) - 4} more)" if len(delta.regions) > 4 else ""
+    parts = []
+    if delta.changed_blocks:
+        parts.append(f"{delta.changed_blocks} of {delta.blocks} blocks changed at {where}{more}")
+    if delta.reordered:
+        parts.append(f"{delta.reordered} block run(s) moved")
+    return CheckResult(
+        name,
+        False,
+        f"previous trusted image with ≤{PATCH_LIMIT_BLOCKS * 64 // 1024} KiB modified: "
+        + "; ".join(parts),
+    )
+
+
 CHECKS = (
     check_firmware_hash,
     check_signature,
@@ -161,8 +193,9 @@ CHECKS = (
     check_sbom_hash,
     check_registry_record,
     check_models_active,
+    check_release_delta,
 )
-"""The eight checks in the order the runner applies them (Guide §5 numbering)."""
+"""The nine checks in the order the runner applies them (Guide §5 numbering, then #9)."""
 
-DEFER_CHECKS = frozenset({"expiry"})
-"""Checks whose failure means "genuine but stale" → DEFER + alert rather than REJECT."""
+DEFER_CHECKS = frozenset({"expiry", "release_delta"})
+"""Checks whose failure means "genuine but needs a human" → DEFER + alert rather than REJECT."""

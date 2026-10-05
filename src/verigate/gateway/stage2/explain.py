@@ -2,16 +2,17 @@
 
 Input: the SBOM diff versus the previous release, the Stage-2 scores and their top feature
 attributions. Output: strict JSON ``{summary, top_risks[], recommended_action}`` produced by a
-local Ollama model with a JSON schema as the response format, validated by pydantic, retried
+model on OpenRouter with a JSON schema as the response format, validated by pydantic, retried
 once, and pinned to IPFS — the CID is what the verdict record carries. ``LLM_ENABLED=false``,
-an unreachable Ollama or a malformed answer all degrade to "no rationale", never to "no verdict".
+a missing API key, an unreachable OpenRouter or a malformed answer all degrade to "no
+rationale", never to "no verdict".
 """
 
 from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import httpx
@@ -25,9 +26,10 @@ from verigate.ml.data.sbom import Component, components_of
 log = get_logger(__name__)
 
 SYSTEM_PROMPT = (
-    "You are a firmware supply-chain security analyst. You are given the software bill of "
-    "materials changes of a firmware release compared with the previous release, the risk scores "
-    "produced by two deterministic models, and the features that drove those scores. Write a "
+    "You are a firmware supply-chain security analyst. You are given the outcome of nine "
+    "integrity checks on a firmware release and, when they all passed, the software bill of "
+    "materials changes compared with the previous release, the risk scores produced by two "
+    "deterministic models, and the features that drove those scores. Write a "
     "short, factual rationale for a human reviewer who is not an engineer: plain sentences, no "
     "variable names, no hashes or identifiers (refer to the release by its version), no invented "
     "CVE identifiers. Answer with JSON only."
@@ -62,13 +64,116 @@ FEATURE_WORDS: dict[str, str] = {
 }
 
 
-def _readable(top: list[list[Any]]) -> list[str]:
-    """``[[feature, shap_bp], …]`` → "age of the packages (lowered the score)"."""
-    return [
-        f"{FEATURE_WORDS.get(str(name), str(name).replace('_', ' '))} "
-        f"({'raised' if float(value) >= 0 else 'lowered'} the score)"
-        for name, value in top
-    ]
+# The nine Stage-1 checks as the reviewer reads them (kept in step with the UI's CHECKS).
+CHECK_WORDS: dict[str, str] = {
+    "firmware_hash": "the firmware file matches its fingerprint",
+    "signature": "the release is signed by the publisher's registered key",
+    "publisher_active": "the publisher is in good standing",
+    "version_monotonic": "the release is newer than the version already on the device",
+    "expiry": "the release has not expired",
+    "sbom_hash": "the ingredient list matches its fingerprint",
+    "registry_record": "the release is still listed by the publisher, not withdrawn",
+    "model_active": "the inspection models are current",
+    "release_delta": "the file is not the previous trusted release with a few pieces changed",
+}
+
+
+def failure_words(check: str, reason: str | None) -> str:
+    """Why ``check`` failed, without hashes or identifiers (kept in step with the UI)."""
+    r = reason or ""
+    if check == "firmware_hash":
+        return "the firmware file that was served is not the file the publisher signed"
+    if check == "sbom_hash":
+        return "the ingredient list that was served is not the one the publisher signed"
+    if check == "signature":
+        return "the signature does not verify under the key registered for this publisher"
+    if check == "publisher_active":
+        if "revoked" in r:
+            return "the publisher's key has been revoked"
+        return "the publisher is not registered or not in good standing"
+    if check == "version_monotonic":
+        return "the version is not newer than what the device already runs"
+    if check == "expiry":
+        return "the release has passed its expiry date, so it may be an old release replayed"
+    if check == "registry_record":
+        if "revoked" in r:
+            return "the publisher has withdrawn this release"
+        return "the release record on the blockchain does not match the manifest"
+    if check == "model_active":
+        return "one of the inspection models has been revoked or is not registered"
+    if check == "release_delta":
+        if "unavailable" in r:
+            return "the previous trusted release could not be fetched for comparison"
+        return (
+            "the file is the previous trusted release with a few small pieces changed or moved, "
+            "which is how a modified build looks, so a person has to review it"
+        )
+    return "the check failed"
+
+
+def _plain_value(name: str, raw: Any) -> Any:  # noqa: ANN401 — feature values are JSON scalars
+    """Undo the quantisation in the feature name (``_x10`` → ÷10, ``_x1000`` → ÷1000, …)."""
+    if isinstance(raw, bool) or not isinstance(raw, int | float):
+        return raw
+    for suffix, scale in (("_x10", 10), ("_x1000", 1000), ("_x1e4", 10_000)):
+        if name.endswith(suffix):
+            return round(raw / scale, 4)
+    return raw
+
+
+def _readable(top: list[list[Any]], values: dict[str, Any] | None = None) -> list[str]:
+    """``[[feature, shap_bp], …]`` → "age of the packages = 412 (pushed the risk down)"."""
+    out = []
+    for name, weight in top:
+        words = FEATURE_WORDS.get(str(name), str(name).replace("_", " "))
+        if values and name in values:
+            words += f" = {_plain_value(str(name), values[name])}"
+        out.append(
+            f"{words} ({'pushed the risk up' if float(weight) >= 0 else 'pushed the risk down'})"
+        )
+    return out
+
+
+def _risk_level(bp: int) -> str:
+    return "low" if bp < 4500 else "moderate" if bp < 7000 else "high"
+
+
+@dataclass(frozen=True)
+class AiReading:
+    """What the two risk models said about a release, and where the policy would put that."""
+
+    r_sbom_bp: int
+    r_img_bp: int
+    top_sbom: list[list[Any]]
+    top_img: list[list[Any]]
+    sbom_values: dict[str, Any] = field(default_factory=dict)
+    img_values: dict[str, Any] = field(default_factory=dict)
+    expected_exploited: float | None = None
+    cves: int | None = None
+    verdict_from_scores: str | None = None
+    overall_bp: int | None = None  # both scores combined with the publisher's standing
+
+    def facts(self) -> dict[str, Any]:
+        """The prompt's view: levels, scores and the drivers with their values."""
+        overall = (
+            None
+            if self.overall_bp is None
+            else f"{_risk_level(self.overall_bp)} ({self.overall_bp / 10_000:.2f} of 1)"
+        )
+        return {
+            "overall risk (both models and the publisher's standing)": overall,
+            "ingredient list model (known vulnerabilities)": {
+                "risk": f"{_risk_level(self.r_sbom_bp)} ({self.r_sbom_bp / 10_000:.2f} of 1)",
+                "known vulnerabilities": self.cves,
+                "expected exploited vulnerabilities": self.expected_exploited,
+                "why": _readable(self.top_sbom, self.sbom_values),
+            },
+            "binary structure model (hidden or packed code)": {
+                "risk": f"{_risk_level(self.r_img_bp)} ({self.r_img_bp / 10_000:.2f} of 1)",
+                "why": _readable(self.top_img, self.img_values),
+            },
+            "what the scores alone lead to": self.verdict_from_scores,
+        }
 
 
 class Rationale(BaseModel):
@@ -106,8 +211,8 @@ class SbomDiff:
     def to_json(self, limit: int = MAX_DIFF_ITEMS) -> dict[str, Any]:
         """Compact JSON for the prompt; each list is truncated to ``limit`` entries with a count.
 
-        A 3B model on CPU evaluates prompt tokens at tens per second, so a full OpenWrt release
-        diff (hundreds of packages) would blow the timeout; the counts stay exact.
+        A full OpenWrt release diff (hundreds of packages) would dominate the prompt's size,
+        latency and cost; the counts stay exact.
         """
 
         def cap(items: list[str]) -> list[str]:
@@ -155,13 +260,37 @@ class ExplainInput:
     version: str
     device_model: str
     diff: SbomDiff
-    r_sbom_bp: int
-    r_img_bp: int
+    r_sbom_bp: int | None  # None when the checks stopped the release before the models
+    r_img_bp: int | None
     verdict: str
     top_sbom: list[list[Any]]
     top_img: list[list[Any]]
     expected_exploited: float | None = None
     cves: int | None = None
+    stopped_at: str | None = None  # the Stage-1 check that failed, if any
+    stop_reason: str | None = None
+    passed_checks: tuple[str, ...] = ()
+    sbom_values: dict[str, Any] = field(default_factory=dict)
+    img_values: dict[str, Any] = field(default_factory=dict)
+    # A stopped release scored on request afterwards: shown to the writer, never to the gate.
+    ai_after_stop: AiReading | None = None
+    overall_bp: int | None = None
+
+    def reading(self) -> AiReading:
+        """The models' view of a release that reached them."""
+        assert self.r_sbom_bp is not None and self.r_img_bp is not None  # noqa: S101
+        return AiReading(
+            self.r_sbom_bp,
+            self.r_img_bp,
+            self.top_sbom,
+            self.top_img,
+            self.sbom_values,
+            self.img_values,
+            self.expected_exploited,
+            self.cves,
+            self.verdict,
+            self.overall_bp,
+        )
 
 
 @dataclass(frozen=True)
@@ -178,44 +307,80 @@ class Explanation:
 ACTION_FOR_VERDICT: dict[str, str] = {"APPROVE": "install", "DEFER": "review", "REJECT": "block"}
 
 
-def build_prompt(inp: ExplainInput) -> str:
-    """The user message: structured facts, nothing the model has to guess."""
-    action = ACTION_FOR_VERDICT.get(inp.verdict, "review")
+def _stopped_prompt(inp: ExplainInput, action: str) -> str:
+    """The user message for a release the checks stopped: no scores exist, so none are given."""
+    assert inp.stopped_at is not None  # noqa: S101
+    passed = [CHECK_WORDS.get(c, c) for c in inp.passed_checks]
     facts = {
         "release": {"version": inp.version, "device model": inp.device_model},
         "verdict from the deterministic gate": inp.verdict,
-        "scores from 0 to 1": {
-            "ingredient list risk": inp.r_sbom_bp / 10_000,
-            "binary structure risk": inp.r_img_bp / 10_000,
-            "expected exploited vulnerabilities": inp.expected_exploited,
-            "known vulnerabilities in the ingredient list": inp.cves,
-        },
-        "what drove the scores": {
-            "ingredient list model": _readable(inp.top_sbom),
-            "binary structure model": _readable(inp.top_img),
-        },
+        "check that failed": CHECK_WORDS.get(inp.stopped_at, inp.stopped_at),
+        "why it failed": failure_words(inp.stopped_at, inp.stop_reason),
+        "checks that passed before it": passed,
+    }
+    if inp.ai_after_stop is None:
+        facts["risk models"] = "did not run: the gate stops at the first failed check"
+        summary = (
+            "3-5 sentences: what failed, what it suggests may have happened, and what it means "
+            "for the devices. Do not mention risk scores or vulnerabilities: none were measured"
+        )
+    else:
+        facts["AI risk analysis, run on request after the decision (it did not change it)"] = (
+            inp.ai_after_stop.facts()
+        )
+        summary = (
+            "5-7 sentences in two parts. Part 1: what failed, what it suggests may have happened, "
+            "and what it means for the devices. Part 2 must start with 'The AI risk analysis' and "
+            "say whether the AI judged the release low or high risk and why, naming the factors "
+            "that pushed the risk up and down with their values; then say that even so the "
+            "failed check decides the outcome"
+        )
+    return (
+        "Facts (JSON):\n"
+        + json.dumps(facts, separators=(",", ":"))
+        + f"\n\nRespond with a JSON object with keys summary ({summary}), top_risks (up to 5 "
+        "plain-English phrases, including the failed check and any factor that raised the AI's "
+        f"risk), recommended_action (must be '{action}': it follows the gate's verdict). The "
+        "decision was already made by the deterministic gate; explain it for a human."
+    )
+
+
+def build_prompt(inp: ExplainInput) -> str:
+    """The user message: structured facts, nothing the model has to guess."""
+    action = ACTION_FOR_VERDICT.get(inp.verdict, "review")
+    if inp.stopped_at is not None:
+        return _stopped_prompt(inp, action)
+    facts = {
+        "release": {"version": inp.version, "device model": inp.device_model},
+        "verdict from the deterministic gate": inp.verdict,
+        "all nine integrity checks": "passed",
+        "AI risk models": inp.reading().facts(),
         "ingredient list changes versus the previous release": inp.diff.to_json(),
     }
     return (
         "Facts (JSON):\n"
         + json.dumps(facts, separators=(",", ":"))
-        + "\n\nRespond with a JSON object with keys summary (2-4 sentences), top_risks (up to 5 "
-        "plain-English phrases such as 'many outdated packages', never field names; empty if "
+        + "\n\nRespond with a JSON object with keys summary (3-6 sentences: first whether the AI "
+        "judged this release safe or risky and the resulting verdict; then why, naming the "
+        "factors that pushed the risk up and those that pushed it down, with their values; then "
+        "what it means for the devices), top_risks (up to 5 plain-English phrases for the factors "
+        "that raised the risk, such as 'many outdated packages', never field names; empty if "
         f"none), recommended_action (must be '{action}': it follows the gate's verdict). The "
         "decision was already made by the deterministic gate; explain it for a human."
     )
 
 
 class Explainer:
-    """Ollama client with a strict schema, one retry and a hard timeout."""
+    """OpenRouter client with a strict schema, one retry and a hard timeout."""
 
     def __init__(
         self,
         url: str,
         model: str,
         ipfs: IpfsBackend,
+        api_key: str = "",
         enabled: bool = True,
-        timeout_s: float = 120.0,
+        timeout_s: float = 30.0,
         retries: int = 1,
         seed: int = 42,
         transport: httpx.BaseTransport | None = None,
@@ -227,12 +392,16 @@ class Explainer:
         self.retries = retries
         self.seed = seed
         self._http = httpx.Client(
-            timeout=httpx.Timeout(timeout_s, connect=5.0), transport=transport
+            timeout=httpx.Timeout(timeout_s, connect=5.0),
+            transport=transport,
+            headers={"Authorization": f"Bearer {api_key}", "X-Title": "VeriGate-FW"},
         )
         self._cache: dict[str, Explanation | None] = {}
         self._unavailable_until = 0.0
 
-    COOLDOWN_S = 60.0  # after a connection failure, skip (not cache) for this long
+    COOLDOWN_S = 60.0  # after a connection or credential failure, skip (not cache) this long
+    # Retrying these cannot help: bad key, no credits, key not allowed to use the model.
+    UNAVAILABLE_STATUSES = frozenset({401, 402, 403})
 
     def forget(self, release_id: str) -> None:
         """Drop the cached answer for ``release_id`` so the next call asks the model again."""
@@ -241,20 +410,30 @@ class Explainer:
 
     def _ask(self, prompt: str) -> Rationale:
         resp = self._http.post(
-            f"{self.url}/api/chat",
+            f"{self.url}/chat/completions",
             json={
                 "model": self.model,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ],
-                "format": RATIONALE_SCHEMA,
-                "stream": False,
-                "options": {"temperature": 0, "seed": self.seed, "num_predict": 400},
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "rationale",
+                        "strict": True,
+                        "schema": RATIONALE_SCHEMA,
+                    },
+                },
+                # Route only to providers that honour the schema, the seed and the token cap.
+                "provider": {"require_parameters": True},
+                "temperature": 0,
+                "seed": self.seed,
+                "max_tokens": 400,
             },
         )
         resp.raise_for_status()
-        content = resp.json()["message"]["content"]
+        content = resp.json()["choices"][0]["message"]["content"]
         return Rationale.model_validate_json(content)
 
     def explain(self, inp: ExplainInput) -> Explanation | None:
@@ -290,8 +469,12 @@ class Explainer:
                     error=str(exc)[:200],
                     release_id=inp.release_id,
                 )
-                if isinstance(exc, httpx.ConnectError):
-                    # Ollama is not running: do not stall every release for two connect timeouts.
+                unavailable = isinstance(exc, httpx.ConnectError) or (
+                    isinstance(exc, httpx.HTTPStatusError)
+                    and exc.response.status_code in self.UNAVAILABLE_STATUSES
+                )
+                if unavailable:
+                    # Offline or refused credentials: do not stall every release on retries.
                     self._unavailable_until = time.monotonic() + self.COOLDOWN_S
                     return None
                 continue
@@ -313,11 +496,15 @@ class Explainer:
 
 
 def build_explainer(settings: Settings, ipfs: IpfsBackend) -> Explainer:
-    """The explainer for these settings (``LLM_ENABLED=false`` → a disabled instance)."""
+    """The explainer for these settings (``LLM_ENABLED=false`` or no key → a disabled instance)."""
+    key = settings.openrouter_api_key.strip()
+    if settings.llm_enabled and not key:
+        log.warning("explain.disabled_no_key", hint="set OPENROUTER_API_KEY in .env")
     return Explainer(
-        settings.ollama_url,
+        settings.openrouter_url,
         settings.llm_model,
         ipfs,
-        enabled=settings.llm_enabled,
+        api_key=key,
+        enabled=settings.llm_enabled and bool(key),
         timeout_s=settings.llm_timeout_s,
     )

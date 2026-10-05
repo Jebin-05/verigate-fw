@@ -4,9 +4,12 @@ Persistent state under ``<state_dir>/<device_id>/``: ``device.key`` (Ed25519), `
 (installed version, active slot, nonce counter, …), ``slot_a.bin`` / ``slot_b.bin``.
 
 Defence in depth (Guide §5): even though the gateway already ran Stage 1, :meth:`Device.install`
-re-checks the firmware hash, the manifest signature under the publisher key it is given, the
-device model and the version before touching a slot. A compromised gateway cannot make a device
-install unsigned or downgraded code.
+re-checks the firmware hash, the manifest signature, the device model and the version before
+touching a slot. Given a :class:`ChainView`, the device also reads the publisher key and the
+release record from the chain itself instead of trusting what the gateway hands it, so a
+compromised gateway cannot make it install code that is unsigned, unregistered, withdrawn, signed
+by a revoked key or downgraded. (It can still approve a registered release the gate would have
+held; that verdict is anchored on-chain with its feature hash, so the lie is auditable.)
 """
 
 from __future__ import annotations
@@ -15,9 +18,10 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from verigate.common.canonical import canonical_json
+from verigate.common.chain import PublisherRecord, ReleaseRecord, publisher_id
 from verigate.common.crypto import KeyPair, parse_hash, sha256
 from verigate.common.errors import VerificationError
 from verigate.common.logging import get_logger
@@ -27,6 +31,18 @@ from verigate.common.protocol import InstallReceipt, SignedMessage, sign_message
 log = get_logger(__name__)
 
 SLOTS = ("a", "b")
+
+
+class ChainView(Protocol):
+    """The two registry reads a device needs (``ChainClient`` satisfies it)."""
+
+    def get_publisher(self, publisher_id: bytes) -> PublisherRecord:
+        """PublisherRegistry record."""
+        ...
+
+    def get_release(self, release_id: bytes) -> ReleaseRecord:
+        """FirmwareRegistry record."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -126,12 +142,18 @@ class Device:
         manifest: SignedManifest,
         publisher_key: bytes | str,
         now: datetime | None = None,
+        chain: ChainView | None = None,
     ) -> InstallReceipt:
         """Self-verify, write the inactive slot, switch, bump the version, sign a receipt.
+
+        With ``chain``, the signature is checked under the *on-chain* key (``publisher_key`` from
+        the gateway is ignored) and the release must be registered, current and match.
 
         Raises:
             VerificationError: On any failed self-check; the slots are untouched.
         """
+        if chain is not None:
+            publisher_key = self._check_chain(firmware, manifest, chain)
         if not manifest.verify(publisher_key):
             raise VerificationError("device self-check: manifest signature invalid")
         if sha256(firmware) != parse_hash(manifest.firmwareHash):
@@ -173,6 +195,23 @@ class Device:
             slot=inactive,
         )
         return receipt
+
+    @staticmethod
+    def _check_chain(firmware: bytes, manifest: SignedManifest, chain: ChainView) -> bytes:
+        """Registry checks the device runs itself; returns the on-chain publisher key."""
+        publisher = chain.get_publisher(publisher_id(manifest.publisherDid))
+        if not publisher.is_active:
+            raise VerificationError("device self-check: publisher not active on-chain")
+        release = chain.get_release(manifest.manifest_hash())
+        if not release.exists:
+            raise VerificationError("device self-check: release not registered on-chain")
+        if release.revoked:
+            raise VerificationError("device self-check: release withdrawn on-chain")
+        if release.publisher_id != publisher.publisher_id:
+            raise VerificationError("device self-check: on-chain publisher mismatch")
+        if release.firmware_hash != sha256(firmware):
+            raise VerificationError("device self-check: firmware is not the registered image")
+        return publisher.pub_key
 
     def active_image(self) -> bytes:
         """Bytes of the active slot."""

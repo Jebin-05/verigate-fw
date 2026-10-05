@@ -50,7 +50,7 @@ export const WALKTHROUGH: Scenario[] = [
   {
     id: 'genuine',
     title: 'Genuine release',
-    proves: 'A signed, registered release passes all eight checks and the risk scoring.',
+    proves: 'A signed, registered release passes all nine checks and the risk scoring.',
     expected: 'Approved',
     run: async () => {
       const r = await api.storyPublish('v2.0.0');
@@ -83,6 +83,33 @@ export const WALKTHROUGH: Scenario[] = [
     proves: 'The binary model detects 200 KB appended after the declared end.',
     expected: 'Needs review',
     run: async () => fromAttack(await api.runAttack('hidden-payload')),
+  },
+  {
+    id: 'insider',
+    title: 'Insider patch',
+    proves:
+      'The last good build with 256 bytes changed, signed with the real key, is held for review.',
+    expected: 'Needs review',
+    run: async () => fromAttack(await api.runAttack('insider-patch')),
+  },
+  {
+    id: 'rogue',
+    title: 'Compromised gateway',
+    proves: 'The device reads the blockchain itself and refuses what a rogue gateway pushes.',
+    expected: 'Refused',
+    run: async () => {
+      const report = await api.runAttack('rogue-gateway');
+      const pushes =
+        (report.details as { pushes?: Record<string, { installed: boolean }> }).pushes ?? {};
+      const attacks = Object.entries(pushes).filter(([k]) => k !== 'control-genuine');
+      const refused = attacks.filter(([, p]) => !p.installed).length;
+      return {
+        headline: report.passed ? 'Refused' : 'Installed',
+        verdict: null,
+        label: report.passed ? 'Refused' : 'Installed',
+        detail: `${refused} of ${attacks.length} rogue updates refused; the genuine release still installed.`,
+      };
+    },
   },
   {
     id: 'rules',
@@ -140,6 +167,8 @@ export const DRILL_TITLES: Record<string, string> = {
   'sbom-swap': 'Swapped ingredient list',
   'vulnerable-genuine': 'Vulnerable but genuine',
   'hidden-payload': 'Hidden payload',
+  'insider-patch': 'Insider patch',
+  'rogue-gateway': 'Compromised gateway',
   'bad-history': 'Publisher with a bad history',
   'poisoned-model': 'Faulty inspection model',
   'policy-tamper': 'Rules tampering',
@@ -151,4 +180,5 @@ export const OUTCOME_WORD: Record<string, string> = {
   REJECT: 'Rejected',
   REPLAYED: 'Re-checked',
   BLOCKED: 'Blocked',
+  REFUSED: 'Refused',
 };

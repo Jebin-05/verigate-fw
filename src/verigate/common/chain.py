@@ -13,6 +13,7 @@ used by Stage 1 return frozen records so the checks stay pure.
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass
 from importlib import resources
 from typing import Any, cast
@@ -44,6 +45,16 @@ PUBLISHER_ROLE = keccak(b"PUBLISHER_ROLE")
 GATEWAY_ROLE = keccak(b"GATEWAY_ROLE")
 
 STATUS_NONE, STATUS_ACTIVE, STATUS_REVOKED = 0, 1, 2
+
+
+_SEND_LOCKS: dict[str, threading.Lock] = {}
+_SEND_LOCKS_GUARD = threading.Lock()
+
+
+def _send_lock(address: str) -> threading.Lock:
+    """One lock per sending account: two concurrent sends must not pick the same nonce."""
+    with _SEND_LOCKS_GUARD:
+        return _SEND_LOCKS.setdefault(address, threading.Lock())
 
 
 class ContractRevertError(ChainError):
@@ -298,21 +309,25 @@ class ChainClient:
     def send(self, fn: ContractFunction, account: LocalAccount) -> TxReceipt:
         """Build, sign, send and await a transaction from ``account``.
 
+        Sends from one account are serialised (the gateway account commits batches and updates
+        reputation concurrently; without the lock both read the same nonce and one fails).
+
         Raises:
             ContractRevertError: If the transaction reverts (decoded custom error name when known).
             ChainError: On any other failure (including a receipt with ``status == 0``).
         """
         try:
-            tx = fn.build_transaction(
-                {
-                    "from": account.address,
-                    "nonce": self.w3.eth.get_transaction_count(account.address),
-                    "chainId": self.settings.chain_id,
-                }
-            )
-            signed = self.w3.eth.account.sign_transaction(tx, account.key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
-            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+            with _send_lock(account.address):
+                tx = fn.build_transaction(
+                    {
+                        "from": account.address,
+                        "nonce": self.w3.eth.get_transaction_count(account.address, "pending"),
+                        "chainId": self.settings.chain_id,
+                    }
+                )
+                signed = self.w3.eth.account.sign_transaction(tx, account.key)
+                tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+                receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
         except Exception as exc:
             raise self._wrap(exc) from exc
         if receipt["status"] != 1:

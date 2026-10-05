@@ -1,6 +1,7 @@
 /** Typed fetch client for the gateway. Paths are checked against the generated OpenAPI schema. */
 import type { paths } from './schema';
 import type {
+  AiAnalysis,
   AttackReport,
   Device,
   DeviceRound,
@@ -15,6 +16,7 @@ import type {
   Rationale,
   RationaleStatus,
   Release,
+  Review,
   RevocationReport,
   VerdictLogEntry,
   VerificationResult,
@@ -59,6 +61,9 @@ export const api = {
     request<RationaleStatus>(`/releases/${releaseId}/explain${again ? '?again=true' : ''}`, {
       method: 'POST',
     }),
+  analysis: (releaseId: string) => request<AiAnalysis>(`/releases/${releaseId}/analysis`),
+  analyse: (releaseId: string) =>
+    request<AiAnalysis>(`/releases/${releaseId}/analyse`, { method: 'POST' }),
   modelCards: () => request<ModelCard[]>('/models/cards'),
   devices: () => request<Device[]>('/devices'),
   publishers: () => request<Publisher[]>('/publishers'),
@@ -66,6 +71,11 @@ export const api = {
   revocations: () => request<RevocationReport[]>('/revocations'),
   policy: () => request<{ policy: Policy | null }>('/policy'),
   verify: (id: string) => request<VerificationResult>(`/verify/${id}`, { method: 'POST' }),
+  review: (id: string, decision: 'APPROVE' | 'REJECT', reviewer: string, note: string) =>
+    request<{ review: Review; verdict: VerificationResult }>(`/releases/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, reviewer, note }),
+    }),
   // publisher portal
   me: () => request<PublisherMe>('/publisher/me'),
   publish: (form: FormData) =>

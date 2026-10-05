@@ -19,7 +19,7 @@ import httpx
 from verigate.common.errors import VerificationError
 from verigate.common.logging import get_logger
 from verigate.common.manifest import SignedManifest
-from verigate.fleet.device import Device
+from verigate.fleet.device import ChainView, Device
 
 log = get_logger(__name__)
 
@@ -34,6 +34,7 @@ class FleetStats:
     rejected: int = 0
     errors: int = 0
     last_verdicts: dict[str, str] = field(default_factory=dict)
+    last_errors: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON form."""
@@ -44,16 +45,24 @@ class FleetStats:
             "rejected": self.rejected,
             "errors": self.errors,
             "lastVerdicts": dict(self.last_verdicts),
+            "lastErrors": dict(self.last_errors),
         }
 
 
 class DeviceAgent:
     """Drives one :class:`Device` against the gateway."""
 
-    def __init__(self, device: Device, client: httpx.AsyncClient, stats: FleetStats) -> None:
+    def __init__(
+        self,
+        device: Device,
+        client: httpx.AsyncClient,
+        stats: FleetStats,
+        chain: ChainView | None = None,
+    ) -> None:
         self.device = device
         self.client = client
         self.stats = stats
+        self.chain = chain
 
     async def _post(self, path: str, payload: dict[str, Any]) -> httpx.Response:
         msg = self.device.sign(payload, now=int(time.time()))
@@ -92,9 +101,12 @@ class DeviceAgent:
         manifest = SignedManifest.model_validate(update["manifest"])
         firmware = (await self.client.get(update["firmwareUrl"])).content
         try:
-            receipt = self.device.install(firmware, manifest, update["publisherKey"])
+            receipt = await asyncio.to_thread(
+                self.device.install, firmware, manifest, update["publisherKey"], None, self.chain
+            )
         except VerificationError as exc:
             self.stats.errors += 1
+            self.stats.last_errors[self.device.device_id] = str(exc)
             log.error("fleet.self_check_failed", device_id=self.device.device_id, error=str(exc))
             return verdict
         self.stats.installs += 1
@@ -118,12 +130,16 @@ async def run_fleet(
     interval_s: float = 5.0,
     rounds: int | None = None,
     prefix: str = "dev",
+    chain: ChainView | None = None,
 ) -> FleetStats:
-    """Run ``count`` devices; ``rounds=None`` polls forever, otherwise that many rounds each."""
+    """Run ``count`` devices; ``rounds=None`` polls forever, otherwise that many rounds each.
+
+    With ``chain`` every device checks the registries itself before installing.
+    """
     stats = FleetStats()
     devices = [Device(state_dir, f"{prefix}-{i:03d}", device_model) for i in range(count)]
     async with httpx.AsyncClient(base_url=gateway_url, timeout=60) as client:
-        agents = [DeviceAgent(d, client, stats) for d in devices]
+        agents = [DeviceAgent(d, client, stats, chain) for d in devices]
         await asyncio.gather(*(a.hello() for a in agents))
 
         async def loop(agent: DeviceAgent) -> None:

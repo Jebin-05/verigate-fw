@@ -143,3 +143,14 @@ def test_cursor_persistence(tmp_path: Path) -> None:
     assert Cursor(tmp_path / "c.json").last_block == -1
     Cursor(tmp_path / "c.json").advance(42)
     assert Cursor(tmp_path / "c.json").last_block == 42
+
+
+def test_verdict_log_remembers_approvals_across_restarts(tmp_path: Path) -> None:
+    log = VerdictLog(tmp_path / "verdicts.jsonl", keep_in_memory=1)
+    log.append({"releaseId": "0xaa", "verdict": "APPROVE"})
+    log.append({"releaseId": "0xbb", "verdict": "DEFER"})
+    log.append({"releaseId": "0xcc", "verdict": "REJECT"})
+    assert log.ever_approved("0xaa") and not log.ever_approved("0xbb")
+    reopened = VerdictLog(tmp_path / "verdicts.jsonl", keep_in_memory=1)
+    assert reopened.ever_approved("0xaa")  # beyond the in-memory tail
+    assert not reopened.ever_approved("0xcc") and len(reopened.recent()) == 1

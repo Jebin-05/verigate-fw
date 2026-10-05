@@ -52,7 +52,7 @@ async def test_stage1_against_live_contracts(
 
     approved = await service.verify(rid)
     assert approved.verdict.value == "APPROVE", approved.to_dict()
-    assert approved.stage1 is not None and [c.ok for c in approved.stage1.results] == [True] * 8
+    assert approved.stage1 is not None and [c.ok for c in approved.stage1.results] == [True] * 9
 
     rolled_back = await service.verify(rid, DeviceView("dev-live", "demo-device", SemVer(1, 0, 0)))
     assert rolled_back.stage1 is not None and rolled_back.stage1.failed == "version_monotonic"

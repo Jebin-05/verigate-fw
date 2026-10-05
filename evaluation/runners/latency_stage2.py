@@ -10,9 +10,9 @@ In-process against the live stack with the configured ONNX models:
   with bundle and scores cached, i.e. what a device poll costs once a release has been seen;
 * ``http_device_verify_ms``           — the same through the running gateway's HTTP API
   (``POST /verify/{id}?device_id=``), if a gateway is reachable;
-* ``llm_ms``                          — one explainer call (Ollama) per repetition, sequential,
-  only when ``llm.repetitions > 0`` and Ollama answers. Ollama keeps a prompt cache, so the
-  first call per release is the cold number; both are recorded.
+* ``llm_ms``                          — one explainer call (OpenRouter) per repetition,
+  sequential, only when ``llm.repetitions > 0`` and an API key is set. Includes the network
+  round trip; the first call is recorded separately.
 """
 
 from __future__ import annotations
@@ -113,11 +113,13 @@ async def _run(config: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     llm_rows: list[dict[str, Any]] = []
     llm_reps = int(llm_cfg.get("repetitions", 0))
     if llm_reps:
-        base = eval_settings()  # the .env values for OLLAMA_URL / LLM_MODEL / LLM_TIMEOUT_S
+        base = eval_settings()  # the .env values for OPENROUTER_* / LLM_MODEL / LLM_TIMEOUT_S
         explainer = Explainer(
-            base.ollama_url,
+            base.openrouter_url,
             base.llm_model,
             LocalCidBackend(settings.state_dir / "ipfs-eval"),
+            api_key=base.openrouter_api_key,
+            enabled=bool(base.openrouter_api_key),
             timeout_s=float(llm_cfg.get("timeout_s", base.llm_timeout_s)),
             retries=0,
         )
@@ -194,8 +196,7 @@ async def _run(config: dict[str, Any], out_dir: Path) -> dict[str, Any]:
             "succeeded": len(ok_rows),
             "llm_ms": median_iqr([r["llm_ms"] for r in ok_rows]) if ok_rows else None,
             "first_call_ms": llm_rows[0]["llm_ms"],
-            "note": "sequential calls on the CPU; Ollama's prompt cache makes later calls on a "
-            "release cheaper than the first",
+            "note": "sequential calls to OpenRouter, network round trip included",
         }
     write_summary(out_dir, summary)
     return {"stack": stack_info(settings, ctx), "state_dir": str(settings.state_dir)}

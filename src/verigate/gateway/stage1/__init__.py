@@ -1,4 +1,4 @@
-"""Cryptographic gate: eight deterministic, fail-closed checks.
+"""Cryptographic gate: nine deterministic, fail-closed checks.
 
 Pure functions; no I/O except via injected clients.
 """

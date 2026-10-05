@@ -7,8 +7,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from stage1_fixture_helpers import FIXTURES
+from stage1_fixture_helpers import FIXTURES, publisher_record, release_record
 
+from verigate.common.chain import STATUS_REVOKED, PublisherRecord, ReleaseRecord
 from verigate.common.crypto import KeyPair, parse_signature, sha256_hex, verify
 from verigate.common.errors import VerificationError
 from verigate.common.ipfs import compute_cid
@@ -111,3 +112,66 @@ def test_install_rejects_wrong_publisher_key(tmp_path: Path, fw: bytes) -> None:
     d = Device(tmp_path, "dev-05", "demo-device")
     with pytest.raises(VerificationError, match="signature invalid"):
         d.install(fw, make_manifest("1.0.0", fw), KeyPair.generate().public)
+
+
+class _Chain:
+    """The two registry reads a device makes, backed by fixed records."""
+
+    def __init__(self, publisher: PublisherRecord, release: ReleaseRecord) -> None:
+        self.publisher, self.release = publisher, release
+
+    def get_publisher(self, _publisher_id: bytes) -> PublisherRecord:
+        return self.publisher
+
+    def get_release(self, _release_id: bytes) -> ReleaseRecord:
+        return self.release
+
+
+def _chain_for(manifest: SignedManifest, **release_overrides: object) -> _Chain:
+    return _Chain(
+        publisher_record(PUB, did=manifest.publisherDid),
+        release_record(manifest, **release_overrides),
+    )
+
+
+def test_chain_check_uses_the_on_chain_key_not_the_gateways(tmp_path: Path, fw: bytes) -> None:
+    d = Device(tmp_path, "dev-06", "demo-device")
+    manifest = make_manifest("1.0.0", fw)
+    attacker = KeyPair.generate()  # a compromised gateway hands over its own key: ignored
+    receipt = d.install(fw, manifest, attacker.public, chain=_chain_for(manifest))
+    assert receipt.version == "1.0.0"
+
+
+def test_chain_check_refuses_a_release_signed_by_the_gateways_key(
+    tmp_path: Path, fw: bytes
+) -> None:
+    d = Device(tmp_path, "dev-07", "demo-device")
+    attacker = KeyPair.generate()
+    forged = make_manifest("1.0.0", fw).unsigned().sign(attacker)
+    with pytest.raises(VerificationError, match="signature invalid"):
+        d.install(fw, forged, attacker.public, chain=_chain_for(forged))
+
+
+@pytest.mark.parametrize(
+    ("chain", "match"),
+    [
+        (
+            lambda m: _Chain(
+                publisher_record(PUB, STATUS_REVOKED, m.publisherDid), release_record(m)
+            ),
+            "publisher not active",
+        ),
+        (lambda m: _chain_for(m, registered_at=0), "not registered"),
+        (lambda m: _chain_for(m, revoked=True), "withdrawn"),
+        (lambda m: _chain_for(m, publisher_id=b"\x01" * 32), "publisher mismatch"),
+        (lambda m: _chain_for(m, firmware_hash=b"\x02" * 32), "not the registered image"),
+    ],
+)
+def test_chain_check_fails_closed(
+    tmp_path: Path, fw: bytes, chain: Callable[[SignedManifest], _Chain], match: str
+) -> None:
+    d = Device(tmp_path, "dev-08", "demo-device")
+    manifest = make_manifest("1.0.0", fw)
+    with pytest.raises(VerificationError, match=match):
+        d.install(fw, manifest, PUB.public, chain=chain(manifest))
+    assert d.installed_version == SemVer(0, 0, 0) and d.active_image() == b""

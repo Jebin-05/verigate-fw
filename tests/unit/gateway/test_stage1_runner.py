@@ -1,4 +1,4 @@
-"""Runner: fail-closed order, first failure short-circuits, expiry → DEFER, logs name the check."""
+"""Runner: fail-closed order, first failure short-circuits, expiry / release delta → DEFER, logs."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from verigate.gateway.stage1.checks import CHECKS
 from verigate.gateway.stage1.inputs import Stage1Input
 from verigate.gateway.stage1.runner import run_stage1
 from verigate.gateway.verdicts.types import Verdict
+from verigate.ml.data.mutate import CATALOGUE
 
 
 def test_all_pass(valid_input: Stage1Input) -> None:
@@ -24,7 +25,7 @@ def test_all_pass(valid_input: Stage1Input) -> None:
     assert [r.name for r in result.results] == [c(valid_input).name for c in CHECKS]
     assert all(r.ok for r in result.results)
     assert result.to_dict()["outcome"] is None
-    assert len(result.to_dict()["checks"]) == 8
+    assert len(result.to_dict()["checks"]) == 9
 
 
 def test_first_failure_short_circuits(valid_input: Stage1Input) -> None:
@@ -40,6 +41,15 @@ def test_expiry_defers_not_rejects(valid_input: Stage1Input) -> None:
     assert result.failed == "expiry"
     assert result.outcome is Verdict.DEFER
     assert len(result.results) == 5
+
+
+def test_modified_trusted_image_defers_not_rejects(valid_input: Stage1Input) -> None:
+    assert valid_input.firmware is not None
+    trusted = CATALOGUE["byte-patch"].apply(valid_input.firmware, 3)
+    result = run_stage1(replace(valid_input, trusted_firmware=trusted), "rid")
+    assert result.failed == "release_delta"
+    assert result.outcome is Verdict.DEFER
+    assert len(result.results) == 9
 
 
 def test_everything_missing_fails_closed(valid_input: Stage1Input) -> None:

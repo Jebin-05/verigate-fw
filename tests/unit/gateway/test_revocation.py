@@ -181,6 +181,26 @@ async def test_revocation_replays_stale_verdicts(
     assert await restarted.check_once() == []  # idempotent again
 
 
+async def test_revocation_replays_verdicts_that_were_never_anchored(
+    world: dict[str, Any], models: dict[str, Any]
+) -> None:
+    service: GatewayService = world["service"]
+    chain: FakeChain = world["chain"]
+    assert service.batcher is not None
+    service.batcher.max_size = 100  # nothing commits before the revocation
+    await service.refresh_releases()
+    before = await service.verify(world["rid"], DeviceView("dev-1", "demo-device", SemVer(0, 9, 0)))
+    assert service.batcher.pending == 1 and chain.committed == []
+    v1, v2 = bytes.fromhex(models["v1"][2:]), bytes.fromhex(models["v2"][2:])
+    chain.revoke_model(v1, v2)
+    reports = await world["job"].check_once()
+    assert reports[0].stale_batches == []  # nothing on-chain used the model ...
+    pairs = {(p.release_id, p.device_id) for p in reports[0].pairs}
+    assert (before.release_id, "dev-1") in pairs  # ... but its unanchored verdict is replayed
+    await service.batcher.flush()
+    assert [c["modelHashes"] for c in chain.committed] == [[v2]]  # only the successor's verdict
+
+
 async def test_revocation_without_successor_stays_closed(
     world: dict[str, Any], models: dict[str, Any]
 ) -> None:

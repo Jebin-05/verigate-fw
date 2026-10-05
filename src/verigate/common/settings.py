@@ -51,10 +51,11 @@ class Settings(BaseSettings):
     local_ipfs_dir: Path = Path(".verigate/ipfs-local")
 
     # --- LLM explainer
-    ollama_url: str = "http://127.0.0.1:11434"
-    llm_model: str = "qwen2.5:3b-instruct"
+    openrouter_url: str = "https://openrouter.ai/api/v1"
+    openrouter_api_key: str = ""  # empty → the explainer is off
+    llm_model: str = "openai/gpt-4o-mini"  # any OpenRouter model with structured outputs
     llm_enabled: bool = True
-    llm_timeout_s: float = 120.0  # per attempt (manual §P6); raise on slow CPU-only hosts
+    llm_timeout_s: float = 30.0  # per attempt
     # False: the explanation is written only when asked (the console's button). True: after
     # every release-level verdict.
     llm_auto_explain: bool = False
@@ -72,7 +73,6 @@ class Settings(BaseSettings):
     hardhat_port: int = 8545
     ipfs_api_port: int = 5001
     ipfs_gateway_port: int = 8080
-    ollama_port: int = 11434
     gateway_port: int = 8000
     dashboard_port: int = 5173
     fleet_size: int = Field(default=20, ge=1)

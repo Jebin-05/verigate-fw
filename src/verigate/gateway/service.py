@@ -17,7 +17,7 @@ from typing import Any
 from eth_account.signers.local import LocalAccount
 
 from verigate.common.chain import ChainClient, ModelRecord, PublisherRecord, ReleaseRecord
-from verigate.common.crypto import parse_signature, verify
+from verigate.common.crypto import parse_signature, sha256, verify
 from verigate.common.errors import ChainError, IpfsError, VerificationError, VerigateError
 from verigate.common.ipfs import IpfsBackend
 from verigate.common.logging import get_logger
@@ -26,11 +26,26 @@ from verigate.common.protocol import InstallReceipt, SignedMessage, verify_messa
 from verigate.common.settings import Settings
 from verigate.gateway.policy.engine import BASIS, Decision, PolicyEngine
 from verigate.gateway.reputation import ReputationUpdater
+from verigate.gateway.stage1.checks import CheckResult
 from verigate.gateway.stage1.inputs import DeviceView, Stage1Input
 from verigate.gateway.stage1.runner import Stage1Result, run_stage1
-from verigate.gateway.stage2.explain import Explainer, ExplainInput, Explanation, sbom_diff
+from verigate.gateway.stage2.explain import (
+    AiReading,
+    Explainer,
+    ExplainInput,
+    Explanation,
+    SbomDiff,
+    sbom_diff,
+)
 from verigate.gateway.stage2.scores import NullScorer, Scorer, Stage2Scores, swap_model
-from verigate.gateway.store import Cursor, DeviceRecord, DeviceStore, VerdictLog
+from verigate.gateway.store import (
+    Cursor,
+    DeviceRecord,
+    DeviceStore,
+    Review,
+    ReviewStore,
+    VerdictLog,
+)
 from verigate.gateway.verdicts.batch import VerdictBatcher
 from verigate.gateway.verdicts.record import VerdictRecord, feature_hash
 from verigate.gateway.verdicts.types import Verdict
@@ -39,6 +54,19 @@ log = get_logger(__name__)
 
 REFERENCE_DEVICE_ID = "release-level"
 RELEASE_LEVEL_CHECKS = frozenset({"firmware_hash", "signature", "sbom_hash", "registry_record"})
+REVIEWABLE_CHECKS = frozenset({"release_delta"})
+"""Stage-1 holds a person may resolve. ``expiry`` is not one: the publisher must re-issue."""
+REVIEW_DEVICE_ID = "human-review"
+
+
+class ReviewError(VerigateError):
+    """A review request that cannot be applied; ``status`` is the HTTP status to return."""
+
+    def __init__(self, status: int, message: str) -> None:
+        self.status = status
+        super().__init__(message)
+
+
 """Stage-1 failures that are evidence against the release (its publisher), not the device."""
 
 
@@ -98,6 +126,14 @@ class VerificationResult:
         }
 
 
+def _values(scores: Stage2Scores, model: str) -> dict[str, Any]:
+    """The feature values one model saw (without its hash and attributions)."""
+    block = scores.features.get(model, {})
+    if not isinstance(block, dict):
+        return {}
+    return {k: v for k, v in block.items() if k not in {"model", "top3", "previous"}}
+
+
 @dataclass
 class GatewayService:
     """Application state shared by the API routes and the listener."""
@@ -108,6 +144,7 @@ class GatewayService:
     state_dir: Path
     devices: DeviceStore = field(init=False)
     verdicts: VerdictLog = field(init=False)
+    reviews: ReviewStore = field(init=False)
     cursor: Cursor = field(init=False)
     _bundles: dict[bytes, ReleaseBundle] = field(default_factory=dict, init=False)
     _known_releases: dict[bytes, ReleaseRecord] = field(default_factory=dict, init=False)
@@ -117,6 +154,7 @@ class GatewayService:
     scorer: Scorer = field(default_factory=NullScorer)
     explainer: Explainer | None = None
     _model_hashes: list[bytes] = field(default_factory=list, init=False)
+    _analyses: dict[str, tuple[dict[str, Any], AiReading]] = field(default_factory=dict, init=False)
     _rationales: dict[str, asyncio.Task[Explanation | None]] = field(
         default_factory=dict, init=False
     )
@@ -128,6 +166,7 @@ class GatewayService:
         """Open the stores under ``state_dir``; wire batching/reputation if a gateway key exists."""
         self.devices = DeviceStore(self.state_dir / "devices.json")
         self.verdicts = VerdictLog(self.state_dir / "verdicts.jsonl")
+        self.reviews = ReviewStore(self.state_dir / "reviews.json")
         self.cursor = Cursor(self.state_dir / "listener.json")
         self.policy = PolicyEngine(self.chain)
         raw = [h.strip() for h in self.settings.stage2_model_hashes.split(",") if h.strip()]
@@ -266,6 +305,42 @@ class GatewayService:
         prev_bundle = await self.bundle(previous.release_id)
         return prev_bundle.firmware
 
+    async def trusted_firmware(self, bundle: ReleaseBundle) -> tuple[bytes | None, bool]:
+        """(image of the last trusted release, whether it exists but could not be fetched).
+
+        Trusted = an earlier, non-revoked release of the same publisher and device model that
+        this gateway approved and whose served image still matches its on-chain hash. A held,
+        rejected or tampered release is never the reference for Stage-1 check #9.
+        """
+        release = bundle.release
+        if release is None or not release.exists:
+            return None, False
+        earlier = sorted(
+            (
+                r
+                for r in self._known_releases.values()
+                if r.publisher_id == release.publisher_id
+                and r.device_model_id == release.device_model_id
+                and r.version < release.version
+                and not r.revoked
+                and self.verdicts.ever_approved("0x" + r.release_id.hex())
+            ),
+            key=lambda r: r.version,
+            reverse=True,
+        )
+        for candidate in earlier:
+            # the image is content-addressed: a complete cached bundle needs no chain refresh
+            cached = self._bundles.get(candidate.release_id)
+            if cached is not None and not cached.errors and cached.firmware is not None:
+                firmware: bytes | None = cached.firmware
+            else:
+                firmware = (await self.bundle(candidate.release_id)).firmware
+            if firmware is None:
+                return None, True
+            if sha256(firmware) == candidate.firmware_hash:
+                return firmware, False
+        return None, False
+
     async def previous_sbom(self, bundle: ReleaseBundle) -> bytes | None:
         """SBOM bytes of the previous release (for the explainer's diff), if any."""
         if bundle.release is None or not bundle.release.exists:
@@ -310,20 +385,131 @@ class GatewayService:
                 top_img=scores.top("img"),
                 expected_exploited=scores.expected_exploited,
                 cves=scores.cves,
+                sbom_values=_values(scores, "sbom"),
+                img_values=_values(scores, "img"),
+                overall_bp=decision.r_bp,
             )
-            task = asyncio.create_task(asyncio.to_thread(self.explainer.explain, inp))
-            self._rationales[rid] = task
+            task = self._start_rationale(rid, inp)
         if wait or task.done():
             return await task
         return None
 
+    def _start_rationale(self, rid: str, inp: ExplainInput) -> asyncio.Task[Explanation | None]:
+        assert self.explainer is not None  # noqa: S101
+        task = asyncio.create_task(asyncio.to_thread(self.explainer.explain, inp))
+        self._rationales[rid] = task
+        return task
+
+    def _recorded_stop(self, rid: str) -> Stage1Result | None:
+        """The failed checks of the latest release-level verdict for ``rid``, if they failed.
+
+        This is the verdict the console shows. It is explained as recorded, because re-running
+        the gate later can decide differently (e.g. a revoked model has since been replaced).
+        """
+        last = next(
+            (
+                v
+                for v in reversed(self.verdicts.recent(500))
+                if v.get("releaseId") == rid and v.get("deviceId") == REFERENCE_DEVICE_ID
+            ),
+            None,
+        )
+        if last is None or "verdict" not in last:
+            return None
+        stage1 = last.get("stage1") or {}
+        if stage1.get("ok") is not False or not stage1.get("failed"):
+            return None
+        checks = tuple(
+            CheckResult(c["name"], bool(c["ok"]), c.get("reason")) for c in stage1.get("checks", [])
+        )
+        return Stage1Result(
+            False, checks, stage1["failed"], stage1.get("reason"), Verdict(last["verdict"])
+        )
+
+    async def _explain_stopped(
+        self, rid: str, bundle: ReleaseBundle, device_model: str, stage1: Stage1Result
+    ) -> None:
+        """Start the explanation for a release the checks stopped (no scores exist)."""
+        assert stage1.outcome is not None and stage1.failed is not None  # noqa: S101
+        self._start_rationale(
+            rid,
+            ExplainInput(
+                release_id=rid,
+                version=str(bundle.manifest.version) if bundle.manifest else "",
+                device_model=device_model,
+                diff=SbomDiff((), (), ()),  # the stopped prompt describes the check, not the SBOM
+                r_sbom_bp=None,
+                r_img_bp=None,
+                verdict=stage1.outcome.value,
+                top_sbom=[],
+                top_img=[],
+                stopped_at=stage1.failed,
+                stop_reason=stage1.reason,
+                passed_checks=tuple(r.name for r in stage1.results if r.ok),
+                ai_after_stop=self._analyses.get(rid, (None, None))[1],
+            ),
+        )
+
+    async def analyse_now(self, rid: str) -> dict[str, Any]:
+        """Run the two risk models on a release on request (the console's AI button).
+
+        For a release the checks stopped, this is the only way to see the models' view. The
+        result is informational: it is kept in memory for the console and the explainer and
+        never enters a verdict, the verdict log or the chain. A finished explanation is dropped
+        so the next one can describe the models' view too.
+        """
+        release_id = bytes.fromhex(rid.removeprefix("0x"))
+        bundle = await self.bundle(release_id)
+        if bundle.errors or bundle.release is None or not bundle.release.exists:
+            return {"status": "none", "reason": "release not available"}
+        if bundle.firmware is None or bundle.sbom is None:
+            return {"status": "none", "reason": "the firmware or its ingredient list is missing"}
+        previous = await self.previous_firmware(bundle)
+        scores = await asyncio.to_thread(self.scorer.score, bundle.firmware, bundle.sbom, previous)
+        if not scores.model_hashes:
+            return {"status": "none", "reason": "no risk models are configured"}
+        reputation_bp = bundle.publisher.reputation_bp if bundle.publisher else None
+        decision = await self.policy.decide(scores.r_sbom_bp, scores.r_img_bp, reputation_bp)
+        reading = AiReading(
+            scores.r_sbom_bp,
+            scores.r_img_bp,
+            scores.top("sbom"),
+            scores.top("img"),
+            _values(scores, "sbom"),
+            _values(scores, "img"),
+            scores.expected_exploited,
+            scores.cves,
+            decision.verdict.value,
+            decision.r_bp,
+        )
+        result = {
+            "status": "ready",
+            "rSbom": scores.r_sbom_bp,
+            "rImg": scores.r_img_bp,
+            "R": decision.r_bp,
+            "verdictFromScores": decision.verdict.value,
+            "reason": decision.reason,
+            "stage2": scores.features,
+        }
+        self._analyses[rid] = (result, reading)
+        task = self._rationales.get(rid)
+        if task is not None and task.done() and self.explainer is not None:
+            self._rationales.pop(rid, None)
+            self.explainer.forget(rid)
+        return result
+
+    def analysis_status(self, rid: str) -> dict[str, Any]:
+        """The on-request analysis for ``rid``, if one was run since the gateway started."""
+        entry = self._analyses.get(rid)
+        return entry[0] if entry else {"status": "none"}
+
     async def explain_now(self, rid: str, again: bool = False) -> dict[str, Any]:
         """Start the written explanation for ``rid`` on request (the console's button).
 
-        Re-scores the release deterministically (same models, same features, same decision) so
-        the writer describes exactly what the gate saw. ``again`` discards a finished or failed
-        attempt first. Returns the same shape as ``rationale_status``; a release that never
-        reached Stage 2 answers ``{"status": "none", "reason": ...}``.
+        Re-runs the gate deterministically (same checks, models, features and decision) so the
+        writer describes exactly what the gate saw: the scores when the checks passed, the failed
+        check when they did not. ``again`` discards a finished or failed attempt first. Returns
+        the same shape as ``rationale_status``.
         """
         if self.explainer is None or not self.explainer.enabled:
             return {"status": "off"}
@@ -336,12 +522,18 @@ class GatewayService:
         bundle = await self.bundle(release_id)
         if bundle.errors or bundle.release is None or not bundle.release.exists:
             return {"status": "none", "reason": "release not available"}
-        if bundle.firmware is None or bundle.sbom is None:
-            return {"status": "none", "reason": "the models did not run for this release"}
         device_model = bundle.manifest.deviceModel if bundle.manifest else ""
+        if again:
+            self._rationales.pop(rid, None)
+            self.explainer.forget(rid)
+        recorded = self._recorded_stop(rid)
+        if recorded is not None:
+            await self._explain_stopped(rid, bundle, device_model, recorded)
+            return await self.rationale_status(rid)
         models = tuple(
             [await asyncio.to_thread(self.chain.get_model, h) for h in self.model_hashes()]
         )
+        trusted, trusted_unavailable = await self.trusted_firmware(bundle)
         stage1 = await asyncio.to_thread(
             run_stage1,
             Stage1Input(
@@ -353,20 +545,21 @@ class GatewayService:
                 device=DeviceView(REFERENCE_DEVICE_ID, device_model, SemVer(0, 0, 0)),
                 models=models,
                 now=self.now(),
+                trusted_firmware=trusted,
+                trusted_unavailable=trusted_unavailable,
             ),
             rid,
         )
         if stage1.outcome is not None:
-            return {"status": "none", "reason": "the checks stopped this release before the models"}
+            await self._explain_stopped(rid, bundle, device_model, stage1)
+            return await self.rationale_status(rid)
+        assert bundle.firmware is not None and bundle.sbom is not None  # noqa: S101 — checks passed
         previous = await self.previous_firmware(bundle)
         scores = await asyncio.to_thread(self.scorer.score, bundle.firmware, bundle.sbom, previous)
         if not scores.model_hashes:
             return {"status": "none", "reason": "the models did not run for this release"}
         reputation_bp = bundle.publisher.reputation_bp if bundle.publisher else None
         decision = await self.policy.decide(scores.r_sbom_bp, scores.r_img_bp, reputation_bp)
-        if again:
-            self._rationales.pop(rid, None)
-            self.explainer.forget(rid)
         await self.rationale_for(rid, bundle, scores, decision, device_model, wait=False)
         return await self.rationale_status(rid)
 
@@ -485,6 +678,7 @@ class GatewayService:
             )
             self.verdicts.append(result.to_dict())
             return result
+        trusted, trusted_unavailable = await self.trusted_firmware(bundle)
         inp = Stage1Input(
             manifest=bundle.manifest,
             firmware=bundle.firmware,
@@ -494,6 +688,8 @@ class GatewayService:
             device=view,
             models=models,
             now=checked_at,
+            trusted_firmware=trusted,
+            trusted_unavailable=trusted_unavailable,
         )
         stage1 = await asyncio.to_thread(run_stage1, inp, rid)
         ts = int(checked_at.timestamp())
@@ -522,6 +718,12 @@ class GatewayService:
                 )
                 if explanation is not None:
                     scores = replace(scores, rationale_cid=explanation.cid)
+        reason = stage1.reason if stage1.outcome is not None else decision.reason
+        review = self.reviews.get(rid)
+        if review is not None and verdict is Verdict.DEFER and self._reviewable(stage1):
+            # A person resolved this hold; the decision is anchored as its own record.
+            verdict = Verdict(review.decision)
+            reason = _review_reason(review)
         record = VerdictRecord(
             releaseId=rid,
             deviceId=view.device_id,
@@ -544,7 +746,7 @@ class GatewayService:
             view.device_id,
             verdict,
             stage1,
-            stage1.reason if stage1.outcome is not None else decision.reason,
+            reason,
             checked_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             version=str(bundle.manifest.version) if bundle.manifest else None,
             device_model=bundle.manifest.deviceModel if bundle.manifest else None,
@@ -572,11 +774,106 @@ class GatewayService:
             and bundle.publisher is not None
             and bundle.publisher.exists
             and (stage1.failed is None or stage1.failed in RELEASE_LEVEL_CHECKS)
+            and review is None  # a reviewer's rejection lowers reputation once, when it is made
         ):
             await self.reputation.on_reject(
                 bundle.publisher.publisher_id, stage1.failed or "policy"
             )
         return result
+
+    # ------------------------------------------------------------------ human review
+
+    @staticmethod
+    def _reviewable(stage1: Stage1Result) -> bool:
+        """A DEFER from the risk policy or from a check a person may resolve (not expiry)."""
+        return stage1.outcome is None or stage1.failed in REVIEWABLE_CHECKS
+
+    async def review(
+        self, release_id: bytes, decision: Verdict, reviewer: str, note: str = ""
+    ) -> dict[str, Any]:
+        """Record a person's APPROVE / REJECT for a release the gate holds for review.
+
+        The gate is re-run first: only a release that is *currently* held for review by the
+        policy or by a reviewable check can be decided, once. The decision is signed and anchored
+        as its own verdict record (device ``human-review``) whose feature hash commits to the
+        decision, the reviewer, the note and the held verdict it resolves; later verifications of
+        the release turn that DEFER into the reviewer's decision.
+        """
+        rid = "0x" + release_id.hex()
+        if decision not in (Verdict.APPROVE, Verdict.REJECT):
+            raise ReviewError(422, "a review decides APPROVE or REJECT")
+        if self.reviews.get(rid) is not None:
+            raise ReviewError(409, "this release has already been reviewed")
+        bundle = await self.bundle(release_id)
+        if bundle.release is None or not bundle.release.exists:
+            raise ReviewError(404, "unknown release")
+        held = await self.verify(release_id)
+        if (
+            held.verdict is not Verdict.DEFER
+            or held.stage1 is None
+            or not self._reviewable(held.stage1)
+        ):
+            raise ReviewError(
+                409,
+                f"only a release held for review can be decided; the gate says {held.verdict.value}"
+                + (f" ({held.reason})" if held.reason else ""),
+            )
+        decided_at = self.now()
+        scores = held.scores
+        record = VerdictRecord(
+            releaseId=rid,
+            deviceId=REVIEW_DEVICE_ID,
+            modelHashes=list(scores.model_hashes) if scores else [],
+            featureHash=feature_hash(
+                {
+                    "review": {
+                        "decision": decision.value,
+                        "reviewer": reviewer,
+                        "note": note,
+                        "heldVerdictId": held.verdict_id,
+                    }
+                }
+            ),
+            r_sbom=scores.r_sbom_bp if scores else 0,
+            r_img=scores.r_img_bp if scores else 0,
+            reputation=held.reputation_bp if held.reputation_bp is not None else 0,
+            R=held.r_bp if held.r_bp is not None else BASIS,
+            verdict=decision,
+            rationaleCid=None,
+            ts=int(decided_at.timestamp()),
+        )
+        review_verdict_id = "0x" + record.leaf().hex()
+        if self.batcher is not None and self.gateway_account is not None:
+            review_verdict_id = await self.batcher.add(
+                record.sign(self.settings.gateway_private_key)
+            )
+        review = Review(
+            release_id=rid,
+            decision=decision.value,
+            reviewer=reviewer,
+            note=note,
+            decided_at=decided_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            held_because=held.reason,
+            held_verdict_id=held.verdict_id,
+            review_verdict_id=review_verdict_id,
+        )
+        self.reviews.put(review)
+        log.warning(
+            "review.decided",
+            release_id=rid,
+            decision=decision.value,
+            reviewer=reviewer,
+            verdict_id=review_verdict_id,
+        )
+        if (
+            decision is Verdict.REJECT
+            and self.reputation is not None
+            and bundle.publisher is not None
+            and bundle.publisher.exists
+        ):
+            await self.reputation.on_reject(bundle.publisher.publisher_id, "review")
+        after = await self.verify(release_id)
+        return {"review": review.to_dict(), "verdict": after.to_dict()}
 
     # ------------------------------------------------------------------ registries
 
@@ -773,3 +1070,9 @@ class GatewayService:
         if bundle.firmware is None:
             raise VerigateError("firmware unavailable: " + "; ".join(bundle.errors))
         return bundle.firmware
+
+
+def _review_reason(review: Review) -> str:
+    """The verdict reason when a reviewer resolved the hold."""
+    word = "accepted" if review.decision == Verdict.APPROVE.value else "rejected"
+    return f"{word} by reviewer {review.reviewer}" + (f": {review.note}" if review.note else "")

@@ -4,7 +4,7 @@ PY := .venv/bin/python
 PIP := .venv/bin/pip
 N ?= 20
 
-.PHONY: up down logs smoke doctor llm-pull help bootstrap lint format typecheck test test-unit test-integration test-contracts test-all \
+.PHONY: up down logs smoke doctor help bootstrap lint format typecheck test test-unit test-integration test-contracts test-all \
         infra-up infra-down contracts-build contracts-deploy-local gateway fleet dashboard \
         train models-hash models-register vulndb-seed eval eval-all figures clean
 
@@ -14,7 +14,7 @@ up:              ## run EVERYTHING in docker (any machine, no host toolchain nee
 	@echo "dashboard → http://localhost:$${DASHBOARD_PORT:-5173}   gateway → http://localhost:$${GATEWAY_PORT:-8000}/docs"
 
 down:            ## stop everything (keeps volumes; add V=1 to wipe)
-	docker compose -f infra/docker-compose.yml --profile app --profile llm down $(if $(V),-v,)
+	docker compose -f infra/docker-compose.yml --profile app down $(if $(V),-v,)
 
 logs:            ## follow all container logs
 	docker compose -f infra/docker-compose.yml --profile app logs -f --tail=100
@@ -28,10 +28,6 @@ doctor:          ## diagnose this machine before running anything
 vulndb-seed:     ## copy the host vulnerability cache (or SNAP=data/vulndb-demo) into the running gateway's volume
 	docker compose -f infra/docker-compose.yml --profile app cp $(or $(SNAP),data/processed/vulndb)/. gateway:/app/data/processed/vulndb/
 	@echo "seeded; the first Stage-2 verification is now warm"
-
-llm-pull:        ## start ollama and pull the explainer model once (~2 GB)
-	docker compose -f infra/docker-compose.yml --profile llm up -d ollama
-	docker compose -f infra/docker-compose.yml exec ollama ollama pull qwen2.5:3b-instruct
 
 help:            ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}'
@@ -66,7 +62,7 @@ test-contracts:  ## hardhat tests + coverage
 
 test-all: lint typecheck test-unit test-contracts  ## the full gate — run this before every commit (there is no CI)
 
-infra-up:        ## start hardhat node, kubo, ollama
+infra-up:        ## start hardhat node, kubo
 	docker compose -f infra/docker-compose.yml up -d
 
 infra-down:      ## stop them
@@ -101,7 +97,7 @@ eval:            ## run an experiment: make eval EXP=evaluation/configs/latency_
 	.venv/bin/python evaluation/runners/run.py $(EXP)
 
 eval-all:        ## every experiment against the live stack (infra-up + deploy + gateway with LLM_ENABLED=false first)
-	for c in gas_per_verdict_vs_batched latency_stage1 latency_stage2 revocation_propagation attack_matrix detection_f1 sbom_ranking; do \
+	for c in gas_per_verdict_vs_batched latency_stage1 latency_stage2 revocation_propagation attack_matrix detection_f1 release_delta delta_features_iforest sbom_ranking; do \
 	  .venv/bin/python evaluation/runners/run.py evaluation/configs/$$c.yaml || exit 1; done
 
 figures:         ## regenerate evaluation/figures/* from the newest results (the only producer of figures)

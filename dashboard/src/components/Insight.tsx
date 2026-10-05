@@ -1,8 +1,9 @@
 /** The AI made visible: what the models saw, the written explanation, model cards, rules simulator. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
-import type { ModelCard, Policy, RationaleStatus, Stage2Block } from '../api/types';
-import { aiSaw, bp } from '../lib/words';
+import type { AiAnalysis, ModelCard, Policy, RationaleStatus, Stage2Block } from '../api/types';
+import { aiSaw, bp, VERDICT_TONE, VERDICT_WORD, type Tone } from '../lib/words';
+import { Meter } from './Bits';
 
 export function AiSaw({ stage2 }: { stage2: Stage2Block | null | undefined }) {
   const seen = aiSaw(stage2);
@@ -38,16 +39,128 @@ export function AiSaw({ stage2 }: { stage2: Stage2Block | null | undefined }) {
   );
 }
 
+const riskTone = (v: number | null | undefined): Tone =>
+  v === null || v === undefined ? 'none' : v < 4500 ? 'ok' : v < 7000 ? 'warn' : 'bad';
+
+/**
+ * The AI tab, shown only on request. ``recorded`` (a release that reached the models): the button
+ * reveals what the models saw when the gate decided. Otherwise the button runs the models now.
+ */
+export function AiRun({
+  releaseId,
+  marks,
+  recorded,
+  onRun,
+}: {
+  releaseId: string;
+  marks: { at: number; label: string }[];
+  recorded?: Stage2Block | null;
+  onRun?: () => void;
+}) {
+  const [result, setResult] = useState<AiAnalysis | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+  }, [releaseId]);
+
+  const run = async () => {
+    if (recorded) {
+      setResult({ status: 'ready', stage2: recorded });
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const a = await api.analyse(releaseId);
+      setResult(a);
+      if (a.status === 'ready') onRun?.();
+      else setError(a.reason ?? 'the models could not run');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ready = result?.status === 'ready';
+  return (
+    <section>
+      <div className="detail-h">
+        <h3>AI risk analysis</h3>
+        {!(recorded && ready) && (
+          <button
+            className={ready ? 'btn-sm' : 'btn-primary'}
+            disabled={busy}
+            onClick={() => void run()}
+          >
+            {busy
+              ? 'Running…'
+              : ready
+                ? 'Run again'
+                : recorded
+                  ? 'Show AI analysis'
+                  : 'Run AI analysis'}
+          </button>
+        )}
+      </div>
+      {error && <p className="muted small">Could not run: {error}.</p>}
+      {!ready && !error && !recorded && (
+        <p className="muted small">
+          The risk models did not run: the release was stopped by the checks.
+        </p>
+      )}
+      {ready && recorded && <AiSaw stage2={result.stage2} />}
+      {ready && !recorded && (
+        <>
+          <div className="meters">
+            <Meter
+              label="Known-vulnerability exposure"
+              value={result.rSbom}
+              tone={riskTone(result.rSbom)}
+            />
+            <Meter
+              label="Unusual binary structure"
+              value={result.rImg}
+              tone={riskTone(result.rImg)}
+            />
+            <Meter
+              label="Overall risk"
+              value={result.R}
+              tone={result.verdictFromScores ? VERDICT_TONE[result.verdictFromScores] : 'none'}
+              marks={marks}
+              overall
+            />
+          </div>
+          {result.verdictFromScores && (
+            <p className="small">
+              The scores alone point to{' '}
+              <b>{VERDICT_WORD[result.verdictFromScores].toLowerCase()}</b>; the failed check
+              decides this release.
+            </p>
+          )}
+          <AiSaw stage2={result.stage2} />
+        </>
+      )}
+    </section>
+  );
+}
+
 export function ExplanationBox({
   releaseId,
-  hasStage2,
+  inspected,
   ask = 0,
+  refresh = 0,
   onStatus,
 }: {
   releaseId: string;
-  hasStage2: boolean;
+  /** The gate has a verdict for this release (approved, held or rejected — by the checks or the models). */
+  inspected: boolean;
   /** Bumped by the header's "Explain with AI" button: start writing unless one exists already. */
   ask?: number;
+  /** Bumped when something the explanation depends on changed (e.g. an AI analysis ran). */
+  refresh?: number;
   /** Lets the parent mirror the state (e.g. disable its own button while writing). */
   onStatus?: (status: RationaleStatus['status'] | null) => void;
 }) {
@@ -76,7 +189,7 @@ export function ExplanationBox({
       alive = false;
       if (timer) clearTimeout(timer);
     };
-  }, [releaseId]);
+  }, [releaseId, refresh]);
 
   const request = useCallback(
     async (again: boolean) => {
@@ -102,20 +215,16 @@ export function ExplanationBox({
   );
   useEffect(() => {
     // The header button: write once per press, but never discard an explanation that exists.
-    if (ask === 0 || ask === askedAt.current || !status || !hasStage2) return;
+    if (ask === 0 || ask === askedAt.current || !status || !inspected) return;
     askedAt.current = ask;
     if (status.status === 'none' || status.status === 'failed')
       void request(status.status === 'failed');
-  }, [ask, status, hasStage2, request]);
+  }, [ask, status, inspected, request]);
 
   let body: React.ReactNode;
   let action: React.ReactNode = null;
-  if (!hasStage2) {
-    body = (
-      <p className="muted small">
-        Not applicable: the release was stopped by the checks before the models ran.
-      </p>
-    );
+  if (!inspected) {
+    body = <p className="muted small">Not inspected yet.</p>;
   } else if (!status) {
     body = <p className="muted small">Checking…</p>;
   } else if (status.status === 'ready' && status.rationale) {

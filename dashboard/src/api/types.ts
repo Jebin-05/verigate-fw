@@ -30,6 +30,18 @@ export interface Release {
   revoked: boolean;
   lastVerdict: Verdict | null;
   lastVerdictAt: string | null;
+  review: Review | null;
+}
+
+export interface Review {
+  releaseId: string;
+  decision: 'APPROVE' | 'REJECT';
+  reviewer: string;
+  note: string;
+  decidedAt: string;
+  heldBecause: string | null;
+  heldVerdictId: string | null;
+  reviewVerdictId: string | null;
 }
 
 export interface CheckResult {
@@ -71,6 +83,16 @@ export interface VerificationResult {
 export interface Stage2Block {
   sbom?: Record<string, unknown> & { top3?: [string, number][] };
   img?: Record<string, unknown> & { top3?: [string, number][]; previous?: boolean };
+}
+
+export interface AiAnalysis {
+  status: 'none' | 'ready';
+  reason?: string;
+  rSbom?: number;
+  rImg?: number;
+  R?: number;
+  verdictFromScores?: Verdict;
+  stage2?: Stage2Block;
 }
 
 export interface RationaleStatus {

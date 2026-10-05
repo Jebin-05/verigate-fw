@@ -204,6 +204,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/releases/{release_id}/review': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Release Review
+     * @description Accept or reject a release the gate holds for review; anchored, once per release.
+     */
+    post: operations['release_review_releases__release_id__review_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/reviews': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Reviews
+     * @description Every reviewer decision, oldest first.
+     */
+    get: operations['reviews_reviews_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/releases/{release_id}/rationale': {
     parameters: {
       query?: never;
@@ -216,6 +256,66 @@ export interface paths {
      * @description The written explanation for a release, or where it stands (writing / off / none).
      */
     get: operations['release_rationale_releases__release_id__rationale_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/releases/{release_id}/explain': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Release Explain
+     * @description Ask the language model to write (or rewrite) the explanation for a release.
+     */
+    post: operations['release_explain_releases__release_id__explain_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/releases/{release_id}/analyse': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Release Analyse
+     * @description Run the risk models on a release on request; informational, never part of a verdict.
+     */
+    post: operations['release_analyse_releases__release_id__analyse_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/releases/{release_id}/analysis': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Release Analysis
+     * @description The last on-request analysis for a release (``{"status": "none"}`` if never run).
+     */
+    get: operations['release_analysis_releases__release_id__analysis_get'];
     put?: never;
     post?: never;
     delete?: never;
@@ -611,6 +711,24 @@ export interface components {
       detail?: components['schemas']['ValidationError'][];
     };
     /**
+     * ReviewBody
+     * @description A reviewer's decision on a release held for review.
+     */
+    ReviewBody: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'APPROVE' | 'REJECT';
+      /** Reviewer */
+      reviewer: string;
+      /**
+       * Note
+       * @default
+       */
+      note: string;
+    };
+    /**
      * SignedMessage
      * @description Wire format of every device → gateway request.
      */
@@ -947,7 +1065,167 @@ export interface operations {
       };
     };
   };
+  release_review_releases__release_id__review_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        release_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReviewBody'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  reviews_reviews_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          }[];
+        };
+      };
+    };
+  };
   release_rationale_releases__release_id__rationale_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        release_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  release_explain_releases__release_id__explain_post: {
+    parameters: {
+      query?: {
+        again?: boolean;
+      };
+      header?: never;
+      path: {
+        release_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  release_analyse_releases__release_id__analyse_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        release_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  release_analysis_releases__release_id__analysis_get: {
     parameters: {
       query?: never;
       header?: never;

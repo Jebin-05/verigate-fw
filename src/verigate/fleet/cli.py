@@ -10,6 +10,7 @@ from typing import Annotated
 
 import typer
 
+from verigate.common.chain import ChainClient
 from verigate.common.logging import configure_logging
 from verigate.common.settings import get_settings
 from verigate.fleet.runner import run_fleet
@@ -37,13 +38,23 @@ def run(
         int | None, typer.Option("--rounds", min=1, help="Stop after N polls")
     ] = None,
     prefix: Annotated[str, typer.Option("--prefix", help="Device id prefix")] = "dev",
+    chain_check: Annotated[
+        bool,
+        typer.Option(
+            "--chain-check/--no-chain-check",
+            help="Devices read the publisher key and release record from the chain themselves",
+        ),
+    ] = True,
 ) -> None:
     """Start the fleet; prints a JSON stats object when it stops (Ctrl-C or --rounds)."""
     settings = get_settings()
     configure_logging(settings)
     url = gateway or f"http://127.0.0.1:{settings.gateway_port}"
+    chain = ChainClient(settings) if chain_check else None
     try:
-        stats = asyncio.run(run_fleet(url, state_dir, count, model, interval, rounds, prefix))
+        stats = asyncio.run(
+            run_fleet(url, state_dir, count, model, interval, rounds, prefix, chain)
+        )
     except KeyboardInterrupt:
         return
     sys.stdout.write(json.dumps(stats.to_dict(), indent=2, sort_keys=True) + "\n")

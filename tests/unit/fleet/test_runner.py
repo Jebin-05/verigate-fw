@@ -121,7 +121,8 @@ def test_cli_prints_stats(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
 
     monkeypatch.setattr(cli, "run_fleet", fake_run)
     result = CliRunner().invoke(
-        cli.app, ["run", "--count", "2", "--rounds", "1", "--state-dir", str(tmp_path)]
+        cli.app,
+        ["run", "--count", "2", "--rounds", "1", "--state-dir", str(tmp_path), "--no-chain-check"],
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["installs"] == 1

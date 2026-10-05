@@ -5,6 +5,8 @@ polls the status of every model the gateway runs; when one turns REVOKED it
 
 1. asks ``VerdictRegistry.staleByModel`` which committed batches used it,
 2. collects the distinct (release, device) pairs in those batches from the local batch store,
+   plus the pairs of verdicts that used it but were never anchored (still pending, or held back
+   because the registry now refuses to anchor them),
 3. hot-swaps the scorer slot to the registry's successor (located by hash under ``MODELS_DIR``;
    without a successor file the gate stays fail-closed: Stage 1 rejects on ``model_active``),
 4. re-runs the full gate for every pair — the new records land in a new batch — and
@@ -170,8 +172,18 @@ class RevocationJob:
                 service.chain.stale_by_model, bytes.fromhex(model_hash[2:])
             )
             report.stale_batches = list(stale)
+            unanchored = (
+                await service.batcher.take_unanchored(model_hash) if service.batcher else []
+            )
             report.swapped = await service.swap_model(model_hash, successor)
             pairs = await asyncio.to_thread(self._stale_pairs, stale)
+            anchored = {(rid, dev) for rid, dev, *_ in pairs}
+            latest = {(r.releaseId, r.deviceId): r for r in unanchored}
+            pairs += [
+                (rid, dev, r.verdict.value, "0x" + r.leaf().hex(), r.R)
+                for (rid, dev), r in sorted(latest.items())
+                if (rid, dev) not in anchored
+            ]
             for release_id, device_id, before, before_id, r_before in pairs:
                 after = await self._reverify(release_id, device_id)
                 report.pairs.append(

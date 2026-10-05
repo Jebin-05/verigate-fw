@@ -1,4 +1,4 @@
-"""Fail-closed orchestration of the eight checks: first failure stops and names itself."""
+"""Fail-closed orchestration of the nine checks: first failure stops and names itself."""
 
 from __future__ import annotations
 
@@ -36,8 +36,8 @@ class Stage1Result:
 def run_stage1(inp: Stage1Input, release_id: str = "") -> Stage1Result:
     """Apply the checks in order; stop at the first failure (fail closed).
 
-    Pure apart from logging: same inputs → same result. ``expiry`` failing yields ``DEFER``
-    (freeze attack: genuine but stale); any other failure yields ``REJECT``.
+    Pure apart from logging: same inputs → same result. ``expiry`` or ``release_delta`` failing
+    yields ``DEFER`` (stale, or a modified trusted image); any other failure yields ``REJECT``.
     """
     results: list[CheckResult] = []
     for check in CHECKS:

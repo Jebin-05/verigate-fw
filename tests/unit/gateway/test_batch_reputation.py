@@ -134,3 +134,32 @@ async def test_reputation_updater() -> None:
     assert (
         await updater.on_receipt(pid) == 10_000 and len(chain.reputations) == 2
     )  # no tx when unchanged
+
+
+async def test_revoked_model_verdicts_are_held_back_not_blocking(
+    batcher: tuple[VerdictBatcher, FakeChain],
+) -> None:
+    b, chain = batcher
+    revoked, other = b"\xaa" * 32, b"\xbb" * 32
+    chain.add_model(revoked)
+    chain.add_model(other)
+    await b.add(record(1, "0x" + revoked.hex()))
+    await b.add(record(2, "0x" + other.hex()))
+    chain.revoke_model(revoked)  # revoked after the verdict was made, before it was anchored
+    await b.add(record(3))  # third record: size flush
+    assert b.commits == 1 and b.pending == 0 and b.held == 1
+    assert chain.committed[0]["count"] == 2  # the other two were anchored, not blocked
+    taken = await b.take_unanchored("0x" + revoked.hex())
+    assert [r.deviceId for r in taken] == ["dev-1"] and b.held == 0
+    assert await b.take_unanchored("0x" + revoked.hex()) == []
+
+
+async def test_take_unanchored_also_takes_pending(
+    batcher: tuple[VerdictBatcher, FakeChain],
+) -> None:
+    b, _chain = batcher
+    m = "0x" + "cc" * 32
+    await b.add(record(4, m))
+    await b.add(record(5))
+    taken = await b.take_unanchored(m)
+    assert [r.deviceId for r in taken] == ["dev-4"] and b.pending == 1

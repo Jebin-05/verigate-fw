@@ -13,6 +13,7 @@ from verigate.common.chain import (
     STATUS_NONE,
     STATUS_REVOKED,
     BatchRecord,
+    ContractRevertError,
     ModelRecord,
     PolicyRecord,
     PublisherRecord,
@@ -173,6 +174,10 @@ class FakeChain:
         self.block += 1
         if call.name == "commitBatch":
             root, count, hashes = call.args
+            for h in hashes:  # VerdictRegistry: every named model must be ACTIVE (known ones here)
+                known = self.model_records.get(h)
+                if known is not None and known.status != STATUS_ACTIVE:
+                    raise ContractRevertError("ModelNotActive", None)
             batch_id = len(self.committed)
             self.committed.append(
                 {

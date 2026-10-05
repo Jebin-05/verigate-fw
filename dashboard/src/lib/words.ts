@@ -16,7 +16,7 @@ export const VERDICT_TONE: Record<Verdict, Tone> = {
   REJECT: 'bad',
 };
 
-/** The eight Stage-1 checks, as a person would say them. Order = the order the gateway runs. */
+/** The nine Stage-1 checks, as a person would say them. Order = the order the gateway runs. */
 export const CHECKS: { name: string; text: string }[] = [
   { name: 'firmware_hash', text: 'Firmware file matches its fingerprint' },
   { name: 'signature', text: 'Signed by the publisher’s registered key' },
@@ -26,6 +26,7 @@ export const CHECKS: { name: string; text: string }[] = [
   { name: 'sbom_hash', text: 'Ingredient list (SBOM) matches its fingerprint' },
   { name: 'registry_record', text: 'Still listed by the publisher, not withdrawn' },
   { name: 'model_active', text: 'Inspection models are current' },
+  { name: 'release_delta', text: 'Not a modified copy of the last trusted release' },
 ];
 
 export function checkText(name: string | null | undefined): string {
@@ -65,6 +66,10 @@ export function failureWords(
         : 'The release is not listed on the blockchain.';
     case 'model_active':
       return 'One of the inspection models has been revoked or is not registered, so the gate cannot vouch for the result.';
+    case 'release_delta':
+      return r.includes('unavailable')
+        ? 'The previous trusted release could not be fetched for comparison.'
+        : 'This file is the previous trusted release with a few small pieces changed or moved. That is how a modified build looks, so a person has to review it.';
     default:
       return r || 'The check failed.';
   }
@@ -93,8 +98,16 @@ export function reasonWords(v: VerificationResult): string {
   if (reason.startsWith('dependency unavailable')) {
     return 'The blockchain or the file store could not be reached, so the decision is on hold. It will be retried.';
   }
+  const reviewed = /^(accepted|rejected) by reviewer ([^:]+)(?:: (.*))?$/.exec(reason);
+  if (reviewed) {
+    const [, word, who, note] = reviewed;
+    return `${word === 'accepted' ? 'Accepted' : 'Rejected'} by ${who} after review${note ? ` — “${note}”` : '.'}`;
+  }
   if (v.stage1 && !v.stage1.ok && v.stage1.failed) {
     const check = checkText(v.stage1.failed);
+    if (v.stage1.failed === 'release_delta') {
+      return `Held for review. ${failureWords(v.stage1.failed, v.stage1.reason)}`;
+    }
     if (v.stage1.failed === 'expiry') {
       return `Held for review: the release has expired (${check.toLowerCase()} failed). Someone may be blocking newer releases from reaching devices.`;
     }
@@ -104,10 +117,10 @@ export function reasonWords(v: VerificationResult): string {
   if (m) {
     const [r, a, rj] = [m[1], m[2], m[3]].map((x) => Number(x).toFixed(2));
     if (v.verdict === 'APPROVE')
-      return `All eight checks passed and the overall risk ${r} is below the approval line ${a}.`;
+      return `All nine checks passed and the overall risk ${r} is below the approval line ${a}.`;
     if (v.verdict === 'DEFER')
-      return `All eight checks passed, but the overall risk ${r} sits between ${a} and ${rj}, so a person has to decide.`;
-    return `All eight checks passed, yet the overall risk ${r} is at or above the rejection line ${rj}.`;
+      return `All nine checks passed, but the overall risk ${r} sits between ${a} and ${rj}, so a person has to decide.`;
+    return `All nine checks passed, yet the overall risk ${r} is at or above the rejection line ${rj}.`;
   }
   return reason || VERDICT_WORD[v.verdict];
 }
@@ -340,3 +353,9 @@ export function simulate(
 /** Type guard for verification entries in the verdict log (receipts are the other kind). */
 export const isVerdict = (e: unknown): e is VerificationResult =>
   typeof e === 'object' && e !== null && 'verdict' in e && 'stage1' in e;
+
+/** A DEFER a person may resolve: from the risk policy or the release-delta check, not an outage or expiry. */
+export function reviewable(v: VerificationResult | null | undefined): boolean {
+  if (!v || v.verdict !== 'DEFER' || !v.stage1) return false;
+  return v.stage1.ok || v.stage1.failed === 'release_delta';
+}

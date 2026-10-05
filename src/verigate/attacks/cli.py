@@ -14,8 +14,10 @@ from verigate.attacks import (
     forge,
     freeze,
     hidden_payload,
+    insider_patch,
     poisoned_model,
     policy_tamper,
+    rogue_gateway,
     rollback,
     sbom_swap,
     stolen_key,
@@ -38,12 +40,15 @@ ATTACKS: dict[str, ModuleType] = {
         sbom_swap,
         vulnerable_genuine,
         hidden_payload,
+        insider_patch,
+        rogue_gateway,
         bad_history,
         poisoned_model,
         policy_tamper,
     )
 }
-"""Registry of scenarios in demo order (Guide §9 rows 1–6 Stage 1, 7–11 the AI gate)."""
+"""Scenarios in demo order: Guide §9 rows 1–6 Stage 1, 7–11 the AI gate, then check #9 and the
+device's own chain checks (insider-patch, rogue-gateway)."""
 
 app = typer.Typer(help="Attack scenarios.", add_completion=False, pretty_exceptions_enable=False)
 

@@ -8,13 +8,21 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
-from stage1_fixture_helpers import EXPIRY, NOW, model_record, publisher_record, release_record
+from stage1_fixture_helpers import (
+    EXPIRY,
+    FIXTURES,
+    NOW,
+    model_record,
+    publisher_record,
+    release_record,
+)
 
 from verigate.common.chain import STATUS_NONE, STATUS_REVOKED
 from verigate.common.crypto import KeyPair
 from verigate.common.manifest import SemVer, SignedManifest
 from verigate.gateway.stage1 import checks
 from verigate.gateway.stage1.inputs import DeviceView, Stage1Input
+from verigate.ml.data.mutate import CATALOGUE
 
 Mutation = Any  # callable(valid_input) -> Stage1Input
 
@@ -234,6 +242,42 @@ ROWS: dict[str, list[tuple[str, Mutation, bool, str | None]]] = {
             lambda i: replace(i, models=(model_record(STATUS_NONE),)),
             False,
             "not registered",
+        ),
+    ],
+    "release_delta": [
+        ("valid: no earlier release", lambda i: i, True, None),
+        ("identical re-release", lambda i: replace(i, trusted_firmware=i.firmware), True, None),
+        (
+            "rebuild of a different version",
+            lambda i: replace(
+                i, trusted_firmware=(FIXTURES / "v1.1.0" / "firmware.bin").read_bytes()
+            ),
+            True,
+            None,
+        ),
+        (
+            "trusted image with 256 bytes overwritten",
+            lambda i: replace(i, trusted_firmware=CATALOGUE["byte-patch"].apply(i.firmware, 7)),
+            False,
+            "blocks changed",
+        ),
+        (
+            "trusted image with two regions swapped",
+            lambda i: replace(i, trusted_firmware=CATALOGUE["section-swap"].apply(i.firmware, 7)),
+            False,
+            "moved",
+        ),
+        (
+            "trusted image unavailable",
+            lambda i: replace(i, trusted_unavailable=True),
+            False,
+            "unavailable",
+        ),
+        (
+            "firmware missing",
+            lambda i: replace(i, firmware=None, trusted_firmware=b"x" * 128),
+            False,
+            "firmware unavailable",
         ),
     ],
 }

@@ -1,0 +1,61 @@
+{
+  "experiment": "delta_features_iforest",
+  "threshold": 0.5,
+  "seed": 42,
+  "shipped": {
+    "benign_fpr": 0.0121,
+    "byte-patch": {
+      "n": 165,
+      "recall": 0.0121,
+      "auroc": 0.5427
+    },
+    "append": {
+      "n": 165,
+      "recall": 1.0,
+      "auroc": 1.0
+    },
+    "section-swap": {
+      "n": 136,
+      "recall": 0.0147,
+      "auroc": 0.5276
+    },
+    "pack": {
+      "n": 165,
+      "recall": 0.0606,
+      "auroc": 0.8945
+    },
+    "downgrade-relabel": {
+      "n": 45,
+      "recall": 0.0,
+      "auroc": 0.4349
+    }
+  },
+  "with_delta": {
+    "benign_fpr": 0.0121,
+    "byte-patch": {
+      "n": 165,
+      "recall": 0.0121,
+      "auroc": 0.5522
+    },
+    "append": {
+      "n": 165,
+      "recall": 0.297,
+      "auroc": 0.9758
+    },
+    "section-swap": {
+      "n": 136,
+      "recall": 0.0221,
+      "auroc": 0.6298
+    },
+    "pack": {
+      "n": 165,
+      "recall": 0.0121,
+      "auroc": 0.9101
+    },
+    "downgrade-relabel": {
+      "n": 45,
+      "recall": 0.0,
+      "auroc": 0.4011
+    }
+  }
+}

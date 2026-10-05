@@ -1,4 +1,4 @@
 # P7-01: every attack scenario N times against the running gateway; pass rate per row.
 experiment: attack_matrix
 repetitions: 5
-# attacks: [tamper, forge]  # optional subset; default = all eleven, poisoned-model last
+# attacks: [tamper, forge]  # optional subset; default = all twelve, poisoned-model last

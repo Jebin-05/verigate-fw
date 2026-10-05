@@ -1,0 +1,212 @@
+{
+  "experiment": "attack_matrix",
+  "repetitions": 5,
+  "gateway": "http://127.0.0.1:8000",
+  "gateway_health": {
+    "chainId": 31337,
+    "block": 10,
+    "ipfsBackend": "kubo"
+  },
+  "matrix": {
+    "tamper": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.38,
+        "q1": 0.33,
+        "q3": 0.39,
+        "n": 5
+      }
+    },
+    "forge": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.33,
+        "q1": 0.32,
+        "q3": 0.33,
+        "n": 5
+      }
+    },
+    "stolen-key": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.68,
+        "q1": 0.61,
+        "q3": 0.73,
+        "n": 5
+      }
+    },
+    "rollback": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.85,
+        "q1": 0.68,
+        "q3": 0.91,
+        "n": 5
+      }
+    },
+    "freeze": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 68.03,
+        "q1": 67.0,
+        "q3": 68.98,
+        "n": 5
+      }
+    },
+    "sbom-swap": {
+      "expected": "REJECT",
+      "observed": [
+        "REJECT"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.31,
+        "q1": 0.3,
+        "q3": 0.31,
+        "n": 5
+      }
+    },
+    "vulnerable-genuine": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.51,
+        "q1": 0.32,
+        "q3": 0.7,
+        "n": 5
+      }
+    },
+    "hidden-payload": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.66,
+        "q1": 0.62,
+        "q3": 1.06,
+        "n": 5
+      }
+    },
+    "insider-patch": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.72,
+        "q1": 0.68,
+        "q3": 0.87,
+        "n": 5
+      }
+    },
+    "rogue-gateway": {
+      "expected": "REFUSED",
+      "observed": [
+        "REFUSED"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.57,
+        "q1": 0.56,
+        "q3": 0.63,
+        "n": 5
+      }
+    },
+    "bad-history": {
+      "expected": "DEFER",
+      "observed": [
+        "DEFER"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 2.49,
+        "q1": 2.44,
+        "q3": 2.54,
+        "n": 5
+      }
+    },
+    "policy-tamper": {
+      "expected": "BLOCKED",
+      "observed": [
+        "BLOCKED"
+      ],
+      "runs": 5,
+      "passes": 5,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 0.24,
+        "q1": 0.19,
+        "q3": 0.26,
+        "n": 5
+      }
+    },
+    "poisoned-model": {
+      "expected": "REPLAYED",
+      "observed": [
+        "REPLAYED"
+      ],
+      "runs": 2,
+      "passes": 2,
+      "pass_rate": 1.0,
+      "duration_s": {
+        "median": 17.395,
+        "q1": 14.5025,
+        "q3": 20.2875,
+        "n": 2
+      }
+    }
+  },
+  "all_pass": true,
+  "notes": [
+    "poisoned-model capped at 2 runs per chain lifetime (one revocable image model plus its successor)",
+    "the gateway's explainer setting is whatever the running gateway has; attack durations include Stage-2 inference but no LLM wait (device-level verifications)"
+  ]
+}

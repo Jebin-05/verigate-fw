@@ -1,0 +1,5 @@
+# Negative result behind "the release delta is a check, not a model feature": the shipped
+# IsolationForest recipe retrained with check #9's delta features instead of changed_chunks_pct.
+experiment: delta_features_iforest
+seed: 42
+threshold: 0.5

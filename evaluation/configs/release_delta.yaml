@@ -1,0 +1,6 @@
+# Stage-1 check #9 (release delta) on the OpenWrt corpus: flag rate per mutation class and regime,
+# alone, for the registered image model (r_img >= 0.5) and for either. No-op mutations excluded.
+experiment: release_delta
+seed: 42
+threshold: 0.5
+image_model: models/image_anomaly.onnx

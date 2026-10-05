@@ -1,0 +1,96 @@
+{
+  "experiment": "latency_stage1",
+  "repetitions": 30,
+  "warmup_discarded": 3,
+  "publisher": "did:verigate:eval-lat1-13ebb5",
+  "releases": {
+    "1.0.0": "0xb4aa4fd873b9f36deb99b4e773c5db10507f9a8894638776b174a17986efc77c",
+    "1.1.0": "0xe72470b4e4250770a92525cff6ece386d691800631e94d0662db249661d4239c",
+    "2.0.0": "0x68468a5a9478122d2319f8f418d937ffa1041d6ac1ecc2855b41efd39dbbe77f"
+  },
+  "overall": {
+    "checks_ms": {
+      "median": 3.0275,
+      "q1": 2.57775,
+      "q3": 3.50075,
+      "n": 90
+    },
+    "verify_warm_ms": {
+      "median": 124.3715,
+      "q1": 64.605,
+      "q3": 130.315,
+      "n": 90
+    },
+    "verify_cold_ms": {
+      "median": 135.4725,
+      "q1": 76.661,
+      "q3": 140.86900000000003,
+      "n": 90
+    }
+  },
+  "per_release": {
+    "1.0.0": {
+      "checks_ms": {
+        "median": 3.059,
+        "q1": 2.629,
+        "q3": 3.293,
+        "n": 30
+      },
+      "verify_warm_ms": {
+        "median": 62.304,
+        "q1": 59.809,
+        "q3": 64.4955,
+        "n": 30
+      },
+      "verify_cold_ms": {
+        "median": 72.0995,
+        "q1": 69.3015,
+        "q3": 76.47125,
+        "n": 30
+      }
+    },
+    "1.1.0": {
+      "checks_ms": {
+        "median": 3.0250000000000004,
+        "q1": 2.5795,
+        "q3": 3.8415,
+        "n": 30
+      },
+      "verify_warm_ms": {
+        "median": 127.883,
+        "q1": 124.406,
+        "q3": 132.9645,
+        "n": 30
+      },
+      "verify_cold_ms": {
+        "median": 138.971,
+        "q1": 136.861,
+        "q3": 144.31875,
+        "n": 30
+      }
+    },
+    "2.0.0": {
+      "checks_ms": {
+        "median": 3.0105,
+        "q1": 2.57375,
+        "q3": 3.563,
+        "n": 30
+      },
+      "verify_warm_ms": {
+        "median": 128.059,
+        "q1": 124.94175000000001,
+        "q3": 131.09725,
+        "n": 30
+      },
+      "verify_cold_ms": {
+        "median": 138.7355,
+        "q1": 135.25225,
+        "q3": 145.9905,
+        "n": 30
+      }
+    }
+  },
+  "verdicts": [
+    "APPROVE"
+  ]
+}

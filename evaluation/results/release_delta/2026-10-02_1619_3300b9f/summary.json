@@ -1,0 +1,497 @@
+{
+  "experiment": "release_delta",
+  "patch_limit_blocks": 32,
+  "image_model": "models/image_anomaly.onnx",
+  "image_model_hash": "0x53f5c172119b1c7d90bc649ecf12edd7efb57950b31196b60acba0851547c88f",
+  "threshold": 0.5,
+  "benign_pairs": 165,
+  "noop_mutations_excluded": {
+    "downgrade-relabel": 120,
+    "section-swap": 29
+  },
+  "margin": {
+    "smallest_benign_rebuild_changed_blocks": 76,
+    "largest_byte_patch_changed_blocks_unchanged_base": 8,
+    "byte_patch_changed_blocks_median": 8.0
+  },
+  "delta_ms": {
+    "median": 3.12,
+    "p95": 13.77,
+    "max": 26.99
+  },
+  "table": {
+    "benign/all": {
+      "n": 165,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0228
+        ]
+      },
+      "model": {
+        "flagged": 2,
+        "rate": 0.0121,
+        "wilson95": [
+          0.0033,
+          0.0431
+        ]
+      },
+      "either": {
+        "flagged": 2,
+        "rate": 0.0121,
+        "wilson95": [
+          0.0033,
+          0.0431
+        ]
+      }
+    },
+    "benign/unchanged-base": {
+      "n": 120,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.031
+        ]
+      },
+      "model": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.031
+        ]
+      },
+      "either": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.031
+        ]
+      }
+    },
+    "benign/rebuild": {
+      "n": 45,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0787
+        ]
+      },
+      "model": {
+        "flagged": 2,
+        "rate": 0.0444,
+        "wilson95": [
+          0.0123,
+          0.1483
+        ]
+      },
+      "either": {
+        "flagged": 2,
+        "rate": 0.0444,
+        "wilson95": [
+          0.0123,
+          0.1483
+        ]
+      }
+    },
+    "byte-patch/all": {
+      "n": 165,
+      "check9": {
+        "flagged": 120,
+        "rate": 0.7273,
+        "wilson95": [
+          0.6547,
+          0.7895
+        ]
+      },
+      "model": {
+        "flagged": 2,
+        "rate": 0.0121,
+        "wilson95": [
+          0.0033,
+          0.0431
+        ]
+      },
+      "either": {
+        "flagged": 122,
+        "rate": 0.7394,
+        "wilson95": [
+          0.6675,
+          0.8004
+        ]
+      },
+      "model_auroc": 0.5427
+    },
+    "byte-patch/unchanged-base": {
+      "n": 120,
+      "check9": {
+        "flagged": 120,
+        "rate": 1.0,
+        "wilson95": [
+          0.969,
+          1.0
+        ]
+      },
+      "model": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.031
+        ]
+      },
+      "either": {
+        "flagged": 120,
+        "rate": 1.0,
+        "wilson95": [
+          0.969,
+          1.0
+        ]
+      },
+      "model_auroc": 0.5588
+    },
+    "byte-patch/rebuild": {
+      "n": 45,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0787
+        ]
+      },
+      "model": {
+        "flagged": 2,
+        "rate": 0.0444,
+        "wilson95": [
+          0.0123,
+          0.1483
+        ]
+      },
+      "either": {
+        "flagged": 2,
+        "rate": 0.0444,
+        "wilson95": [
+          0.0123,
+          0.1483
+        ]
+      },
+      "model_auroc": 0.5141
+    },
+    "append/all": {
+      "n": 165,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0228
+        ]
+      },
+      "model": {
+        "flagged": 165,
+        "rate": 1.0,
+        "wilson95": [
+          0.9772,
+          1.0
+        ]
+      },
+      "either": {
+        "flagged": 165,
+        "rate": 1.0,
+        "wilson95": [
+          0.9772,
+          1.0
+        ]
+      },
+      "model_auroc": 1.0
+    },
+    "append/unchanged-base": {
+      "n": 120,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.031
+        ]
+      },
+      "model": {
+        "flagged": 120,
+        "rate": 1.0,
+        "wilson95": [
+          0.969,
+          1.0
+        ]
+      },
+      "either": {
+        "flagged": 120,
+        "rate": 1.0,
+        "wilson95": [
+          0.969,
+          1.0
+        ]
+      },
+      "model_auroc": 1.0
+    },
+    "append/rebuild": {
+      "n": 45,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0787
+        ]
+      },
+      "model": {
+        "flagged": 45,
+        "rate": 1.0,
+        "wilson95": [
+          0.9213,
+          1.0
+        ]
+      },
+      "either": {
+        "flagged": 45,
+        "rate": 1.0,
+        "wilson95": [
+          0.9213,
+          1.0
+        ]
+      },
+      "model_auroc": 1.0
+    },
+    "section-swap/all": {
+      "n": 136,
+      "check9": {
+        "flagged": 97,
+        "rate": 0.7132,
+        "wilson95": [
+          0.6322,
+          0.7826
+        ]
+      },
+      "model": {
+        "flagged": 2,
+        "rate": 0.0147,
+        "wilson95": [
+          0.004,
+          0.052
+        ]
+      },
+      "either": {
+        "flagged": 99,
+        "rate": 0.7279,
+        "wilson95": [
+          0.6477,
+          0.7957
+        ]
+      },
+      "model_auroc": 0.5274
+    },
+    "section-swap/unchanged-base": {
+      "n": 97,
+      "check9": {
+        "flagged": 97,
+        "rate": 1.0,
+        "wilson95": [
+          0.9619,
+          1.0
+        ]
+      },
+      "model": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0381
+        ]
+      },
+      "either": {
+        "flagged": 97,
+        "rate": 1.0,
+        "wilson95": [
+          0.9619,
+          1.0
+        ]
+      },
+      "model_auroc": 0.5204
+    },
+    "section-swap/rebuild": {
+      "n": 39,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0897
+        ]
+      },
+      "model": {
+        "flagged": 2,
+        "rate": 0.0513,
+        "wilson95": [
+          0.0142,
+          0.1689
+        ]
+      },
+      "either": {
+        "flagged": 2,
+        "rate": 0.0513,
+        "wilson95": [
+          0.0142,
+          0.1689
+        ]
+      },
+      "model_auroc": 0.5359
+    },
+    "pack/all": {
+      "n": 165,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0228
+        ]
+      },
+      "model": {
+        "flagged": 10,
+        "rate": 0.0606,
+        "wilson95": [
+          0.0332,
+          0.108
+        ]
+      },
+      "either": {
+        "flagged": 10,
+        "rate": 0.0606,
+        "wilson95": [
+          0.0332,
+          0.108
+        ]
+      },
+      "model_auroc": 0.8945
+    },
+    "pack/unchanged-base": {
+      "n": 120,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.031
+        ]
+      },
+      "model": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.031
+        ]
+      },
+      "either": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.031
+        ]
+      },
+      "model_auroc": 0.9755
+    },
+    "pack/rebuild": {
+      "n": 45,
+      "check9": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0787
+        ]
+      },
+      "model": {
+        "flagged": 10,
+        "rate": 0.2222,
+        "wilson95": [
+          0.1254,
+          0.3627
+        ]
+      },
+      "either": {
+        "flagged": 10,
+        "rate": 0.2222,
+        "wilson95": [
+          0.1254,
+          0.3627
+        ]
+      },
+      "model_auroc": 0.7556
+    },
+    "downgrade-relabel/all": {
+      "n": 45,
+      "check9": {
+        "flagged": 38,
+        "rate": 0.8444,
+        "wilson95": [
+          0.7122,
+          0.9225
+        ]
+      },
+      "model": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0787
+        ]
+      },
+      "either": {
+        "flagged": 38,
+        "rate": 0.8444,
+        "wilson95": [
+          0.7122,
+          0.9225
+        ]
+      },
+      "model_auroc": 0.4351
+    },
+    "downgrade-relabel/rebuild": {
+      "n": 45,
+      "check9": {
+        "flagged": 38,
+        "rate": 0.8444,
+        "wilson95": [
+          0.7122,
+          0.9225
+        ]
+      },
+      "model": {
+        "flagged": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0787
+        ]
+      },
+      "either": {
+        "flagged": 38,
+        "rate": 0.8444,
+        "wilson95": [
+          0.7122,
+          0.9225
+        ]
+      },
+      "model_auroc": 0.2489
+    }
+  }
+}
